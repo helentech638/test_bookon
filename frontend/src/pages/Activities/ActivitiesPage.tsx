@@ -15,7 +15,6 @@ import {
   MapPin, 
   Clock, 
   Users, 
-  Star,
   Calendar,
   Tag
 } from 'lucide-react';
@@ -32,6 +31,25 @@ const ActivitiesPage: React.FC = () => {
   const [selectedVenue, setSelectedVenue] = useState<string>('');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
 
+  // Function to format activity type for display
+  const formatActivityType = (type: string): string => {
+    if (!type) return 'Activity';
+    
+    const typeMap: { [key: string]: string } = {
+      'holiday_club': 'Holiday Club',
+      'wraparound_care': 'Wraparound Care',
+      'after_school': 'After School',
+      'sports': 'Sports',
+      'arts_crafts': 'Arts & Crafts',
+      'music': 'Music',
+      'dance': 'Dance',
+      'swimming': 'Swimming',
+      'other': 'Other'
+    };
+    
+    return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   // Fetch real data from API
   useEffect(() => {
     const fetchData = async () => {
@@ -46,18 +64,62 @@ const ActivitiesPage: React.FC = () => {
           return;
         }
 
-        const activitiesResponse = await fetch(buildApiUrl('/activities'), {
+        // Add retry logic for 429 errors
+        let retries = 3;
+        let activitiesResponse;
+        
+        while (retries > 0) {
+          try {
+            activitiesResponse = await fetch(buildApiUrl('/activities'), {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
-        if (!activitiesResponse.ok) {
+            if (activitiesResponse.ok) {
+              break;
+            } else if (activitiesResponse.status === 429 && retries > 1) {
+              // Wait before retrying
+              await new Promise(resolve => setTimeout(resolve, 1000 * (4 - retries)));
+              retries--;
+              continue;
+            } else {
           throw new Error('Failed to fetch activities');
+            }
+          } catch (error) {
+            if (retries > 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              retries--;
+              continue;
+            }
+            throw error;
+          }
+        }
+
+        if (!activitiesResponse) {
+          throw new Error('Failed to fetch activities after retries');
         }
 
         const activitiesData = await activitiesResponse.json();
+        console.log('Activity images:', activitiesData.data?.map((a: any) => ({ title: a.title, imageUrls: a.imageUrls })));
+        console.log('Activity dates:', activitiesData.data?.map((a: any) => ({ 
+          title: a.title, 
+          startDate: a.startDate, 
+          endDate: a.endDate,
+          start_date: a.start_date,
+          end_date: a.end_date
+        })));
+        console.log('Activity types:', activitiesData.data?.map((a: any) => ({ 
+          title: a.title, 
+          type: a.type,
+          category: formatActivityType(a.type)
+        })));
+        console.log('Age range data:', activitiesData.data?.map((a: any) => ({ 
+          title: a.title, 
+          ageRange: a.ageRange,
+          age_range: a.age_range
+        })));
         
         if (activitiesData.success) {
           // Transform backend data to frontend format
@@ -65,21 +127,55 @@ const ActivitiesPage: React.FC = () => {
             id: activity.id.toString(),
             name: activity.title,
             description: activity.description || 'No description available',
-            category: 'Sports', // Default category since backend doesn't have this field
-            venue_id: activity.venueId?.toString() || '1',
-            max_capacity: activity.capacity || 10,
-            current_capacity: 0, // Backend doesn't track current capacity
+            category: formatActivityType(activity.type) || 'Activity',
+            type: activity.type, // Preserve original type for routing
+            venue_id: activity.venue_id || activity.venueId?.toString() || '1',
+            max_capacity: activity.max_capacity || activity.capacity || 10,
+            current_capacity: activity.current_capacity || 0,
             price: parseFloat(activity.price) || 0,
             duration: 60, // Default duration since backend doesn't have this field
-            age_range: { min: 5, max: 16 }, // Default age range
+            age_range: (() => {
+              // Handle different ageRange formats from backend
+              const ageRange = activity.age_range || activity.ageRange;
+              if (!ageRange) return { min: 5, max: 16 };
+              
+              // If it's already an object
+              if (typeof ageRange === 'object' && ageRange.min && ageRange.max) {
+                return ageRange;
+              }
+              
+              // If it's a string like "5-16" or "5 to 16"
+              if (typeof ageRange === 'string') {
+                const numbers = ageRange.match(/\d+/g);
+                if (numbers && numbers.length >= 2) {
+                  return { min: parseInt(numbers[0]), max: parseInt(numbers[1]) };
+                }
+              }
+              
+              return { min: 5, max: 16 };
+            })(),
             skill_level: 'All Levels', // Default skill level
             instructor: 'TBD', // Default instructor
-            is_active: activity.isActive,
-            start_date: activity.startDate ? new Date(activity.startDate).toISOString().split('T')[0] : '2024-01-01',
-            end_date: activity.endDate ? new Date(activity.endDate).toISOString().split('T')[0] : '2024-12-31',
-            start_time: activity.startTime || '10:00',
-            end_time: activity.endTime || '11:00',
-            images: ['/images/default-activity.jpg'],
+            is_active: activity.is_active !== undefined ? activity.is_active : activity.isActive,
+            start_date: activity.start_date ? new Date(activity.start_date).toISOString().split('T')[0] : (activity.startDate ? new Date(activity.startDate).toISOString().split('T')[0] : '2024-01-01'),
+            end_date: activity.end_date ? new Date(activity.end_date).toISOString().split('T')[0] : (activity.endDate ? new Date(activity.endDate).toISOString().split('T')[0] : '2024-12-31'),
+            start_time: activity.start_time || activity.startTime || '',
+            end_time: activity.end_time || activity.endTime || '',
+            // Holiday Club specific fields
+            holidayTimeSlots: activity.holidayTimeSlots || [],
+            // Wraparound Care specific fields
+            sessionBlocks: activity.sessionBlocks || [],
+            isWraparoundCare: activity.isWraparoundCare || false,
+            // Course/Program specific fields
+            durationWeeks: activity.durationWeeks || activity.duration_weeks || null,
+            duration_weeks: activity.duration_weeks || activity.durationWeeks || null,
+            regularDay: activity.regularDay || activity.regular_day || null,
+            regularTime: activity.regularTime || activity.regular_time || null,
+            daysOfWeek: activity.daysOfWeek || [],
+            courseExcludeDates: activity.courseExcludeDates || [],
+            images: activity.imageUrls && activity.imageUrls.length > 0 ? activity.imageUrls : ['/images/default-activity.jpg'],
+            rating: activity.rating || null,
+            reviewCount: activity.reviewCount || 0,
             created_at: activity.createdAt || '2024-01-01T00:00:00Z',
             updated_at: activity.updatedAt || '2024-01-01T00:00:00Z'
           }));
@@ -89,24 +185,56 @@ const ActivitiesPage: React.FC = () => {
           throw new Error(activitiesData.message || 'Failed to fetch activities');
         }
 
-        // Fetch venues (using a mock for now since we don't have a venues endpoint)
-        const mockVenues: Venue[] = [
-          {
-            id: '1',
-            name: 'Main Venue',
-            address: '123 Main Street',
-            city: 'London',
-            state: 'England',
-            zip_code: 'SW1A 1AA',
-            country: 'UK',
-            capacity: 50,
-            amenities: ['Parking', 'Changing Rooms'],
-            is_active: true,
-            created_at: '2024-01-01T00:00:00Z',
-            updated_at: '2024-01-01T00:00:00Z'
+        // Fetch venues from API with retry logic
+        try {
+          let venuesRetries = 3;
+          let venuesResponse;
+          
+          while (venuesRetries > 0) {
+            try {
+              venuesResponse = await fetch(buildApiUrl('/venues'), {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          if (venuesResponse.ok) {
+                break;
+              } else if (venuesResponse.status === 429 && venuesRetries > 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000 * (4 - venuesRetries)));
+                venuesRetries--;
+                continue;
+              } else {
+                break; // Non-429 error, don't retry
+              }
+            } catch (error) {
+              if (venuesRetries > 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                venuesRetries--;
+                continue;
+              }
+              throw error;
+            }
           }
-        ];
-        setVenues(mockVenues);
+
+          if (venuesResponse && venuesResponse.ok) {
+            const venuesData = await venuesResponse.json();
+            console.log('Venues API response:', venuesData);
+            if (venuesData.success) {
+              setVenues(venuesData.data);
+            } else {
+              console.warn('Failed to fetch venues:', venuesData.message);
+              setVenues([]);
+            }
+          } else {
+            console.warn('Venues API not available, using empty array');
+            setVenues([]);
+          }
+        } catch (error) {
+          console.warn('Error fetching venues:', error);
+          setVenues([]);
+        }
 
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -119,7 +247,7 @@ const ActivitiesPage: React.FC = () => {
     fetchData();
   }, [navigate]);
 
-  const categories = ['All', 'Sports', 'Arts', 'Music', 'Academic', 'Recreation'];
+  const categories = ['All', 'Activity', 'Holiday Club', 'Wraparound Care'];
   const venueOptions = ['All', ...venues.map(v => v.name)];
 
   const filteredActivities = activities.filter(activity => {
@@ -133,8 +261,24 @@ const ActivitiesPage: React.FC = () => {
     return matchesSearch && matchesCategory && matchesVenue && matchesPrice;
   });
 
-  const handleBookActivity = (activityId: string) => {
-    navigate(`/bookings/flow/${activityId}`);
+  const handleBookActivity = (activityId: string, activityType?: string) => {
+    console.log('handleBookActivity called:', { activityId, activityType });
+    if (activityType === 'holiday_club') {
+      console.log('Navigating to Holiday Club booking page');
+      navigate(`/activities/${activityId}/holiday-club-booking`);
+    } else if (activityType === 'activity') {
+      console.log('Navigating to Activity booking page');
+      navigate(`/activities/${activityId}/activity-booking`);
+    } else if (activityType === 'wraparound_care') {
+      console.log('Navigating to Wraparound Care booking page');
+      navigate(`/activities/${activityId}/wraparound-booking`);
+    } else if (activityType === 'course/program') {
+      console.log('Navigating to Course booking page');
+      navigate(`/activities/${activityId}/course-booking`);
+    } else {
+      console.log('Navigating to regular booking flow');
+      navigate(`/bookings/flow/${activityId}`);
+    }
   };
 
   // Render content based on user role
@@ -250,18 +394,23 @@ const ActivitiesPage: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredActivities.map((activity) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {filteredActivities.map((activity) => {
+              return (
               <Card key={activity.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <div className="aspect-w-16 aspect-h-9 bg-gray-200">
+                <div className="relative w-full h-40 sm:h-48 bg-gray-200 overflow-hidden">
                   <img
                     src={activity.images?.[0] || '/images/default-activity.jpg'}
                     alt={activity.name}
-                    className="w-full h-48 object-cover"
+                    className="w-full h-full object-contain object-center"
+                    style={{ minHeight: '160px' }}
+                    onError={(e) => {
+                      e.currentTarget.src = '/images/default-activity.jpg';
+                    }}
                   />
                 </div>
                 
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -274,7 +423,7 @@ const ActivitiesPage: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-green-600">
-                        £{activity.price}
+                        £{Number(activity.price).toFixed(2)}
                       </div>
                       <div className="text-sm text-gray-500">per session</div>
                     </div>
@@ -291,32 +440,318 @@ const ActivitiesPage: React.FC = () => {
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        {activity.start_date && activity.end_date 
+                          ? (() => {
+                              try {
+                                const startDate = new Date(activity.start_date);
+                                const endDate = new Date(activity.end_date);
+                                if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                                  return 'Dates TBD';
+                                }
+                                // If dates are the same, show only one date
+                                if (startDate.toDateString() === endDate.toDateString()) {
+                                  return startDate.toLocaleDateString();
+                                }
+                                return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+                              } catch (error) {
+                                console.error('Error parsing dates:', error);
+                                return 'Dates TBD';
+                              }
+                            })()
+                          : 'Dates TBD'
+                        }
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Clock className="h-4 w-4" />
-                      <span>{activity.start_time} - {activity.end_time}</span>
+                      <span>
+                        {activity.start_time && activity.end_time 
+                          ? `${activity.start_time} - ${activity.end_time}`
+                          : 'Times TBD'
+                        }
+                      </span>
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Users className="h-4 w-4" />
-                      <span>{activity.current_capacity}/{activity.max_capacity} participants</span>
+                      <span>
+                        {activity.current_capacity >= activity.max_capacity 
+                          ? 'Join Waiting List' 
+                          : 'Spaces Available'
+                        }
+                      </span>
                     </div>
+                    
+                    {/* Show age range for Holiday Club and Activity */}
+                    {activity.age_range && (
+                      <div className="mt-2">
+                        <div className="text-xs font-medium text-gray-700 mb-1">Activity Details:</div>
+                            <div className="text-xs text-gray-600">
+                              <span className="font-medium">Age Range:</span> {activity.age_range.min}-{activity.age_range.max} years
+                            </div>
+                      </div>
+                    )}
+                    
+                    {/* Show individual session dates for Holiday Club and Activity */}
+                    {((activity.type === 'holiday_club' || activity.type === 'activity') && activity.schedule && Object.keys(activity.schedule).length > 0) && (
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-gray-700 mb-2">Schedule:</div>
+                        <div className="space-y-1">
+                          <div className="text-xs bg-teal-50 text-teal-700 px-2 py-1 rounded">
+                            Check booking page for available dates
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show Holiday Club and Activity time slots if available */}
+                    {activity.holidayTimeSlots && activity.holidayTimeSlots.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-gray-700 mb-2">Available Sessions:</div>
+                        <div className="space-y-1">
+                          {activity.holidayTimeSlots.slice(0, 3).map((slot: any, index: number) => (
+                            <div 
+                              key={index}
+                              className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1"
+                            >
+                              <span className="font-medium text-gray-700">{slot.name}</span>
+                              <span className="text-gray-500">{slot.startTime} - {slot.endTime}</span>
+                            </div>
+                          ))}
+                          {activity.holidayTimeSlots.length > 3 && (
+                            <div className="text-xs text-gray-500 text-center py-1">
+                              +{activity.holidayTimeSlots.length - 3} more sessions
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Fallback: Show basic session info for Activity type without detailed slots */}
+                    {(activity.type === 'activity' && (!activity.holidayTimeSlots || activity.holidayTimeSlots.length === 0)) && (
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-gray-700 mb-2">Available Sessions:</div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1">
+                            <span className="font-medium text-gray-700">Standard Day</span>
+                            <span className="text-gray-500">{activity.start_time} - {activity.end_time}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show Wraparound Care session blocks if available */}
+                    {activity.sessionBlocks && activity.sessionBlocks.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-xs font-medium text-gray-700 mb-2">Available Sessions:</div>
+                        <div className="space-y-1">
+                          {activity.sessionBlocks.slice(0, 3).map((block: any, index: number) => (
+                            <div 
+                              key={index}
+                              className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1"
+                            >
+                              <span className="font-medium text-gray-700">{block.name}</span>
+                              <span className="text-gray-500">{block.startTime} - {block.endTime}</span>
+                            </div>
+                          ))}
+                          {activity.sessionBlocks.length > 3 && (
+                            <div className="text-xs text-gray-500 text-center py-1">
+                              +{activity.sessionBlocks.length - 3} more sessions
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Show Course/Program information */}
+                    {activity.type === 'course/program' && (
+                      <div className="mt-3">
+                        <div className="bg-gradient-to-r from-[#00806a] to-[#00a085] p-3 rounded-lg text-white">
+                          <div className="text-sm font-semibold mb-2">Course Details</div>
+                          <div className="space-y-1">
+                            {/* Description */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Description:</span>
+                              <span className="font-medium">
+                                {activity.description || 'No description available'}
+                              </span>
+                            </div>
+                            
+                            {/* Location */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Location:</span>
+                              <span className="font-medium">
+                                {(() => {
+                                  const venue = venues.find(v => v.id === activity.venue_id);
+                                  return venue ? venue.name : 'Venue TBD';
+                                })()}
+                              </span>
+                            </div>
+                            
+                            {/* Dates */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Dates:</span>
+                              <span className="font-medium">
+                                {activity.start_date && activity.end_date ? 
+                                  `${new Date(activity.start_date).toLocaleDateString()} - ${new Date(activity.end_date).toLocaleDateString()}` : 
+                                  'TBD'}
+                              </span>
+                            </div>
+                            
+                            {/* Day and Times */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Schedule:</span>
+                              <span className="font-medium">
+                                {activity.type === 'course/program' && activity.daysOfWeek && activity.daysOfWeek.length > 0 ? 
+                                  `${activity.daysOfWeek.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ')} ${activity.start_time && activity.end_time ? 
+                                    `${activity.start_time} - ${activity.end_time}` : 
+                                    'TBD'}` :
+                                  `${activity.regular_day || activity.regularDay || 
+                                    (activity.start_date ? 
+                                      new Date(activity.start_date).toLocaleDateString('en-US', { weekday: 'long' }) : 
+                                      'TBD')} ${activity.regular_time || activity.regularTime || 
+                                    (activity.start_time && activity.end_time ? 
+                                      `${activity.start_time} - ${activity.end_time}` : 
+                                      'TBD')}`
+                                }
+                              </span>
+                            </div>
+                            
+                            {/* Sessions Remaining */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Sessions:</span>
+                              <span className="font-medium text-yellow-200">
+                                {(() => {
+                                  // Debug logging for Dasper testing
+                                  if (activity.name === 'Dasper testing') {
+                                    console.log('Dasper testing data:', {
+                                      name: activity.name,
+                                      durationWeeks: activity.durationWeeks,
+                                      duration_weeks: activity.duration_weeks,
+                                      type: activity.type
+                                    });
+                                  }
+                                  
+                                  // Use durationWeeks if available (from backend calculation)
+                                  if (activity.duration_weeks || activity.durationWeeks) {
+                                    return `${activity.duration_weeks || activity.durationWeeks} sessions total`;
+                                  }
+                                  
+                                  return 'Sessions TBD';
+                                })()}
+                              </span>
+                            </div>
+                            
+                            {/* Age Range */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Age:</span>
+                              <span className="font-medium">
+                                {activity.age_range?.min && activity.age_range?.max ? 
+                                  `${activity.age_range.min}-${activity.age_range.max} years` : 
+                                  'All ages'}
+                              </span>
+                            </div>
+                            
+                            {/* Total Cost */}
+                            {(() => {
+                              // Calculate duration using the same logic as sessions
+                              let duration = null;
+                              
+                              // Use durationWeeks if available (from backend calculation)
+                              if (activity.duration_weeks || activity.durationWeeks) {
+                                duration = activity.duration_weeks || activity.durationWeeks;
+                              }
+                              // Calculate sessions based on selected days of the week
+                              else if (activity.start_date && activity.end_date && activity.daysOfWeek && activity.daysOfWeek.length > 0) {
+                                const startDate = new Date(activity.start_date);
+                                const endDate = new Date(activity.end_date);
+                                let totalSessions = 0;
+                                
+                                // Calculate sessions for each selected day
+                                activity.daysOfWeek.forEach((dayName: string) => {
+                                  const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+                                  const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(capitalizedDayName);
+                                  
+                                  // Find first occurrence of this day within date range
+                                  const firstSessionDate = new Date(startDate);
+                                  const daysUntilFirstSession = (dayOfWeek - startDate.getDay() + 7) % 7;
+                                  firstSessionDate.setDate(startDate.getDate() + daysUntilFirstSession);
+                                  
+                                  // If first session date is before start date, move to next week
+                                  if (firstSessionDate < startDate) {
+                                    firstSessionDate.setDate(firstSessionDate.getDate() + 7);
+                                  }
+                                  
+                                  // Count sessions for this day within date range
+                                  let currentSessionDate = new Date(firstSessionDate);
+                                  while (currentSessionDate <= endDate) {
+                                    totalSessions++;
+                                    currentSessionDate.setDate(currentSessionDate.getDate() + 7);
+                                  }
+                                });
+                                
+                                duration = totalSessions;
+                              }
+                              // Fallback to simple week calculation
+                              else if (activity.start_date && activity.end_date) {
+                                duration = Math.ceil((new Date(activity.end_date).getTime() - new Date(activity.start_date).getTime()) / (1000 * 60 * 60 * 24 * 7));
+                              }
+                              
+                              return duration && (
+                                <div className="flex justify-between text-xs border-t border-white/20 pt-1 mt-1">
+                                  <span className="opacity-90">Total Cost:</span>
+                                  <span className="font-bold text-yellow-200">
+                                    £{(duration * Number(activity.price || 0)).toFixed(2)}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                            
+                            {/* Spaces Available */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Spaces:</span>
+                              <span className="font-medium">
+                                {activity.max_capacity && activity.current_capacity !== undefined ? 
+                                  `${activity.max_capacity - activity.current_capacity} available` : 
+                                  'Check availability'}
+                              </span>
+                            </div>
+                            
+                            {/* Booking Type */}
+                            <div className="flex justify-between text-xs">
+                              <span className="opacity-90">Booking:</span>
+                              <span className="font-medium">
+                                {activity.proRataBooking ? 'Pro-rata Available' : 'Full Course Only'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-gray-600">4.8 (24 reviews)</span>
-                    </div>
-                    
                     <Button
-                      onClick={() => handleBookActivity(activity.id)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+                      onClick={() => handleBookActivity(activity.id, activity.type)}
+                      className="px-6 py-3 font-semibold text-white rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl bg-gradient-to-r from-[#00806a] to-[#00a085] hover:from-[#006b5a] hover:to-[#008a73]"
                     >
-                      Book Now
+                      {activity.type === 'holiday_club' ? 'Book Holiday Club' : 
+                       activity.type === 'activity' ? 'Book Activity' :
+                       activity.type === 'wraparound_care' ? 'Book Wraparound Care' : 
+                       activity.type === 'course/program' ? 
+                         (activity.max_capacity && activity.current_capacity !== undefined && 
+                          (activity.max_capacity - activity.current_capacity) <= 0 ? 
+                          'Join Waiting List' : 'Book Course') :
+                       'Book Now'}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
