@@ -1,6 +1,7 @@
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { AppError } from '../middleware/errorHandler';
+import { emailService } from './emailService';
 
 export interface TFCBookingData {
   bookingId: string;
@@ -46,23 +47,23 @@ class TFCService {
    */
   async getProviderTFCConfig(venueId: string): Promise<ProviderTFCConfig> {
     try {
-      const settings = await prisma.providerSettings.findUnique({
-        where: { providerId: venueId }
+      const venue = await prisma.venue.findUnique({
+        where: { id: venueId }
       });
 
-      if (!settings || !settings.tfcEnabled) {
-        throw new AppError('TFC not enabled for this provider', 400, 'TFC_NOT_ENABLED');
+      if (!venue || !venue.tfcEnabled) {
+        throw new AppError('TFC not enabled for this venue', 400, 'TFC_NOT_ENABLED');
       }
 
       return {
-        tfcEnabled: settings.tfcEnabled,
-        holdPeriod: settings.tfcHoldPeriod,
-        instructions: settings.tfcInstructions || this.getDefaultInstructions(),
+        tfcEnabled: venue.tfcEnabled,
+        holdPeriod: venue.tfcHoldPeriod,
+        instructions: venue.tfcInstructions || this.getDefaultInstructions(),
         payeeDetails: {
-          name: settings.tfcPayeeName || 'BookOn Platform',
-          reference: settings.tfcPayeeReference || 'BOOKON-TFC',
-          sortCode: settings.tfcSortCode || '20-00-00',
-          accountNumber: settings.tfcAccountNumber || '12345678'
+          name: venue.name,
+          reference: `TFC-${venueId.slice(-6).toUpperCase()}`,
+          sortCode: '20-00-00',
+          accountNumber: '12345678'
         }
       };
     } catch (error) {
@@ -87,6 +88,7 @@ class TFCService {
         data: {
           paymentMethod: 'tfc',
           paymentStatus: 'pending_payment',
+          status: 'tfc_pending',
           tfcReference: reference,
           tfcDeadline: deadline,
           tfcInstructions: config.instructions,
@@ -120,7 +122,15 @@ class TFCService {
     try {
       const booking = await prisma.booking.findUnique({
         where: { id: bookingId },
-        include: { activity: true, child: true, parent: true }
+        include: { 
+          activity: {
+            include: {
+              venue: true
+            }
+          }, 
+          child: true, 
+          parent: true 
+        }
       });
 
       if (!booking) {
@@ -145,6 +155,81 @@ class TFCService {
         }
       });
 
+      // Auto-create attendance record for confirmed TFC booking
+      try {
+        let sessionId = null;
+
+        // Determine sessionId based on booking type
+        if ((booking as any).sessionBlockId) {
+          // For session block bookings, get sessionId from sessionBlock
+          const sessionBlock = await (prisma as any).sessionBlock.findUnique({
+            where: { id: (booking as any).sessionBlockId },
+            select: { sessionId: true }
+          });
+          sessionId = sessionBlock?.sessionId;
+        } else if ((booking as any).holidayTimeSlotId) {
+          // For holiday bookings, we need to find the session by activity and date
+          const session = await prisma.session.findFirst({
+            where: {
+              activityId: booking.activityId,
+              date: booking.activityDate
+            },
+            select: { id: true }
+          });
+          sessionId = session?.id;
+        } else {
+          // For regular bookings, find session by activity and date
+          const session = await prisma.session.findFirst({
+            where: {
+              activityId: booking.activityId,
+              date: booking.activityDate
+            },
+            select: { id: true }
+          });
+          sessionId = session?.id;
+        }
+
+        if (sessionId) {
+          // Find the register for this session
+          const register = await prisma.register.findFirst({
+            where: { sessionId: sessionId }
+          });
+
+          if (register) {
+            // Check if attendance record already exists
+            const existingAttendance = await prisma.attendance.findFirst({
+              where: {
+                registerId: register.id,
+                childId: booking.childId,
+                bookingId: booking.id
+              }
+            });
+
+            // Create attendance record if it doesn't exist
+            if (!existingAttendance) {
+              await prisma.attendance.create({
+                data: {
+                  registerId: register.id,
+                  childId: booking.childId,
+                  bookingId: booking.id,
+                  present: false, // Default to absent, admin marks present
+                  createdAt: new Date()
+                }
+              });
+
+              logger.info(`Auto-created attendance record for TFC booking ${booking.id} in register ${register.id}`);
+            }
+          } else {
+            logger.warn(`No register found for session ${sessionId} when confirming TFC booking ${booking.id}`);
+          }
+        } else {
+          logger.warn(`Could not determine sessionId for TFC booking ${booking.id}`);
+        }
+      } catch (attendanceError) {
+        // Don't fail the TFC confirmation if attendance creation fails
+        logger.error('Failed to auto-create attendance record for TFC booking:', attendanceError);
+      }
+
       logger.info('TFC payment confirmed', {
         bookingId,
         adminId,
@@ -153,7 +238,20 @@ class TFCService {
       });
 
       // Send confirmation email to parent
-      // TODO: Implement email service
+      try {
+        await emailService.sendTFCPaymentConfirmation({
+          to: booking.parent.email,
+          parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
+          childName: `${booking.child.firstName} ${booking.child.lastName}`,
+          activityName: booking.activity.title,
+          venueName: booking.activity.venue?.name || 'Unknown Venue',
+          amount: parseFloat(booking.amount.toString()),
+          paymentReference: booking.tfcReference || 'N/A'
+        });
+      } catch (emailError) {
+        logger.error('Failed to send TFC confirmation email:', emailError);
+        // Don't fail the confirmation if email fails
+      }
       
       // Update activity capacity - TFC booking is now confirmed
       await this.updateActivityCapacity(booking.activityId, 1);

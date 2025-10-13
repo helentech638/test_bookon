@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import { authenticateToken, optionalAuth, requireRole } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { activityService } from '../services/activityService';
@@ -51,8 +51,11 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
             venue: {
               select: { name: true, city: true, address: true }
             },
-            _count: {
-              select: { bookings: true }
+            holidayTimeSlots: true,
+            sessionBlocks: true,
+            bookings: {
+              where: { status: 'confirmed' },
+              select: { id: true }
             }
           },
           orderBy: { createdAt: 'desc' },
@@ -65,9 +68,105 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       })
     ]);
 
+    // Transform activities data to match frontend expectations
+    const transformedActivities = activities.map((activity: any) => {
+      // Calculate durationWeeks for Course/Program activities
+      let calculatedDurationWeeks = activity.durationWeeks;
+      
+      if (activity.type === 'course/program' && !calculatedDurationWeeks && activity.startDate && activity.endDate) {
+        const startDate = new Date(activity.startDate);
+        const endDate = new Date(activity.endDate);
+        let totalSessions = 0;
+        
+        if (activity.daysOfWeek && activity.daysOfWeek.length > 0) {
+          // Calculate sessions based on selected days of week
+          activity.daysOfWeek.forEach((dayName: string) => {
+            const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+            const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(capitalizedDayName);
+            
+            if (dayOfWeek !== -1) {
+              const firstSessionDate = new Date(startDate);
+              const daysUntilFirstSession = (dayOfWeek - startDate.getDay() + 7) % 7;
+              firstSessionDate.setDate(startDate.getDate() + daysUntilFirstSession);
+              
+              if (firstSessionDate < startDate) {
+                firstSessionDate.setDate(firstSessionDate.getDate() + 7);
+              }
+              
+              let currentSessionDate = new Date(firstSessionDate);
+              while (currentSessionDate <= endDate) {
+                const dateString = currentSessionDate.toISOString().split('T')[0];
+                if (!activity.courseExcludeDates || !activity.courseExcludeDates.includes(dateString)) {
+                  totalSessions++;
+                }
+                currentSessionDate.setDate(currentSessionDate.getDate() + 7);
+              }
+            }
+          });
+        } else {
+          // Fallback: calculate total weeks between start and end date
+          const timeDiff = endDate.getTime() - startDate.getTime();
+          const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+          totalSessions = Math.ceil(daysDiff / 7);
+        }
+        
+        calculatedDurationWeeks = totalSessions;
+      }
+
+      return {
+        id: activity.id,
+        title: activity.title,
+        description: activity.description,
+        type: activity.type,
+        venue_id: activity.venueId,
+        venue_name: activity.venue.name,
+        venue_city: activity.venue.city,
+        venue_address: activity.venue.address,
+        start_date: activity.startDate,
+        end_date: activity.endDate,
+        start_time: activity.startTime,
+        end_time: activity.endTime,
+        price: activity.price,
+        max_capacity: activity.capacity,
+        current_capacity: activity.bookings.length,
+        is_active: activity.isActive,
+        status: activity.status,
+        // Course/Program specific fields
+        durationWeeks: calculatedDurationWeeks,
+        duration_weeks: calculatedDurationWeeks,
+        regularDay: activity.regularDay,
+        regular_day: activity.regularDay,
+        regularTime: activity.regularTime,
+        regular_time: activity.regularTime,
+        daysOfWeek: activity.daysOfWeek,
+        courseExcludeDates: activity.courseExcludeDates,
+        // Holiday Club specific fields
+        ageRange: activity.ageRange,
+        whatToBring: activity.whatToBring,
+        earlyDropoff: activity.earlyDropoff,
+        earlyDropoffPrice: activity.earlyDropoffPrice,
+        latePickup: activity.latePickup,
+        latePickupPrice: activity.latePickupPrice,
+        siblingDiscount: activity.siblingDiscount,
+        bulkDiscount: activity.bulkDiscount,
+        weeklyDiscount: activity.weeklyDiscount,
+        holidayTimeSlots: activity.holidayTimeSlots,
+        // Wraparound Care specific fields
+        isWraparoundCare: activity.isWraparoundCare,
+        yearGroups: activity.yearGroups,
+        sessionBlocks: activity.sessionBlocks,
+        // Other fields
+        proRataBooking: activity.proRataBooking,
+        holidaySessions: activity.holidaySessions,
+        imageUrls: activity.imageUrls || [],
+        createdAt: activity.createdAt,
+        updatedAt: activity.updatedAt
+      };
+    });
+
     res.json({
       success: true,
-      data: activities,
+      data: transformedActivities,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -149,8 +248,8 @@ router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(
   }
 }));
 
-// Get single activity
-router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Get single activity (public - no auth required for viewing)
+router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -172,6 +271,48 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
               email: true
             }
           },
+          holidayTimeSlots: true,
+          sessionBlocks: true,
+          sessions: {
+            where: { status: 'scheduled' },
+            orderBy: { date: 'asc' },
+            include: {
+              sessionBlocks: {
+                where: { isActive: true },
+                orderBy: { startTime: 'asc' },
+                include: {
+                  _count: {
+                    select: {
+                      bookings: {
+                        where: {
+                          status: {
+                            in: ['confirmed', 'pending']
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              holidayTimeSlots: {
+                where: { isActive: true },
+                orderBy: { startTime: 'asc' },
+                include: {
+                  _count: {
+                    select: {
+                      bookings: {
+                        where: {
+                          status: {
+                            in: ['confirmed', 'pending']
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          } as any,
           bookings: {
             include: {
               child: {
@@ -182,11 +323,8 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
               }
             },
             orderBy: { createdAt: 'desc' }
-          },
-          registers: {
-            orderBy: { createdAt: 'desc' }
           }
-        }
+        } as any
       });
     });
 
@@ -194,9 +332,96 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       throw new AppError('Activity not found', 404, 'ACTIVITY_NOT_FOUND');
     }
 
+    // Transform sessions to include holiday time slots for holiday club activities
+    const transformedSessions = (activity as any).sessions.map((session: any) => ({
+      id: session.id,
+      date: session.date.toISOString().split('T')[0],
+      startTime: session.startTime,
+      endTime: session.endTime,
+      status: session.status,
+      capacity: session.capacity,
+      bookingsCount: session.bookingsCount,
+      sessionBlocks: session.sessionBlocks.map((block: any) => ({
+        id: block.id,
+        name: block.name,
+        startTime: block.startTime,
+        endTime: block.endTime,
+        capacity: block.capacity,
+        price: block.price,
+        bookingsCount: block._count.bookings
+      })),
+      holidayTimeSlots: session.holidayTimeSlots.map((slot: any) => ({
+        id: slot.id,
+        name: slot.name,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        price: slot.price,
+        capacity: slot.capacity,
+        bookingsCount: slot._count.bookings
+      }))
+    }));
+
+    // Calculate durationWeeks for Course/Program activities
+    let calculatedDurationWeeks = (activity as any).durationWeeks;
+    
+    if ((activity as any).type === 'course/program' && !calculatedDurationWeeks && (activity as any).startDate && (activity as any).endDate) {
+      const startDate = new Date((activity as any).startDate);
+      const endDate = new Date((activity as any).endDate);
+      let totalSessions = 0;
+      
+      if ((activity as any).daysOfWeek && (activity as any).daysOfWeek.length > 0) {
+        // Calculate sessions based on selected days of week
+        (activity as any).daysOfWeek.forEach((dayName: string) => {
+          const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+          const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(capitalizedDayName);
+          
+          if (dayOfWeek !== -1) {
+            const firstSessionDate = new Date(startDate);
+            const daysUntilFirstSession = (dayOfWeek - startDate.getDay() + 7) % 7;
+            firstSessionDate.setDate(startDate.getDate() + daysUntilFirstSession);
+            
+            if (firstSessionDate < startDate) {
+              firstSessionDate.setDate(firstSessionDate.getDate() + 7);
+            }
+            
+            let currentSessionDate = new Date(firstSessionDate);
+            while (currentSessionDate <= endDate) {
+              const dateString = currentSessionDate.toISOString().split('T')[0];
+              if (!(activity as any).courseExcludeDates || !(activity as any).courseExcludeDates.includes(dateString)) {
+                totalSessions++;
+              }
+              currentSessionDate.setDate(currentSessionDate.getDate() + 7);
+            }
+          }
+        });
+      } else {
+        // Fallback: calculate total weeks between start and end date
+        const timeDiff = endDate.getTime() - startDate.getTime();
+        const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        totalSessions = Math.ceil(daysDiff / 7);
+      }
+      
+      calculatedDurationWeeks = totalSessions;
+    }
+
     res.json({
       success: true,
-      data: activity
+      data: {
+        ...activity,
+        // Course/Program specific fields
+        daysOfWeek: (activity as any).daysOfWeek || [],
+        start_time: (activity as any).startTime || (activity as any).start_time,
+        end_time: (activity as any).endTime || (activity as any).end_time,
+        durationWeeks: calculatedDurationWeeks,
+        duration_weeks: calculatedDurationWeeks,
+        regularDay: (activity as any).regularDay,
+        regular_day: (activity as any).regularDay,
+        regularTime: (activity as any).regularTime,
+        regular_time: (activity as any).regularTime,
+        courseExcludeDates: (activity as any).courseExcludeDates || [],
+        sessions: transformedSessions,
+        currency: (activity as any).currency || 'GBP' // Add default currency if not present
+      }
     });
   } catch (error) {
     logger.error('Error fetching activity:', error);
@@ -224,7 +449,11 @@ router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), async
       latePickup,
       latePickupPrice,
       generateSessions,
-      excludeDates
+      excludeDates,
+      // Wraparound Care fields
+      isWraparoundCare,
+      yearGroups,
+      sessionBlocks
     } = req.body;
 
     // Validate required fields
@@ -251,7 +480,11 @@ router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), async
       description,
       capacity: capacity ? parseInt(capacity) : null,
       price: price ? parseFloat(price) : 0,
-      createdBy: req.user!.id
+      createdBy: req.user!.id,
+      // Wraparound Care fields
+      isWraparoundCare: isWraparoundCare || false,
+      yearGroups: yearGroups || [],
+      sessionBlocks: sessionBlocks || []
     };
 
     const sessionOptions = {

@@ -158,6 +158,7 @@ class StripeService {
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency: currency.toLowerCase(),
+        // capture_method: 'manual', // Temporarily disabled to test
         metadata: {
           bookingId,
           platformFee: platformFee.toString(),
@@ -204,6 +205,7 @@ class StripeService {
       const paymentIntent = await this.stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency: currency.toLowerCase(),
+        // capture_method: 'manual', // Temporarily disabled to test
         metadata: {
           bookingId,
           platformFee: platformFee.toString(),
@@ -211,7 +213,8 @@ class StripeService {
         automatic_payment_methods: {
           enabled: true,
         },
-        application_fee_amount: platformFee,
+        // Note: application_fee_amount is only allowed for Connect payments
+        // For platform payments, we'll handle fees separately
       });
 
       logger.info(`Payment intent created: ${paymentIntent.id} for booking: ${bookingId}`);
@@ -288,11 +291,23 @@ class StripeService {
    */
   async confirmPayment(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
     try {
+      logger.info('Stripe confirmPayment called with ID:', { 
+        paymentIntentId, 
+        length: paymentIntentId?.length,
+        type: typeof paymentIntentId 
+      });
       const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
       
       if (paymentIntent.status === 'succeeded') {
         logger.info(`Payment already succeeded: ${paymentIntentId}`);
         return paymentIntent;
+      }
+
+      if (paymentIntent.status === 'requires_capture') {
+        // For manual capture, we need to capture the payment
+        const capturedIntent = await this.stripe.paymentIntents.capture(paymentIntentId);
+        logger.info(`Payment captured: ${paymentIntentId}`);
+        return capturedIntent;
       }
 
       if (paymentIntent.status === 'requires_confirmation') {
@@ -313,7 +328,12 @@ class StripeService {
    */
   async getPaymentIntent(paymentIntentId: string): Promise<Stripe.PaymentIntent> {
     try {
+      logger.info('Retrieving payment intent from Stripe', { paymentIntentId });
       const paymentIntent = await this.stripe.paymentIntents.retrieve(paymentIntentId);
+      logger.info('Payment intent retrieved successfully', { 
+        id: paymentIntent.id, 
+        status: paymentIntent.status 
+      });
       return paymentIntent;
     } catch (error) {
       logger.error('Error retrieving payment intent:', error);

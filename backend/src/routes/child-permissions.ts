@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
-import { prisma } from '../utils/database';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
 
@@ -14,11 +14,13 @@ router.get('/:childId', authenticateToken, asyncHandler(async (req: Request, res
 
   try {
     // Verify the child belongs to the user
-    const child = await prisma.child.findFirst({
-      where: {
-        id: childId,
-        parentId: userId
-      }
+    const child = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          id: childId,
+          parentId: userId
+        }
+      });
     });
 
     if (!child) {
@@ -26,19 +28,23 @@ router.get('/:childId', authenticateToken, asyncHandler(async (req: Request, res
     }
 
     // Get or create permissions
-    let permissions = await prisma.childPermission.findUnique({
-      where: { childId }
+    let permissions = await safePrismaQuery(async (client) => {
+      return await client.childPermission.findFirst({
+        where: { childId }
+      });
     });
 
     if (!permissions) {
-      permissions = await prisma.childPermission.create({
-        data: {
-          childId,
-          consentToWalkHome: false,
-          consentToPhotography: false,
-          consentToFirstAid: false,
-          consentToEmergencyContact: false
-        }
+      permissions = await safePrismaQuery(async (client) => {
+        return await client.childPermission.create({
+          data: {
+            childId,
+            consentToWalkHome: false,
+            consentToPhotography: false,
+            consentToFirstAid: false,
+            consentToEmergencyContact: false
+          }
+        });
       });
     }
 
@@ -65,11 +71,13 @@ router.put('/:childId', authenticateToken, asyncHandler(async (req: Request, res
 
   try {
     // Verify the child belongs to the user
-    const child = await prisma.child.findFirst({
-      where: {
-        id: childId,
-        parentId: userId
-      }
+    const child = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          id: childId,
+          parentId: userId
+        }
+      });
     });
 
     if (!child) {
@@ -77,20 +85,32 @@ router.put('/:childId', authenticateToken, asyncHandler(async (req: Request, res
     }
 
     // Update or create permissions
-    const permissions = await prisma.childPermission.upsert({
-      where: { childId },
-      update: {
-        consentToWalkHome: consentToWalkHome ?? false,
-        consentToPhotography: consentToPhotography ?? false,
-        consentToFirstAid: consentToFirstAid ?? false,
-        consentToEmergencyContact: consentToEmergencyContact ?? false
-      },
-      create: {
-        childId,
-        consentToWalkHome: consentToWalkHome ?? false,
-        consentToPhotography: consentToPhotography ?? false,
-        consentToFirstAid: consentToFirstAid ?? false,
-        consentToEmergencyContact: consentToEmergencyContact ?? false
+    const permissions = await safePrismaQuery(async (client) => {
+      // Try to update first
+      const existingPermission = await client.childPermission.findFirst({
+        where: { childId }
+      });
+
+      if (existingPermission) {
+        return await client.childPermission.update({
+          where: { id: existingPermission.id },
+          data: {
+            consentToWalkHome: consentToWalkHome ?? false,
+            consentToPhotography: consentToPhotography ?? false,
+            consentToFirstAid: consentToFirstAid ?? false,
+            consentToEmergencyContact: consentToEmergencyContact ?? false
+          }
+        });
+      } else {
+        return await client.childPermission.create({
+          data: {
+            childId,
+            consentToWalkHome: consentToWalkHome ?? false,
+            consentToPhotography: consentToPhotography ?? false,
+            consentToFirstAid: consentToFirstAid ?? false,
+            consentToEmergencyContact: consentToEmergencyContact ?? false
+          }
+        });
       }
     });
 
@@ -109,25 +129,29 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
   const userId = req.user!.id;
 
   try {
-    const children = await prisma.child.findMany({
-      where: { parentId: userId },
-      include: {
-        permissions: true
-      }
+    const children = await safePrismaQuery(async (client) => {
+      return await client.child.findMany({
+        where: { parentId: userId },
+        include: {
+          permissions: true
+        }
+      });
     });
 
     // Ensure all children have permissions records
     const childrenWithPermissions = await Promise.all(
       children.map(async (child) => {
         if (!child.permissions) {
-          const permissions = await prisma.childPermission.create({
-            data: {
-              childId: child.id,
-              consentToWalkHome: false,
-              consentToPhotography: false,
-              consentToFirstAid: false,
-              consentToEmergencyContact: false
-            }
+          const permissions = await safePrismaQuery(async (client) => {
+            return await client.childPermission.create({
+              data: {
+                childId: child.id,
+                consentToWalkHome: false,
+                consentToPhotography: false,
+                consentToFirstAid: false,
+                consentToEmergencyContact: false
+              }
+            });
           });
           return { ...child, permissions };
         }

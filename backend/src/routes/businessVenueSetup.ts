@@ -129,7 +129,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
     }
 
     // Validate required fields
-    if (!name || !address || !city || !postcode || !capacity) {
+    if (!name || !address || !city || !postcode) {
       throw new AppError('Missing required fields', 400, 'MISSING_FIELDS');
     }
 
@@ -143,7 +143,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           postcode,
           phone: phone || null,
           email: email || null,
-          capacity: Number(capacity),
+          capacity: capacity ? Number(capacity) : null,
           facilities: facilities || [],
           operatingHours: operatingHours || null,
           pricing: pricing || null,
@@ -156,7 +156,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           businessAccount: {
             select: {
               id: true,
-              businessName: true,
+              name: true,
               stripeAccountId: true
             }
           }
@@ -184,6 +184,12 @@ router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   const { id } = req.params;
   const updateData = req.body;
 
+  logger.info('Venue update request received', { 
+    venueId: id, 
+    userId, 
+    updateData: JSON.stringify(updateData, null, 2) 
+  });
+
   try {
     // Check if user has business access
     const userInfo = await safePrismaQuery(async (client) => {
@@ -208,25 +214,57 @@ router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       throw new AppError('Venue setup not found', 404, 'VENUE_SETUP_NOT_FOUND');
     }
 
+    // Sanitize update data - remove undefined values but keep null and empty strings for optional fields
+    const sanitizedData: any = {};
+    Object.keys(updateData).forEach(key => {
+      const value = updateData[key];
+      if (value !== undefined) {
+        // Handle businessAccountId specifically - convert empty string to null
+        if (key === 'businessAccountId' && value === '') {
+          sanitizedData[key] = null;
+        } else {
+          sanitizedData[key] = value;
+        }
+      }
+    });
+
+    // Ensure required fields are present and valid
+    if (sanitizedData.name !== undefined && (!sanitizedData.name || sanitizedData.name.trim() === '')) {
+      throw new AppError('Venue name is required', 400, 'INVALID_VENUE_NAME');
+    }
+    if (sanitizedData.address !== undefined && (!sanitizedData.address || sanitizedData.address.trim() === '')) {
+      throw new AppError('Venue address is required', 400, 'INVALID_VENUE_ADDRESS');
+    }
+    if (sanitizedData.city !== undefined && (!sanitizedData.city || sanitizedData.city.trim() === '')) {
+      throw new AppError('Venue city is required', 400, 'INVALID_VENUE_CITY');
+    }
+    if (sanitizedData.postcode !== undefined && (!sanitizedData.postcode || sanitizedData.postcode.trim() === '')) {
+      throw new AppError('Venue postcode is required', 400, 'INVALID_VENUE_POSTCODE');
+    }
+
     // Update venue setup
+    logger.info('Attempting to update venue', { venueId: id, sanitizedData });
+    
     const updatedVenue = await safePrismaQuery(async (client) => {
       return await client.venue.update({
         where: { id },
         data: {
-          ...updateData,
+          ...sanitizedData,
           updatedAt: new Date()
         },
         include: {
           businessAccount: {
             select: {
               id: true,
-              businessName: true,
+              name: true,
               stripeAccountId: true
             }
           }
         }
       });
     });
+
+    logger.info('Venue updated successfully', { venueId: id });
 
     logger.info('Venue setup updated', { venueSetupId: id, userId });
 
@@ -328,7 +366,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
           businessAccount: {
             select: {
               id: true,
-              businessName: true,
+              name: true,
               stripeAccountId: true
             }
           }

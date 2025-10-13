@@ -46,7 +46,10 @@ class ActivityService {
             status: 'active',
             isActive: true,
             ownerId: activityData.createdBy,
-            createdBy: activityData.createdBy
+            createdBy: activityData.createdBy,
+            // Wraparound Care fields
+            isWraparoundCare: activityData.isWraparoundCare || false,
+            yearGroups: activityData.yearGroups || []
           }
         });
 
@@ -55,10 +58,40 @@ class ActivityService {
           await this.generateSessions(activity.id, sessionOptions);
         }
 
+        // Create session blocks for wraparound care activities
+        if (activityData.isWraparoundCare && activityData.sessionBlocks) {
+          await this.createSessionBlocks(activity.id, activityData.sessionBlocks);
+        }
+
         return activity;
       });
     } catch (error) {
       logger.error('Failed to create activity with sessions:', error);
+      throw error;
+    }
+  }
+
+  async createSessionBlocks(activityId: string, sessionBlocks: any[]) {
+    try {
+      await safePrismaQuery(async (client) => {
+        const sessionBlockData = sessionBlocks.map(block => ({
+          activityId,
+          name: block.name,
+          startTime: block.startTime,
+          endTime: block.endTime,
+          capacity: block.capacity || 0,
+          price: block.price || 0,
+          isActive: true
+        }));
+
+        await client.sessionBlock.createMany({
+          data: sessionBlockData
+        });
+      });
+
+      logger.info(`Created ${sessionBlocks.length} session blocks for activity ${activityId}`);
+    } catch (error) {
+      logger.error('Failed to create session blocks:', error);
       throw error;
     }
   }
@@ -82,9 +115,29 @@ class ActivityService {
           bookingsCount: 0
         }));
 
+        // Create sessions
         await client.session.createMany({
           data: sessionData
         });
+
+        // Get the created sessions to create registers
+        const createdSessions = await client.session.findMany({
+          where: { activityId },
+          orderBy: { date: 'asc' }
+        });
+
+        // Auto-create registers for each session
+        const registerData = createdSessions.map(session => ({
+          sessionId: session.id,
+          date: session.date,
+          status: 'active'
+        }));
+
+        await client.register.createMany({
+          data: registerData
+        });
+
+        logger.info(`Generated ${sessions.length} sessions and registers for activity ${activityId}`);
       });
 
       logger.info(`Generated ${sessions.length} sessions for activity ${activityId}`);

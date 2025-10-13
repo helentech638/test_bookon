@@ -11,8 +11,10 @@ const router = Router();
 
 // Validation middleware
 const validatePaymentIntent = [
-  body('bookingId').isUUID().withMessage('Booking ID must be a valid UUID'),
-  body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+  body('bookingId').optional().isUUID().withMessage('Booking ID must be a valid UUID'),
+  body('bookingIds').optional().isArray().withMessage('Booking IDs must be an array'),
+  body('bookingIds.*').optional().isUUID().withMessage('Each booking ID must be a valid UUID'),
+  body('amount').isNumeric().withMessage('Amount must be a number'),
   body('currency').optional().isIn(['gbp', 'usd', 'eur']).withMessage('Invalid currency'),
   body('venueId').optional().isUUID().withMessage('Venue ID must be a valid UUID'),
 ];
@@ -22,16 +24,43 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.error('Payment intent validation failed', { 
+        errors: errors.array(),
+        body: req.body 
+      });
       throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
     }
 
-    const { bookingId, amount, currency = 'gbp', venueId } = req.body;
+    const { bookingId, bookingIds, amount, currency = 'gbp', venueId } = req.body;
     const userId = req.user!.id;
 
+    // Log received data for debugging
+    logger.info('Payment intent request received', { 
+      userId,
+      bookingId, 
+      bookingIds, 
+      amount, 
+      currency, 
+      venueId,
+      body: req.body 
+    });
+
+    // Handle both single booking and multiple bookings
+    const bookingIdList = bookingIds || (bookingId ? [bookingId] : []);
+    
+    if (bookingIdList.length === 0) {
+      logger.error('No booking IDs provided', { 
+        bookingId, 
+        bookingIds, 
+        body: req.body 
+      });
+      throw new AppError('At least one booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
+
     // Get booking details
-    const booking = await prisma.booking.findFirst({
+    const bookings = await prisma.booking.findMany({
       where: {
-        id: bookingId,
+        id: { in: bookingIdList },
         parentId: userId,
         // Note: isActive field doesn't exist in current schema
       },
@@ -52,55 +81,66 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
       }
     });
 
-    if (!booking) {
-      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    if (bookings.length === 0) {
+      throw new AppError('No bookings found', 404, 'BOOKING_NOT_FOUND');
     }
 
-    if (booking.status !== 'pending') {
-      throw new AppError('Booking is not in pending status', 400, 'BOOKING_NOT_PENDING');
+    // Check all bookings are in pending status
+    const invalidBookings = bookings.filter(booking => booking.status !== 'pending');
+    if (invalidBookings.length > 0) {
+      throw new AppError('Some bookings are not in pending status', 400, 'BOOKING_NOT_PENDING');
     }
 
-    // Check if payment already exists
-    const existingPayment = await prisma.payment.findFirst({
+    // Check if payments already exist for any booking
+    const existingPayments = await prisma.payment.findMany({
       where: {
-        bookingId: bookingId,
+        bookingId: { in: bookingIdList },
         isActive: true
       }
     });
 
-    if (existingPayment) {
-      throw new AppError('Payment already exists for this booking', 400, 'PAYMENT_ALREADY_EXISTS');
+    if (existingPayments.length > 0) {
+      // Instead of throwing error, deactivate old payments and continue
+      logger.info(`Found ${existingPayments.length} existing payments, deactivating them`);
+      
+      for (const existingPayment of existingPayments) {
+        await prisma.payment.update({
+          where: { id: existingPayment.id },
+          data: { isActive: false }
+        });
+        logger.info(`Deactivated existing payment ${existingPayment.id} for booking ${existingPayment.bookingId}`);
+      }
     }
 
     // Create Stripe payment intent with Connect support
     const paymentIntent = await stripeService.createPaymentIntent({
-      bookingId,
+      bookingId: bookingIdList[0], // Use first booking ID for stripe service
       amount,
       currency,
-      venueId: venueId || booking.activity.venue.stripeAccountId,
+      venueId: venueId || bookings[0]?.activity?.venue?.stripeAccountId,
     });
 
-    // Create payment record in database
+    // Create payment record in database for the first booking
     const payment = await prisma.payment.create({
       data: {
-        bookingId: bookingId,
+        bookingId: bookingIdList[0], // Use first booking ID
         userId: userId,
         stripePaymentIntentId: paymentIntent.id,
         amount: amount,
         currency: currency,
         status: 'pending',
         paymentMethod: 'stripe',
-        stripeAccountId: venueId || booking.activity.venue.stripeAccountId,
+        stripeAccountId: venueId || bookings[0]?.activity?.venue?.stripeAccountId,
         isActive: true
       }
     });
 
     logger.info('Payment intent created successfully', { 
       paymentId: payment.id, 
-      bookingId,
+      bookingIds: bookingIdList,
       userId,
       stripeIntentId: paymentIntent.id,
-      venueId: venueId || booking.activity.venue.stripeAccountId
+      venueId: venueId || (bookings[0]?.activity?.venue?.stripeAccountId ?? null)
     });
 
     res.json({
@@ -111,11 +151,11 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
         amount: amount,
         currency: currency,
         booking: {
-          id: booking.id,
-          activityTitle: booking.activity.title,
-          venueName: booking.activity.venue.name,
-          startDate: booking.activity.startDate,
-          startTime: booking.activity.startTime,
+          id: bookings[0]?.id ?? '',
+          activityTitle: bookings[0]?.activity?.title ?? '',
+          venueName: bookings[0]?.activity?.venue?.name ?? '',
+          startDate: bookings[0]?.activity?.startDate ?? '',
+          startTime: bookings[0]?.activity?.startTime ?? '',
         }
       }
     });
@@ -130,6 +170,13 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
   try {
     // const userId = req.user!.id; // Unused variable
     const { paymentIntentId } = req.body;
+
+    logger.info('Payment confirmation request received', { 
+      paymentIntentId, 
+      paymentIntentIdLength: paymentIntentId?.length,
+      paymentIntentIdType: typeof paymentIntentId,
+      body: req.body 
+    });
 
     if (!paymentIntentId) {
       throw new AppError('Payment intent ID is required', 400, 'MISSING_PAYMENT_INTENT_ID');
@@ -180,7 +227,7 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
         },
       });
     } else {
-      throw new AppError('Payment confirmation failed', 400, 'PAYMENT_CONFIRMATION_FAILED');
+      throw new AppError(`Payment not succeeded. Status: ${paymentIntent.status}`, 400, 'PAYMENT_NOT_SUCCEEDED');
     }
   } catch (error) {
     logger.error('Error confirming payment:', error);
@@ -202,7 +249,7 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
     
     const payment = await prisma.payment.findFirst({
       where: {
-        id: id,
+        id: id!,
         userId: userId,
         isActive: true
       },
@@ -254,6 +301,53 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
   } catch (error) {
     logger.error('Error fetching payment status:', error);
     throw new AppError('Failed to fetch payment status', 500, 'PAYMENT_STATUS_ERROR');
+  }
+}));
+
+// Get payment by booking ID
+router.get('/booking/:bookingId', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const userId = req.user!.id;
+
+    if (!bookingId) {
+      throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
+
+    // Get the booking first to verify ownership
+    const booking = await prisma.booking.findFirst({
+      where: {
+        id: bookingId,
+        parentId: userId
+      }
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    }
+
+    // Get the payment for this booking
+    const payment = await prisma.payment.findFirst({
+      where: {
+        bookingId: bookingId,
+        userId: userId,
+        isActive: true
+      }
+    });
+
+    if (!payment) {
+      throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
+    }
+
+    res.json({
+      success: true,
+      data: payment,
+      message: 'Payment retrieved successfully'
+    });
+
+  } catch (error) {
+    logger.error('Error retrieving payment by booking ID:', error);
+    throw error;
   }
 }));
 
@@ -346,7 +440,7 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
     // Get payment record
     const payment = await prisma.payment.findFirst({
       where: {
-        id: id,
+        id: id!,
         userId: userId,
         isActive: true
       },
@@ -619,12 +713,17 @@ router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res:
 
     // Process refund through Stripe
     const refundAmount = amount || Number(payment.amount);
-    const refund = await stripeService.createRefund({
+    const refundData: any = {
       paymentIntentId: payment.stripePaymentIntentId!,
       amount: refundAmount,
-      reason: reason || 'Customer request',
-      connectAccountId: payment.booking.activity.venue.stripeAccountId
-    });
+      reason: reason || 'Customer request'
+    };
+    
+    if (payment.booking.activity.venue.stripeAccountId) {
+      refundData.connectAccountId = payment.booking.activity.venue.stripeAccountId;
+    }
+    
+    const refund = await stripeService.createRefund(refundData);
 
     // Update payment status
     await prisma.payment.update({
@@ -674,21 +773,25 @@ router.get('/:paymentId/refunds', authenticateToken, asyncHandler(async (req: Re
     const { paymentId } = req.params;
     
     // Get payment to find the Stripe payment intent ID
-    const payment = await db('payments')
-      .select('stripe_payment_intent_id')
-      .where('id', paymentId)
-      .where('is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: paymentId!,
+        isActive: true
+      },
+      select: {
+        stripePaymentIntentId: true
+      }
+    });
 
     if (!payment) {
       throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
     }
 
-    if (!payment.stripe_payment_intent_id) {
+    if (!payment.stripePaymentIntentId) {
       throw new AppError('No Stripe payment intent found for this payment', 400, 'NO_STRIPE_PAYMENT_INTENT');
     }
     
-    const refunds = await stripeService.listRefunds(payment.stripe_payment_intent_id);
+    const refunds = await stripeService.listRefunds(payment.stripePaymentIntentId!);
     
     res.json({
       success: true,

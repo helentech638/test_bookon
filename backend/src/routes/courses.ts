@@ -1,8 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
-import { prisma, safePrismaQuery } from '../utils/prisma';
+import { safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { holidayService } from '../utils/holidayService';
+import { calendarService } from '../utils/calendarService';
 
 // Role-based permission middleware
 const requireRole = (roles: string[]) => {
@@ -15,7 +17,7 @@ const requireRole = (roles: string[]) => {
         error: 'FORBIDDEN'
       });
     }
-    next();
+    return next();
   };
 };
 
@@ -84,11 +86,6 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
               firstName: true,
               lastName: true
             }
-          },
-          _count: {
-            select: {
-              sessions: true
-            }
           }
         },
         orderBy: {
@@ -117,6 +114,10 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     const { id } = req.params;
     const userId = req.user!.id;
     
+    if (!id) {
+      throw new AppError('Course ID is required', 400, 'MISSING_COURSE_ID');
+    }
+    
     logger.info('Course requested', { 
       user: req.user?.email,
       courseId: id,
@@ -136,11 +137,6 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
             select: {
               firstName: true,
               lastName: true
-            }
-          },
-          sessions: {
-            orderBy: {
-              date: 'asc'
             }
           }
         }
@@ -181,8 +177,7 @@ router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), async
       endDate,
       weekday,
       time,
-      extras,
-      description
+      extras
     } = req.body;
     
     logger.info('Creating course', { 
@@ -256,6 +251,10 @@ router.post('/:id/sessions/preview', authenticateToken, asyncHandler(async (req:
   try {
     const { id } = req.params;
     const userId = req.user!.id;
+    
+    if (!id) {
+      throw new AppError('Course ID is required', 400, 'MISSING_COURSE_ID');
+    }
     const { excludeBankHolidays = true, excludeDates = [] } = req.body;
     
     logger.info('Generating session preview', { 
@@ -279,15 +278,25 @@ router.post('/:id/sessions/preview', authenticateToken, asyncHandler(async (req:
 
     // Generate session dates based on course schedule
     const sessions = generateSessionDates(course, excludeBankHolidays, excludeDates);
+    
+    // Get suggested exclusions (bank holidays) for the course period
+    const suggestedExclusions = holidayService.getSuggestedExclusions(
+      new Date(course.startDate), 
+      new Date(course.endDate)
+    );
 
     logger.info('Session preview generated', { 
       courseId: id,
-      sessionCount: sessions.length 
+      sessionCount: sessions.length,
+      suggestedExclusions: suggestedExclusions.length
     });
 
     res.json({
       success: true,
-      data: sessions
+      data: {
+        sessions,
+        suggestedExclusions
+      }
     });
   } catch (error) {
     logger.error('Error generating session preview:', error);
@@ -300,6 +309,10 @@ router.post('/:id/publish', authenticateToken, requireRole(['admin', 'coordinato
   try {
     const { id } = req.params;
     const userId = req.user!.id;
+    
+    if (!id) {
+      throw new AppError('Course ID is required', 400, 'MISSING_COURSE_ID');
+    }
     const { sessions } = req.body; // Array of session data
     
     logger.info('Publishing course', { 
@@ -321,12 +334,30 @@ router.post('/:id/publish', authenticateToken, requireRole(['admin', 'coordinato
         }
       });
 
-      // Create sessions
+      // Create an activity for this course
+      const activity = await client.activity.create({
+        data: {
+          name: course.name,
+          description: `Course: ${course.name}`,
+          venueId: course.venueId,
+          ownerId: userId,
+          createdBy: userId,
+          type: course.type,
+          years: course.years,
+          price: course.price,
+          capacity: course.capacity,
+          startDate: course.startDate,
+          endDate: course.endDate,
+          status: 'published'
+        }
+      });
+
+      // Create sessions for the activity
       const createdSessions = [];
       for (const sessionData of sessions) {
         const session = await client.session.create({
           data: {
-            courseId: id,
+            activityId: activity.id,
             date: new Date(sessionData.date),
             startTime: sessionData.startTime,
             endTime: sessionData.endTime,
@@ -338,12 +369,14 @@ router.post('/:id/publish', authenticateToken, requireRole(['admin', 'coordinato
 
       return {
         course,
+        activity,
         sessions: createdSessions
       };
     });
 
     logger.info('Course published', { 
       courseId: id,
+      activityId: result.activity.id,
       sessionCount: result.sessions.length 
     });
 
@@ -362,6 +395,10 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asy
   try {
     const { id } = req.params;
     const userId = req.user!.id;
+    
+    if (!id) {
+      throw new AppError('Course ID is required', 400, 'MISSING_COURSE_ID');
+    }
     const updateData = req.body;
     
     logger.info('Updating course', { 
@@ -428,6 +465,10 @@ router.patch('/:id/archive', authenticateToken, requireRole(['admin']), asyncHan
     const { id } = req.params;
     const userId = req.user!.id;
     
+    if (!id) {
+      throw new AppError('Course ID is required', 400, 'MISSING_COURSE_ID');
+    }
+    
     logger.info('Archiving course', { 
       user: req.user?.email,
       courseId: id,
@@ -466,6 +507,10 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
   try {
     const { id } = req.params;
     const userId = req.user!.id;
+    
+    if (!id) {
+      throw new AppError('Course ID is required', 400, 'MISSING_COURSE_ID');
+    }
     
     logger.info('Deleting course', { 
       user: req.user?.email,
@@ -530,7 +575,7 @@ function generateSessionDates(course: any, excludeBankHolidays: boolean, exclude
   const startDate = new Date(course.startDate);
   const endDate = new Date(course.endDate);
   
-  // Simple implementation - generate sessions based on weekday
+  // Generate sessions based on weekday
   if (course.weekday && course.time) {
     const [startTime, endTime] = course.time.split('-');
     const dayOfWeek = getDayOfWeekNumber(course.weekday);
@@ -538,12 +583,10 @@ function generateSessionDates(course: any, excludeBankHolidays: boolean, exclude
     let currentDate = new Date(startDate);
     while (currentDate <= endDate) {
       if (currentDate.getDay() === dayOfWeek) {
-        // Check if date should be excluded
-        const dateString = currentDate.toISOString().split('T')[0];
-        if (!excludeDates.includes(dateString)) {
-          // TODO: Add bank holiday checking logic
+        // Check if date should be excluded using holiday service
+        if (!holidayService.shouldExcludeDate(currentDate, excludeBankHolidays, excludeDates)) {
           sessions.push({
-            date: dateString,
+            date: currentDate.toISOString().split('T')[0],
             startTime: startTime,
             endTime: endTime,
             status: 'scheduled'
@@ -556,6 +599,124 @@ function generateSessionDates(course: any, excludeBankHolidays: boolean, exclude
   
   return sessions;
 }
+
+// Export course calendar (iCal format)
+router.get('/:id/calendar', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    
+    if (!id) {
+      throw new AppError('Course ID is required', 400, 'MISSING_COURSE_ID');
+    }
+    
+    logger.info('Exporting course calendar', { 
+      user: req.user?.email,
+      courseId: id,
+      userId 
+    });
+
+    const course = await safePrismaQuery(async (client) => {
+      return await client.course.findFirst({
+        where: {
+          id: id,
+          createdBy: userId
+        },
+        include: {
+          venue: true
+        }
+      });
+    });
+
+    if (!course) {
+      throw new AppError('Course not found', 404, 'COURSE_NOT_FOUND');
+    }
+
+    // Find the associated activity and its sessions
+    const activity = await safePrismaQuery(async (client) => {
+      return await client.activity.findFirst({
+        where: {
+          name: course.name,
+          venueId: course.venueId,
+          createdBy: userId
+        },
+        include: {
+          sessions: {
+            orderBy: {
+              date: 'asc'
+            }
+          },
+          venue: true
+        }
+      });
+    });
+
+    if (!activity) {
+      throw new AppError('Activity not found for this course', 404, 'ACTIVITY_NOT_FOUND');
+    }
+
+    const calendarContent = calendarService.generateCourseCalendar(activity);
+    const filename = calendarService.getCalendarFilename(`${course.name.toLowerCase().replace(/\s+/g, '-')}`);
+
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(calendarContent);
+
+    logger.info('Course calendar exported', { 
+      courseId: id,
+      filename 
+    });
+  } catch (error) {
+    logger.error('Error exporting course calendar:', error);
+    throw error;
+  }
+}));
+
+// Get bank holidays for a date range
+router.get('/holidays/:year', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { year } = req.params;
+    const yearNumber = parseInt(year);
+    
+    if (!year || isNaN(yearNumber) || yearNumber < 2020 || yearNumber > 2030) {
+      throw new AppError('Invalid year', 400, 'INVALID_YEAR');
+    }
+
+    const holidays = holidayService.getBankHolidays(yearNumber);
+
+    res.json({
+      success: true,
+      data: holidays
+    });
+  } catch (error) {
+    logger.error('Error fetching bank holidays:', error);
+    throw error;
+  }
+}));
+
+// Get suggested exclusions for a date range
+router.post('/suggested-exclusions', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.body;
+    
+    if (!startDate || !endDate) {
+      throw new AppError('Start date and end date are required', 400, 'MISSING_DATES');
+    }
+
+    const suggestedExclusions = holidayService.getSuggestedExclusions(
+      new Date(startDate), 
+      new Date(endDate)
+    );
+
+    res.json({
+      success: true,
+      data: suggestedExclusions
+    });
+  } catch (error) {
+    logger.error('Error getting suggested exclusions:', error);
+    throw error;
+  }
+}));
 
 function getDayOfWeekNumber(weekday: string): number {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];

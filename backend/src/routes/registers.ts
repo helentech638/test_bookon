@@ -218,17 +218,14 @@ router.get('/template/:activityId', authenticateToken, requireRole(['admin', 'co
       return;
     }
 
-    // Get all bookings for these sessions
-    const sessionIds = sessions.map((session: any) => session.id);
-    
+    // Get all bookings for this activity and date
     const bookings = await safePrismaQuery(async (client) => {
       return await client.booking.findMany({
         where: {
-          sessionId: {
-            in: sessionIds
-          },
+          activityId: activityId!,
+          activityDate: sessionDate,
           status: {
-            in: ['confirmed', 'active']
+            in: ['confirmed']
           }
         },
         include: {
@@ -242,16 +239,9 @@ router.get('/template/:activityId', authenticateToken, requireRole(['admin', 'co
               allergies: true,
               medicalInfo: true
             }
-          },
-          session: {
-            select: {
-              id: true,
-              startTime: true,
-              endTime: true
-            }
           }
         }
-      } as any);
+      });
     });
 
     // Transform bookings into the expected format

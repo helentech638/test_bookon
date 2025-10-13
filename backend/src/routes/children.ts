@@ -67,11 +67,14 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     const { id } = req.params;
     const userId = req.user!.id;
     
-    const child = await db('children')
-      .where('id', id)
-      .where('user_id', userId)
-      .where('is_active', true)
-      .first();
+    const child = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          id: id,
+          parentId: userId
+        }
+      });
+    });
 
     if (!child) {
       throw new AppError('Child not found', 404, 'CHILD_NOT_FOUND');
@@ -81,15 +84,16 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       success: true,
       data: {
         id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name,
-        dateOfBirth: child.date_of_birth,
-        yearGroup: child.year_group,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        dateOfBirth: child.dateOfBirth,
+        yearGroup: child.yearGroup,
         allergies: child.allergies,
-        medicalInfo: child.medical_info,
-        emergencyContacts: child.emergency_contacts,
-        createdAt: child.created_at,
-        updatedAt: child.updated_at
+        medicalInfo: child.medicalInfo,
+        school: child.school,
+        class: child.class,
+        createdAt: child.createdAt,
+        updatedAt: child.updatedAt
       }
     });
   } catch (error) {
@@ -261,33 +265,41 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
     const userId = req.user!.id;
     
     // Check if child exists and belongs to user
-    const existingChild = await db('children')
-      .where('id', id)
-      .where('user_id', userId)
-      .where('is_active', true)
-      .first();
+    const existingChild = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          id: id,
+          parentId: userId
+        }
+      });
+    });
 
     if (!existingChild) {
       throw new AppError('Child not found', 404, 'CHILD_NOT_FOUND');
     }
 
     // Check if child has active bookings
-    const activeBookings = await db('bookings')
-      .where('child_id', id)
-      .where('is_active', true)
-      .first();
+    const activeBookings = await safePrismaQuery(async (client) => {
+      return await client.booking.findFirst({
+        where: {
+          childId: id,
+          status: {
+            in: ['confirmed', 'pending']
+          }
+        }
+      });
+    });
 
     if (activeBookings) {
       throw new AppError('Cannot delete child with active bookings', 400, 'CHILD_HAS_BOOKINGS');
     }
 
-    // Soft delete - mark as inactive
-    await db('children')
-      .where('id', id)
-      .update({
-        is_active: false,
-        updated_at: new Date(),
+    // Hard delete - remove child from database
+    await safePrismaQuery(async (client) => {
+      return await client.child.delete({
+        where: { id: id }
       });
+    });
 
     logger.info('Child deleted successfully', { 
       childId: id, 
@@ -357,6 +369,68 @@ router.get('/:id/bookings', authenticateToken, asyncHandler(async (req: Request,
   } catch (error) {
     logger.error('Error fetching child bookings:', error);
     throw new AppError('Failed to fetch child bookings', 500, 'CHILD_BOOKINGS_FETCH_ERROR');
+  }
+}));
+
+// Update child permissions
+router.put('/:id/permissions', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const childId = req.params.id;
+    const { 
+      consentToWalkHome, 
+      consentToPhotography, 
+      consentToFirstAid, 
+      consentToEmergencyContact 
+    } = req.body;
+
+    // Verify child belongs to user
+    const child = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          id: childId,
+          parentId: userId
+        }
+      });
+    });
+
+    if (!child) {
+      throw new AppError('Child not found', 404, 'CHILD_NOT_FOUND');
+    }
+
+    // Upsert permissions
+    await safePrismaQuery(async (client) => {
+      return await client.childPermission.upsert({
+        where: { childId: childId },
+        update: {
+          consentToWalkHome: consentToWalkHome || false,
+          consentToPhotography: consentToPhotography || false,
+          consentToFirstAid: consentToFirstAid || false,
+          consentToEmergencyContact: consentToEmergencyContact || false,
+        },
+        create: {
+          childId: childId,
+          consentToWalkHome: consentToWalkHome || false,
+          consentToPhotography: consentToPhotography || false,
+          consentToFirstAid: consentToFirstAid || false,
+          consentToEmergencyContact: consentToEmergencyContact || false,
+        }
+      });
+    });
+
+    logger.info('Child permissions updated successfully', { 
+      childId, 
+      userId 
+    });
+
+    res.json({
+      success: true,
+      message: 'Permissions updated successfully'
+    });
+  } catch (error) {
+    logger.error('Error updating child permissions:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to update permissions', 500, 'PERMISSIONS_UPDATE_ERROR');
   }
 }));
 

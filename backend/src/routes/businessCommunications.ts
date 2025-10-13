@@ -209,105 +209,6 @@ router.get('/automated', authenticateToken, asyncHandler(async (req: Request, re
   }
 }));
 
-// Get broadcasts
-router.get('/broadcasts', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
-  const userId = req.user!.id;
-  const { search, type, status, page = 1, limit = 20 } = req.query;
-  
-  try {
-    // Check if user has business access
-    const userInfo = await safePrismaQuery(async (client) => {
-      return await client.user.findUnique({
-        where: { id: userId },
-        select: { role: true, businessName: true, isActive: true }
-      });
-    });
-
-    if (!userInfo || (!userInfo.businessName && userInfo.role !== 'business' && userInfo.role !== 'admin')) {
-      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
-    }
-
-    // Build where clause
-    const where: any = { createdBy: userId };
-
-    if (search) {
-      where.OR = [
-        { title: { contains: search as string, mode: 'insensitive' } },
-        { subject: { contains: search as string, mode: 'insensitive' } }
-      ];
-    }
-
-    if (type) {
-      where.channels = { has: type };
-    }
-
-    if (status) {
-      where.status = status;
-    }
-
-    // Get broadcasts with pagination
-    const skip = (Number(page) - 1) * Number(limit);
-    
-    const [broadcasts, totalCount] = await safePrismaQuery(async (client) => {
-      return await Promise.all([
-        client.broadcast.findMany({
-          where,
-          skip,
-          take: Number(limit),
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            title: true,
-            subject: true,
-            channels: true,
-            scheduledFor: true,
-            sentAt: true,
-            status: true,
-            createdAt: true,
-            updatedAt: true,
-            _count: {
-              select: {
-                emails: true
-              }
-            }
-          }
-        }),
-        client.broadcast.count({ where })
-      ]);
-    });
-
-    // Get summary statistics
-    const stats = await safePrismaQuery(async (client) => {
-      const [totalBroadcasts, sentBroadcasts, scheduledBroadcasts, drafts] = await Promise.all([
-        client.broadcast.count({ where: { createdBy: userId } }),
-        client.broadcast.count({ where: { createdBy: userId, status: 'sent' } }),
-        client.broadcast.count({ where: { createdBy: userId, status: 'scheduled' } }),
-        client.broadcast.count({ where: { createdBy: userId, status: 'draft' } })
-      ]);
-
-      return { totalBroadcasts, sentBroadcasts, scheduledBroadcasts, drafts };
-    });
-
-    res.json({
-      success: true,
-      data: {
-        broadcasts,
-        stats,
-        pagination: {
-          page: Number(page),
-          limit: Number(limit),
-          total: totalCount,
-          pages: Math.ceil(totalCount / Number(limit))
-        }
-      }
-    });
-
-  } catch (error) {
-    logger.error('Error fetching broadcasts:', error);
-    throw new AppError('Failed to fetch broadcasts', 500, 'BROADCASTS_FETCH_ERROR');
-  }
-}));
-
 // Get email logs
 router.get('/logs', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -465,25 +366,148 @@ router.get('/broadcasts', authenticateToken, asyncHandler(async (req: Request, r
       throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
     }
 
-    // For now, return empty array since we don't have a broadcasts table yet
-    // This can be extended when we add proper broadcast functionality
-    const broadcasts: any[] = [];
+    // Build where clause
+    const where: any = { createdBy: userId };
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { subject: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
+
+    if (type) {
+      where.channels = { has: type };
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    // Get broadcasts with pagination
+    const skip = (Number(page) - 1) * Number(limit);
+    
+    const [broadcasts, totalCount] = await safePrismaQuery(async (client) => {
+      return await Promise.all([
+        client.broadcast.findMany({
+          where,
+          skip,
+          take: Number(limit),
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            subject: true,
+            channels: true,
+            scheduledFor: true,
+            sentAt: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            _count: {
+              select: {
+                emails: true
+              }
+            }
+          }
+        }),
+        client.broadcast.count({ where })
+      ]);
+    });
+
+    // Get summary statistics
+    const stats = await safePrismaQuery(async (client) => {
+      const [totalBroadcasts, sentBroadcasts, scheduledBroadcasts, drafts] = await Promise.all([
+        client.broadcast.count({ where: { createdBy: userId } }),
+        client.broadcast.count({ where: { createdBy: userId, status: 'sent' } }),
+        client.broadcast.count({ where: { createdBy: userId, status: 'scheduled' } }),
+        client.broadcast.count({ where: { createdBy: userId, status: 'draft' } })
+      ]);
+
+      return { totalBroadcasts, sentBroadcasts, scheduledBroadcasts, drafts };
+    });
 
     res.json({
       success: true,
       data: {
         broadcasts,
+        stats,
         pagination: {
           page: Number(page),
           limit: Number(limit),
-          total: 0,
-          pages: 0
+          total: totalCount,
+          pages: Math.ceil(totalCount / Number(limit))
         }
       }
     });
+
   } catch (error) {
     logger.error('Error fetching broadcasts:', error);
-    throw error;
+    throw new AppError('Failed to fetch broadcasts', 500, 'BROADCASTS_FETCH_ERROR');
+  }
+}));
+
+// Create broadcast
+router.post('/broadcasts', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const {
+    title,
+    subject,
+    bodyHtml,
+    bodyText,
+    audienceQuery,
+    channels,
+    scheduledFor
+  } = req.body;
+
+  try {
+    // Check if user has business access
+    const userInfo = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { role: true, businessName: true, isActive: true }
+      });
+    });
+
+    if (!userInfo || (!userInfo.businessName && userInfo.role !== 'business' && userInfo.role !== 'admin')) {
+      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
+    }
+
+    const broadcast = await safePrismaQuery(async (client) => {
+      return await client.broadcast.create({
+        data: {
+          title,
+          subject,
+          bodyHtml,
+          bodyText,
+          audienceQuery: audienceQuery || { type: 'all' },
+          channels: channels || ['email'],
+          scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+          status: scheduledFor ? 'scheduled' : 'draft',
+          createdBy: userId
+        },
+        include: {
+          creator: {
+            select: { firstName: true, lastName: true, email: true }
+          }
+        }
+      });
+    });
+
+    logger.info('Broadcast created', {
+      broadcastId: broadcast.id,
+      title: broadcast.title,
+      createdBy: userId
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Broadcast created successfully',
+      data: broadcast
+    });
+  } catch (error) {
+    logger.error('Error creating broadcast:', error);
+    throw new AppError('Failed to create broadcast', 500, 'BROADCAST_CREATE_ERROR');
   }
 }));
 

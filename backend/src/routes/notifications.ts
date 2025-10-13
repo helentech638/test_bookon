@@ -1,13 +1,29 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
-import { prisma, safePrismaQuery } from '../utils/prisma';
+import { safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
+// Rate limiting for notification count endpoint
+const notificationCountLimit = rateLimit({
+  windowMs: 15 * 1000, // 15 seconds
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: {
+    success: false,
+    error: {
+      message: 'Too many requests for notification count',
+      code: 'RATE_LIMIT_EXCEEDED'
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Get notification count
-router.get('/count', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+router.get('/count', notificationCountLimit, authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
     

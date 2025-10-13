@@ -220,14 +220,16 @@ router.post('/', authenticateToken, requireRole(['admin']), asyncHandler(async (
         data: {
           name,
           type,
-          years,
+          years: years || 'All Ages', // Provide default value if not provided
           description,
-          defaultPrice: parseFloat(defaultPrice),
-          defaultCapacity: parseInt(defaultCapacity),
-          requiresPhotoConsent,
-          requiresMedicalReminder,
+          defaultPrice: defaultPrice ? parseFloat(defaultPrice) : null,
+          defaultCapacity: defaultCapacity ? parseInt(defaultCapacity) : null,
+          flags: {
+            requiresPhotoConsent,
+            requiresMedicalReminder
+          },
           tags,
-          image,
+          imageUrl: image,
           createdBy: userId
         },
         include: {
@@ -251,6 +253,73 @@ router.post('/', authenticateToken, requireRole(['admin']), asyncHandler(async (
     });
   } catch (error) {
     logger.error('Error creating template:', error);
+    throw error;
+  }
+}));
+
+// Create template (Business users)
+router.post('/business', authenticateToken, requireRole(['business', 'admin']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      name,
+      type,
+      years,
+      description,
+      defaultPrice,
+      defaultCapacity,
+      requiresPhotoConsent = false,
+      requiresMedicalReminder = false,
+      tags = [],
+      image
+    } = req.body;
+    
+    logger.info('Creating business template', { 
+      user: req.user?.email,
+      name,
+      type,
+      userId 
+    });
+
+    const template = await safePrismaQuery(async (client) => {
+      return await client.template.create({
+        data: {
+          name,
+          type,
+          years: years || 'All Ages', // Provide default value if not provided
+          description,
+          defaultPrice: defaultPrice ? parseFloat(defaultPrice) : null,
+          defaultCapacity: defaultCapacity ? parseInt(defaultCapacity) : null,
+          flags: {
+            requiresPhotoConsent,
+            requiresMedicalReminder
+          },
+          tags,
+          imageUrl: image,
+          createdBy: userId
+        },
+        include: {
+          creator: {
+            select: {
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
+    });
+
+    logger.info('Business template created successfully', { 
+      templateId: template.id, 
+      userId 
+    });
+
+    res.status(201).json({
+      success: true,
+      data: template
+    });
+  } catch (error) {
+    logger.error('Error creating business template:', error);
     throw error;
   }
 }));
@@ -281,12 +350,33 @@ router.put('/:id', authenticateToken, requireRole(['admin']), asyncHandler(async
         throw new AppError('Template not found', 404, 'TEMPLATE_NOT_FOUND');
       }
 
+      // Process the update data to ensure proper types
+      const processedData: any = {
+        name: updateData.name,
+        type: updateData.type,
+        years: updateData.years,
+        description: updateData.description,
+        defaultPrice: updateData.defaultPrice ? parseFloat(updateData.defaultPrice) : null,
+        defaultCapacity: updateData.defaultCapacity ? parseInt(updateData.defaultCapacity) : null,
+        flags: updateData.flags || updateData.requiresPhotoConsent !== undefined ? {
+          requiresPhotoConsent: updateData.requiresPhotoConsent || updateData.flags?.requiresPhotoConsent || false,
+          requiresMedicalReminder: updateData.requiresMedicalReminder || updateData.flags?.requiresMedicalReminder || false
+        } : undefined,
+        tags: updateData.tags || [],
+        imageUrl: updateData.imageUrl || updateData.image,
+        updatedAt: new Date()
+      };
+
+      // Remove undefined values
+      Object.keys(processedData).forEach(key => {
+        if (processedData[key] === undefined) {
+          delete processedData[key];
+        }
+      });
+
       return await client.template.update({
         where: { id: id },
-        data: {
-          ...updateData,
-          updatedAt: new Date()
-        },
+        data: processedData,
         include: {
           creator: {
             select: {
@@ -331,8 +421,7 @@ router.patch('/:id/archive', authenticateToken, requireRole(['admin']), asyncHan
           createdBy: userId
         },
         data: {
-          isArchived: true,
-          isActive: false,
+          status: 'archived',
           updatedAt: new Date()
         }
       });
@@ -371,8 +460,7 @@ router.patch('/:id/unarchive', authenticateToken, asyncHandler(async (req: Reque
           createdBy: userId
         },
         data: {
-          isArchived: false,
-          isActive: true,
+          status: 'active',
           updatedAt: new Date()
         }
       });
@@ -476,8 +564,7 @@ router.post('/:id/create-activity', authenticateToken, asyncHandler(async (req: 
         where: {
           id: id,
           createdBy: userId,
-          isActive: true,
-          isArchived: false
+          status: 'active'
         }
       });
 
@@ -491,18 +578,23 @@ router.post('/:id/create-activity', authenticateToken, asyncHandler(async (req: 
         const activity = await client.activity.create({
           data: {
             title: name || templateData.name,
+            type: templateData.type || 'activity', // Add type field from template
             description: description || templateData.description,
-            venueId: venueId,
-            createdBy: userId,
-            templateId: id,
+            venue: {
+              connect: { id: venueId }
+            },
+            owner: {
+              connect: { id: userId }
+            },
+            creator: {
+              connect: { id: userId }
+            },
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             startTime: startTime,
             endTime: endTime,
             price: parseFloat(price || templateData.defaultPrice),
             capacity: parseInt(capacity || templateData.defaultCapacity),
-            requiresPhotoConsent: templateData.requiresPhotoConsent,
-            requiresMedicalReminder: templateData.requiresMedicalReminder,
             isActive: true
           },
           include: {

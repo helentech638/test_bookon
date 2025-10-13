@@ -169,6 +169,381 @@ class EmailService {
     }
   }
 
+  /**
+   * Send TFC payment instructions email
+   */
+  async sendTFCInstructions(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    venueName: string;
+    paymentReference: string;
+    deadline: Date;
+    amount: number;
+    tfcConfig: any;
+  }): Promise<string | null> {
+    try {
+      const deadlineStr = data.deadline.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #0F2230; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Tax-Free Childcare Payment Instructions</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear ${data.parentName},</p>
+            
+            <p>Thank you for booking <strong>${data.activityName}</strong> for ${data.childName} at ${data.venueName}.</p>
+            
+            <div style="background: #e8f5e8; border-left: 4px solid #2C8F7A; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #2C8F7A; margin-top: 0;">Payment Instructions</h3>
+              <p><strong>Amount:</strong> £${data.amount.toFixed(2)}</p>
+              <p><strong>Payment Reference:</strong> <code style="background: #f0f0f0; padding: 4px 8px; border-radius: 4px;">${data.paymentReference}</code></p>
+              <p><strong>Deadline:</strong> ${deadlineStr}</p>
+            </div>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0;">
+              <h4 style="color: #856404; margin-top: 0;">Important:</h4>
+              <p style="color: #856404; margin: 0;">Your booking is reserved but not confirmed until payment is received. Please make your Tax-Free Childcare payment by the deadline to secure your place.</p>
+            </div>
+            
+            <p>If you have any questions, please contact us.</p>
+            
+            <p>Best regards,<br>The BookOn Team</p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject: `Tax-Free Childcare Payment Instructions - ${data.paymentReference}`,
+        html
+      });
+    } catch (error) {
+      logger.error('Error sending TFC instructions email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send TFC payment confirmation email
+   */
+  async sendTFCPaymentConfirmation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    venueName: string;
+    amount: number;
+    paymentReference: string;
+  }): Promise<string | null> {
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #2C8F7A; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Payment Confirmed! 🎉</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear ${data.parentName},</p>
+            
+            <p>Great news! Your Tax-Free Childcare payment has been confirmed for <strong>${data.activityName}</strong>.</p>
+            
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 4px; margin: 20px 0;">
+              <h3 style="color: #155724; margin-top: 0;">Booking Confirmed</h3>
+              <p><strong>Child:</strong> ${data.childName}</p>
+              <p><strong>Activity:</strong> ${data.activityName}</p>
+              <p><strong>Venue:</strong> ${data.venueName}</p>
+              <p><strong>Amount Paid:</strong> £${data.amount.toFixed(2)}</p>
+              <p><strong>Payment Reference:</strong> ${data.paymentReference}</p>
+            </div>
+            
+            <p>Your booking is now confirmed and your child's place is secured!</p>
+            
+            <p>Best regards,<br>The BookOn Team</p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject: `Payment Confirmed - ${data.activityName}`,
+        html
+      });
+    } catch (error) {
+      logger.error('Error sending TFC confirmation email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send credit issued email
+   */
+  async sendCreditIssued(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    amount: number;
+    creditAmount: number;
+    reason: string;
+  }): Promise<string | null> {
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #0F2230; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Credit Added to Your Account</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear ${data.parentName},</p>
+            
+            <p>We've added credit to your BookOn account following the cancellation of <strong>${data.activityName}</strong> for ${data.childName}.</p>
+            
+            <div style="background: #e8f5e8; border-left: 4px solid #2C8F7A; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #2C8F7A; margin-top: 0;">Credit Details</h3>
+              <p><strong>Original Amount:</strong> £${data.amount.toFixed(2)}</p>
+              <p><strong>Credit Amount:</strong> £${data.creditAmount.toFixed(2)}</p>
+              <p><strong>Reason:</strong> ${data.reason}</p>
+            </div>
+            
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 4px; margin: 20px 0;">
+              <h4 style="color: #856404; margin-top: 0;">How to Use Your Credit:</h4>
+              <p style="color: #856404; margin: 0;">Your credit will be automatically applied at checkout for future bookings. You can also choose to use it manually when booking activities.</p>
+            </div>
+            
+            <p>Best regards,<br>The BookOn Team</p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject: `Credit Added - £${data.creditAmount.toFixed(2)}`,
+        html
+      });
+    } catch (error) {
+      logger.error('Error sending credit issued email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send TFC cancellation email
+   */
+  async sendTFCCancellation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    paymentReference: string;
+  }): Promise<string | null> {
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Booking Cancelled</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear ${data.parentName},</p>
+            
+            <p>We're sorry to inform you that your Tax-Free Childcare booking for <strong>${data.activityName}</strong> has been cancelled.</p>
+            
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 20px; border-radius: 4px; margin: 20px 0;">
+              <h3 style="color: #721c24; margin-top: 0;">Cancelled Booking</h3>
+              <p><strong>Child:</strong> ${data.childName}</p>
+              <p><strong>Activity:</strong> ${data.activityName}</p>
+              <p><strong>Payment Reference:</strong> ${data.paymentReference}</p>
+            </div>
+            
+            <p>If you have any questions, please contact us.</p>
+            
+            <p>Best regards,<br>The BookOn Team</p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject: `Booking Cancelled - ${data.activityName}`,
+        html
+      });
+    } catch (error) {
+      logger.error('Error sending TFC cancellation email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send booking confirmation email
+   */
+  async sendBookingConfirmation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    venueName: string;
+    amount: number;
+    paymentReference: string;
+  }): Promise<string | null> {
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #2C8F7A; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Booking Confirmed! 🎉</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear ${data.parentName},</p>
+            
+            <p>Great news! Your booking has been confirmed for <strong>${data.activityName}</strong>.</p>
+            
+            <div style="background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 4px; margin: 20px 0;">
+              <h3 style="color: #155724; margin-top: 0;">Booking Details</h3>
+              <p><strong>Child:</strong> ${data.childName}</p>
+              <p><strong>Activity:</strong> ${data.activityName}</p>
+              <p><strong>Venue:</strong> ${data.venueName}</p>
+              <p><strong>Amount Paid:</strong> £${data.amount.toFixed(2)}</p>
+              <p><strong>Payment Reference:</strong> ${data.paymentReference}</p>
+            </div>
+            
+            <p>Your child's place is now secured!</p>
+            
+            <p>Best regards,<br>The BookOn Team</p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject: `Booking Confirmed - ${data.activityName}`,
+        html
+      });
+    } catch (error) {
+      logger.error('Error sending booking confirmation email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send booking cancellation email
+   */
+  async sendBookingCancellation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    venueName: string;
+    amount: number;
+    paymentReference: string;
+  }): Promise<string | null> {
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Booking Cancelled</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear ${data.parentName},</p>
+            
+            <p>We're sorry to inform you that your booking for <strong>${data.activityName}</strong> has been cancelled.</p>
+            
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 20px; border-radius: 4px; margin: 20px 0;">
+              <h3 style="color: #721c24; margin-top: 0;">Cancelled Booking</h3>
+              <p><strong>Child:</strong> ${data.childName}</p>
+              <p><strong>Activity:</strong> ${data.activityName}</p>
+              <p><strong>Venue:</strong> ${data.venueName}</p>
+              <p><strong>Amount:</strong> £${data.amount.toFixed(2)}</p>
+              <p><strong>Payment Reference:</strong> ${data.paymentReference}</p>
+            </div>
+            
+            <p>If you have any questions, please contact us.</p>
+            
+            <p>Best regards,<br>The BookOn Team</p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject: `Booking Cancelled - ${data.activityName}`,
+        html
+      });
+    } catch (error) {
+      logger.error('Error sending booking cancellation email:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Send cancellation confirmation email
+   */
+  async sendCancellationConfirmation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    venueName: string;
+    amount: number;
+    refundAmount: number;
+    refundMethod: string;
+  }): Promise<string | null> {
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #dc3545; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+            <h1 style="margin: 0; font-size: 24px;">Booking Cancelled</h1>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 8px 8px;">
+            <p>Dear ${data.parentName},</p>
+            
+            <p>We're sorry to inform you that your booking for <strong>${data.activityName}</strong> has been cancelled.</p>
+            
+            <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 20px; border-radius: 4px; margin: 20px 0;">
+              <h3 style="color: #721c24; margin-top: 0;">Cancelled Booking</h3>
+              <p><strong>Child:</strong> ${data.childName}</p>
+              <p><strong>Activity:</strong> ${data.activityName}</p>
+              <p><strong>Venue:</strong> ${data.venueName}</p>
+              <p><strong>Original Amount:</strong> £${data.amount.toFixed(2)}</p>
+              <p><strong>Refund Amount:</strong> £${data.refundAmount.toFixed(2)}</p>
+              <p><strong>Refund Method:</strong> ${data.refundMethod}</p>
+            </div>
+            
+            <p>If you have any questions, please contact us.</p>
+            
+            <p>Best regards,<br>The BookOn Team</p>
+          </div>
+        </div>
+      `;
+
+      return await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject: `Booking Cancelled - ${data.activityName}`,
+        html
+      });
+    } catch (error) {
+      logger.error('Error sending cancellation confirmation email:', error);
+      return null;
+    }
+  }
+
   private mapEventType(sendGridEventType: string): string {
     const eventTypeMap: Record<string, string> = {
       'processed': 'sent',

@@ -259,21 +259,14 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
   const userId = req.user!.id;
   const { name, title, type, venueId, startDate, endDate, startTime, endTime, capacity, price, description, imageUrls, sessionBlocks, yearGroups, ageRange, whatToBring, earlyDropoff, earlyDropoffPrice, earlyDropoffStartTime, earlyDropoffEndTime, latePickup, latePickupPrice, latePickupStartTime, latePickupEndTime, excludeDates, siblingDiscount, bulkDiscount, weeklyDiscount, customTimeSlots, daysOfWeek, durationWeeks, regularDay, regularTime, courseExcludeDates } = req.body;
   
-  // Log received data for debugging
-  logger.info('Creating business activity', { 
-    userId, 
-    name, 
+  logger.info('Creating business activity', {
+    userId,
+    name,
     title,
-    type, 
-    venueId, 
+    type,
+    venueId,
     hasSessionBlocks: !!sessionBlocks,
-    sessionBlocksCount: sessionBlocks?.length || 0,
-    // Course/Program specific fields
-    daysOfWeek: daysOfWeek,
-    durationWeeks: durationWeeks,
-    regularDay: regularDay,
-    regularTime: regularTime,
-    courseExcludeDates: courseExcludeDates
+    sessionBlocksCount: sessionBlocks?.length || 0
   });
   
   try {
@@ -366,11 +359,12 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           isWraparoundCare: type === 'wraparound_care' || false,
           yearGroups: yearGroups || [],
           // Course/Program specific fields
+          daysOfWeek: daysOfWeek || [],
           durationWeeks: durationWeeks || null,
           regularDay: regularDay || null,
           regularTime: regularTime || null,
           courseExcludeDates: courseExcludeDates || []
-        } as any,
+        },
         include: {
           venue: {
             select: { id: true, name: true }
@@ -550,7 +544,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           id: activity.id,
           name: activity.title,
           type: activity.type,
-          venue: (activity as any).venue?.name || 'Unknown Venue',
+          venue: activity.venue.name,
           startDate: activity.startDate,
           endDate: activity.endDate,
           capacity: activity.capacity,
@@ -591,28 +585,27 @@ router.patch('/fix-course-durations', authenticateToken, asyncHandler(async (req
         where: {
           type: 'course/program',
           durationWeeks: null
-        } as any,
+        },
         select: {
           id: true,
           startDate: true,
           endDate: true,
           daysOfWeek: true,
           courseExcludeDates: true
-        } as any
+        }
       });
     });
 
     let updatedCount = 0;
 
     for (const activity of activities) {
-      const activityData = activity as any;
-      if (activityData.startDate && activityData.endDate && activityData.daysOfWeek && activityData.daysOfWeek.length > 0) {
-        const startDate = new Date(activityData.startDate);
-        const endDate = new Date(activityData.endDate);
+      if (activity.startDate && activity.endDate && activity.daysOfWeek && activity.daysOfWeek.length > 0) {
+        const startDate = new Date(activity.startDate);
+        const endDate = new Date(activity.endDate);
         let totalSessions = 0;
         
         // Calculate sessions for each selected day
-        activityData.daysOfWeek.forEach((dayName: string) => {
+        activity.daysOfWeek.forEach((dayName: string) => {
           const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
           const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(capitalizedDayName);
           
@@ -632,7 +625,7 @@ router.patch('/fix-course-durations', authenticateToken, asyncHandler(async (req
             while (currentSessionDate <= endDate) {
               const dateString = currentSessionDate.toISOString().split('T')[0];
               // Only count if not excluded
-              if (dateString && !activityData.courseExcludeDates?.includes(dateString)) {
+              if (!activity.courseExcludeDates.includes(dateString)) {
                 totalSessions++;
               }
               currentSessionDate.setDate(currentSessionDate.getDate() + 7);
@@ -644,8 +637,8 @@ router.patch('/fix-course-durations', authenticateToken, asyncHandler(async (req
         if (totalSessions > 0) {
           await safePrismaQuery(async (client) => {
             return await client.activity.update({
-              where: { id: activityData.id as string },
-              data: { durationWeeks: totalSessions } as any
+              where: { id: activity.id },
+              data: { durationWeeks: totalSessions }
             });
           });
           updatedCount++;
