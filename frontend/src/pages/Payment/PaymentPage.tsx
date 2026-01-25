@@ -16,6 +16,10 @@ interface PaymentData {
   finalAmount: number;
   promoCode?: string;
   creditId?: string;
+  // Stripe-specific data
+  paymentIntentId?: string;
+  clientSecret?: string;
+  bookingIds?: string[];
 }
 
 interface Activity {
@@ -173,7 +177,7 @@ const PaymentPage: React.FC = () => {
         <PaymentForm
           amount={paymentData.finalAmount}
           currency="GBP"
-          bookingId={paymentData.activityId} // Use activity ID for TFC booking creation
+          bookingId={paymentData.bookingIds?.[0] || paymentData.activityId} // Use first booking ID if available, fallback to activity ID
           childId={paymentData.childId}
           venueId={activity.venue.id}
           activityName={activity.title}

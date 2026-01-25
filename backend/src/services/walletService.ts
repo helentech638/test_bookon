@@ -13,7 +13,7 @@ export interface WalletCredit {
   expiryDate: Date;
   source: string;
   status: string;
-  description?: string;
+  description?: string | null;
   createdAt: Date;
   updatedAt: Date;
   usedAt?: Date;

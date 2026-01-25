@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { PlusIcon, PencilIcon, TrashIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, UserGroupIcon, PhotoIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
@@ -29,9 +30,9 @@ interface Child {
 }
 
 const ChildrenPage: React.FC = () => {
+  const navigate = useNavigate();
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
@@ -40,9 +41,13 @@ const ChildrenPage: React.FC = () => {
     lastName: '',
     dateOfBirth: '',
     yearGroup: '',
+    class: '',
     school: '',
     allergies: '',
     medicalInfo: '',
+    permissions: '',
+    medicalConsent: false,
+    photoConsent: false,
     emergencyContactName: '',
     emergencyContactPhone: '',
     emergencyContactRelationship: ''
@@ -51,6 +56,10 @@ const ChildrenPage: React.FC = () => {
   const yearGroups = [
     'Reception', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6',
     'Year 7', 'Year 8', 'Year 9', 'Year 10', 'Year 11', 'Year 12', 'Year 13'
+  ];
+
+  const classOptions = [
+    'Class A', 'Class B', 'Class C', 'Class D', 'Class E', 'Class F'
   ];
 
   useEffect(() => {
@@ -72,35 +81,6 @@ const ChildrenPage: React.FC = () => {
     }
   };
 
-  const handleAddChild = async () => {
-    try {
-      const childData = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        dateOfBirth: formData.dateOfBirth,
-        yearGroup: formData.yearGroup,
-        school: formData.school,
-        allergies: formData.allergies || null,
-        medicalInfo: formData.medicalInfo || null,
-        emergencyContact: formData.emergencyContactName ? {
-          name: formData.emergencyContactName,
-          phone: formData.emergencyContactPhone,
-          relationship: formData.emergencyContactRelationship
-        } : null
-      };
-
-      const response = await childrenService.createChild(childData);
-      if (response.success) {
-        toast.success('Child added successfully');
-        setShowAddModal(false);
-        resetForm();
-        fetchChildren();
-      }
-    } catch (error) {
-      toast.error('Failed to add child');
-      console.error('Error adding child:', error);
-    }
-  };
 
   const handleEditChild = async () => {
     if (!selectedChild) return;
@@ -111,9 +91,13 @@ const ChildrenPage: React.FC = () => {
         lastName: formData.lastName,
         dateOfBirth: formData.dateOfBirth,
         yearGroup: formData.yearGroup,
+        class: formData.class,
         school: formData.school,
         allergies: formData.allergies || null,
         medicalInfo: formData.medicalInfo || null,
+        permissions: formData.permissions || null,
+        medicalConsent: formData.medicalConsent,
+        photoConsent: formData.photoConsent,
         emergencyContact: formData.emergencyContactName ? {
           name: formData.emergencyContactName,
           phone: formData.emergencyContactPhone,
@@ -157,9 +141,13 @@ const ChildrenPage: React.FC = () => {
       lastName: child.lastName,
       dateOfBirth: child.dateOfBirth,
       yearGroup: child.yearGroup,
+      class: (child as any).class || '',
       school: child.school || '',
       allergies: child.allergies || '',
       medicalInfo: child.medicalInfo || '',
+      permissions: (child as any).permissions || '',
+      medicalConsent: (child as any).medicalConsent || false,
+      photoConsent: (child as any).photoConsent || false,
       emergencyContactName: child.emergencyContact?.name || '',
       emergencyContactPhone: child.emergencyContact?.phone || '',
       emergencyContactRelationship: child.emergencyContact?.relationship || ''
@@ -178,9 +166,13 @@ const ChildrenPage: React.FC = () => {
       lastName: '',
       dateOfBirth: '',
       yearGroup: '',
+      class: '',
       school: '',
       allergies: '',
       medicalInfo: '',
+      permissions: '',
+      medicalConsent: false,
+      photoConsent: false,
       emergencyContactName: '',
       emergencyContactPhone: '',
       emergencyContactRelationship: ''
@@ -209,7 +201,7 @@ const ChildrenPage: React.FC = () => {
       {/* Add Child Button */}
       <div className="mb-6">
         <Button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => navigate('/children/new')}
           className="bg-[#00806a] hover:bg-[#006d5a] text-white"
         >
           <PlusIcon className="h-5 w-5 mr-2" />
@@ -225,7 +217,7 @@ const ChildrenPage: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-2">No children added yet</h3>
             <p className="text-gray-500 mb-4">Add your children to start booking activities</p>
             <Button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => navigate('/children/new')}
               className="bg-[#00806a] hover:bg-[#006d5a] text-white"
             >
               <PlusIcon className="h-5 w-5 mr-2" />
@@ -303,110 +295,6 @@ const ChildrenPage: React.FC = () => {
         </div>
       )}
 
-      {/* Add Child Modal */}
-      <Modal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Add New Child"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="First Name"
-              value={formData.firstName}
-              onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-              required
-            />
-            <Input
-              label="Last Name"
-              value={formData.lastName}
-              onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              required
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Date of Birth"
-              type="date"
-              value={formData.dateOfBirth}
-              onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-              required
-            />
-            <Select
-              label="Year Group"
-              value={formData.yearGroup}
-              onChange={(e) => setFormData({ ...formData, yearGroup: e.target.value })}
-              required
-            >
-              <option value="">Select Year Group</option>
-              {yearGroups.map((year) => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </Select>
-            <Input
-              label="School *"
-              type="text"
-              value={formData.school}
-              onChange={(e) => setFormData({ ...formData, school: e.target.value })}
-              placeholder="Enter school name"
-              required
-            />
-          </div>
-          
-          <Textarea
-            label="Allergies (optional)"
-            value={formData.allergies}
-            onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
-            placeholder="Any allergies or dietary restrictions..."
-          />
-          
-          <Textarea
-            label="Medical Information (optional)"
-            value={formData.medicalInfo}
-            onChange={(e) => setFormData({ ...formData, medicalInfo: e.target.value })}
-            placeholder="Any medical conditions or special needs..."
-          />
-          
-          <div className="border-t pt-4">
-            <h4 className="font-medium text-gray-900 mb-3">Emergency Contact</h4>
-            <div className="grid grid-cols-3 gap-4">
-              <Input
-                label="Name"
-                value={formData.emergencyContactName}
-                onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
-              />
-              <Input
-                label="Phone"
-                value={formData.emergencyContactPhone}
-                onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
-              />
-              <Input
-                label="Relationship"
-                value={formData.emergencyContactRelationship}
-                onChange={(e) => setFormData({ ...formData, emergencyContactRelationship: e.target.value })}
-                placeholder="e.g., Parent, Guardian"
-              />
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex justify-end space-x-3 mt-6">
-          <Button
-            variant="outline"
-            onClick={() => setShowAddModal(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleAddChild}
-            className="bg-[#00806a] hover:bg-[#006d5a] text-white"
-          >
-            Add Child
-          </Button>
-        </div>
-      </Modal>
-
       {/* Edit Child Modal */}
       <Modal
         isOpen={showEditModal}
@@ -448,6 +336,16 @@ const ChildrenPage: React.FC = () => {
                 <option key={year} value={year}>{year}</option>
               ))}
             </Select>
+            <Select
+              label="Class"
+              value={formData.class}
+              onChange={(e) => setFormData({ ...formData, class: e.target.value })}
+            >
+              <option value="">Select Class</option>
+              {classOptions.map((classOption) => (
+                <option key={classOption} value={classOption}>{classOption}</option>
+              ))}
+            </Select>
             <Input
               label="School *"
               type="text"
@@ -471,6 +369,46 @@ const ChildrenPage: React.FC = () => {
             onChange={(e) => setFormData({ ...formData, medicalInfo: e.target.value })}
             placeholder="Any medical conditions or special needs..."
           />
+          
+          <Textarea
+            label="Permissions (optional)"
+            value={formData.permissions}
+            onChange={(e) => setFormData({ ...formData, permissions: e.target.value })}
+            placeholder="Any special permissions or notes..."
+          />
+          
+          {/* Consent Checkboxes */}
+          <div className="border-t pt-4">
+            <h4 className="font-medium text-gray-900 mb-3">Consent & Permissions</h4>
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="editMedicalConsent"
+                  checked={formData.medicalConsent}
+                  onChange={(e) => setFormData({ ...formData, medicalConsent: e.target.checked })}
+                  className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                />
+                <label htmlFor="editMedicalConsent" className="ml-3 flex items-center">
+                  <ExclamationTriangleIcon className="h-4 w-4 mr-2 text-orange-500" />
+                  <span className="text-sm font-medium text-gray-700">Medical Consent</span>
+                </label>
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="editPhotoConsent"
+                  checked={formData.photoConsent}
+                  onChange={(e) => setFormData({ ...formData, photoConsent: e.target.checked })}
+                  className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                />
+                <label htmlFor="editPhotoConsent" className="ml-3 flex items-center">
+                  <PhotoIcon className="h-4 w-4 mr-2 text-blue-500" />
+                  <span className="text-sm font-medium text-gray-700">Photo Consent</span>
+                </label>
+              </div>
+            </div>
+          </div>
           
           <div className="border-t pt-4">
             <h4 className="font-medium text-gray-900 mb-3">Emergency Contact</h4>

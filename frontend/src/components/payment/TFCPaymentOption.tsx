@@ -46,8 +46,8 @@ const TFCPaymentOption: React.FC<TFCPaymentOptionProps> = ({
     setLoading(true);
     try {
       // Fetch TFC configuration for this venue
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/v1/tfc/config/${venueId}`, {
+      const token = localStorage.getItem('bookon_token');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/config/${venueId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

@@ -15,6 +15,11 @@ export const useNotifications = () => {
       const count = await notificationService.getNotificationCount();
       setNotificationCount(count);
     } catch (err) {
+      // Don't set error for 429 (rate limit) errors to avoid UI disruption
+      if (err instanceof Error && err.message.includes('429')) {
+        console.warn('Notification count request rate limited, will retry later');
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Failed to fetch notification count');
       console.error('Error fetching notification count:', err);
     }
@@ -58,7 +63,7 @@ export const useNotifications = () => {
     }
   }, [fetchNotificationCount]);
 
-  // Auto-refresh notification count every 30 seconds (only for authenticated users)
+  // Auto-refresh notification count every 60 seconds (only for authenticated users)
   useEffect(() => {
     // Only fetch notifications if user is authenticated
     if (authService.isAuthenticated()) {
@@ -66,7 +71,7 @@ export const useNotifications = () => {
       
       const interval = setInterval(() => {
         fetchNotificationCount();
-      }, 30000); // 30 seconds
+      }, 300000); // 5 minutes (reduced frequency to prevent 429 errors)
 
       return () => clearInterval(interval);
     }

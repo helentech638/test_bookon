@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import BusinessLayout from '../../components/layout/BusinessLayout';
 import { Card } from '../../components/ui/Card';
@@ -12,8 +13,10 @@ import {
   MagnifyingGlassIcon,
   UserGroupIcon,
   CalendarDaysIcon,
-  ClockIcon
+  ClockIcon,
+  MapPinIcon
 } from '@heroicons/react/24/outline';
+import GeneralCreateRegisterModal from '../../components/registers/GeneralCreateRegisterModal';
 import toast from 'react-hot-toast';
 import authService from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
@@ -33,10 +36,12 @@ interface Register {
 
 const RegistersPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [registers, setRegisters] = useState<Register[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     fetchRegisters();
@@ -77,9 +82,9 @@ const RegistersPage: React.FC = () => {
           venueName: register.session?.activity?.venue?.name || 'Unknown Venue',
           date: register.session?.date || register.createdAt,
           time: register.session?.startTime || 'Unknown Time',
-          instructor: register.session?.activity?.instructor || 'TBD',
-          totalCapacity: register.session?.activity?.capacity || 0,
-          registeredCount: register.attendees?.length || 0,
+          instructor: register.session?.activity?.type || 'N/A',
+          totalCapacity: register.totalCapacity || 0, // Use transformed value from backend
+          registeredCount: register.registeredCount || 0, // Use transformed value from backend
           status: register.status || 'upcoming',
           createdAt: register.createdAt
         }));
@@ -112,24 +117,55 @@ const RegistersPage: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'upcoming':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-[#00806a]/10 text-[#00806a] border border-[#00806a]/30';
       case 'in-progress':
-        return 'bg-green-100 text-green-800';
+        return 'bg-emerald-100 text-emerald-700 border border-emerald-300';
       case 'completed':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-700 border border-gray-300';
       case 'cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-700 border border-red-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-700 border border-gray-300';
     }
+  };
+
+  const handleRegisterCreated = () => {
+    // Refresh the registers list
+    fetchRegisters();
+  };
+
+  const handleViewRegister = (registerId: string) => {
+    navigate(`/business/registers/${registerId}`);
+  };
+
+  const handleEditRegister = (registerId: string) => {
+    navigate(`/business/registers/${registerId}/edit`);
   };
 
   const handleDeleteRegister = async (registerId: string) => {
     if (window.confirm('Are you sure you want to delete this register?')) {
       try {
-        // Mock delete - replace with actual API call
-        setRegisters(prev => prev.filter(r => r.id !== registerId));
-        toast.success('Register deleted successfully');
+        const token = authService.getToken();
+        if (!token) {
+          toast.error('Please log in to delete register');
+          return;
+        }
+
+        const response = await fetch(buildApiUrl(`/business/registers/${registerId}`), {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          setRegisters(prev => prev.filter(r => r.id !== registerId));
+          toast.success('Register deleted successfully');
+        } else {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to delete register');
+        }
       } catch (error) {
         console.error('Error deleting register:', error);
         toast.error('Failed to delete register');
@@ -142,14 +178,40 @@ const RegistersPage: React.FC = () => {
       <BusinessLayout user={user}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded w-64 mb-6"></div>
-            <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="bg-white p-6 rounded-lg shadow">
-                  <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-300 rounded w-1/2 mb-4"></div>
-                  <div className="h-3 bg-gray-300 rounded w-full mb-2"></div>
-                  <div className="h-3 bg-gray-300 rounded w-2/3"></div>
+            {/* Header Skeleton */}
+            <div className="mb-6">
+              <div className="h-8 bg-gray-200 rounded-lg w-64 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-96"></div>
+            </div>
+            
+            {/* Stats Skeleton */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-white rounded-lg p-6 border border-gray-200">
+                  <div className="h-12 bg-gray-200 rounded-lg mb-3"></div>
+                  <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Filters Skeleton */}
+            <div className="bg-white p-6 rounded-lg mb-6 border border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="h-12 bg-gray-200 rounded-lg"></div>
+                <div className="h-12 bg-gray-200 rounded-lg"></div>
+                <div className="h-12 bg-gray-200 rounded-lg"></div>
+              </div>
+            </div>
+            
+            {/* Square Cards Skeleton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+                  <div className="h-12 w-12 bg-gray-200 rounded-lg mb-3"></div>
+                  <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
+                  <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-2/3 mb-4"></div>
+                  <div className="h-2 bg-gray-200 rounded-full w-full"></div>
                 </div>
               ))}
             </div>
@@ -163,62 +225,67 @@ const RegistersPage: React.FC = () => {
     <BusinessLayout user={user}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Registers</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#00806a]">Registers</h1>
             <p className="text-gray-600 mt-1">Manage activity registers and attendance</p>
           </div>
           <Button 
-            className="flex items-center gap-2"
-            onClick={() => {
-              // TODO: Navigate to create register page or open modal
-              toast('Create Register functionality coming soon!');
-            }}
+            className="flex items-center gap-2 bg-[#00806a] hover:bg-[#006d5a] text-white"
+            onClick={() => setShowCreateModal(true)}
           >
             <PlusIcon className="h-5 w-5" />
-            Create Register
+            <span className="hidden sm:inline">Create Register</span>
           </Button>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <Card className="p-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+          <Card className="p-4 sm:p-6 bg-gradient-to-br from-[#00806a]/5 to-white border border-[#00806a]/20">
             <div className="flex items-center">
-              <CalendarDaysIcon className="h-8 w-8 text-blue-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Registers</p>
-                <p className="text-2xl font-bold text-gray-900">{registers.length}</p>
+              <div className="bg-[#00806a] rounded-lg p-2">
+                <CalendarDaysIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Registers</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{registers.length}</p>
               </div>
             </div>
           </Card>
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-white border border-blue-200">
             <div className="flex items-center">
-              <ClockIcon className="h-8 w-8 text-yellow-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Upcoming</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="bg-blue-500 rounded-lg p-2">
+                <ClockIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Upcoming</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {registers.filter(r => r.status === 'upcoming').length}
                 </p>
               </div>
             </div>
           </Card>
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-white border border-green-200">
             <div className="flex items-center">
-              <UserGroupIcon className="h-8 w-8 text-green-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">In Progress</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="bg-green-500 rounded-lg p-2">
+                <UserGroupIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">In Progress</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {registers.filter(r => r.status === 'in-progress').length}
                 </p>
               </div>
             </div>
           </Card>
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6 bg-gradient-to-br from-slate-50 to-white border border-slate-200">
             <div className="flex items-center">
-              <ClipboardDocumentListIcon className="h-8 w-8 text-purple-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Completed</p>
-                <p className="text-2xl font-bold text-gray-900">
+              <div className="bg-slate-500 rounded-lg p-2">
+                <ClipboardDocumentListIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Completed</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {registers.filter(r => r.status === 'completed').length}
                 </p>
               </div>
@@ -227,8 +294,8 @@ const RegistersPage: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <Card className="p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 sm:p-6 mb-6 bg-white border border-gray-200 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
               <div className="relative">
@@ -238,7 +305,7 @@ const RegistersPage: React.FC = () => {
                   placeholder="Search registers..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                  className="pl-10 w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent bg-white"
                 />
               </div>
             </div>
@@ -247,7 +314,7 @@ const RegistersPage: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent bg-white"
               >
                 <option value="all">All Status</option>
                 <option value="upcoming">Upcoming</option>
@@ -263,7 +330,7 @@ const RegistersPage: React.FC = () => {
                   setSearchTerm('');
                   setStatusFilter('all');
                 }}
-                className="w-full"
+                className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Clear Filters
               </Button>
@@ -271,83 +338,123 @@ const RegistersPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Registers List */}
-        <div className="space-y-4">
+        {/* Registers List - Square Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredRegisters.map((register) => (
-            <Card key={register.id} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-3">
-                    <ClipboardDocumentListIcon className="h-6 w-6 text-[#00806a]" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-gray-900">{register.activityName}</h3>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(register.status)}`}>
-                          {register.status.replace('-', ' ')}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span>{register.venueName}</span>
-                        <span>{register.instructor}</span>
-                        <span>{new Date(register.date).toLocaleDateString()} at {register.time}</span>
-                      </div>
-                    </div>
+            <Card 
+              key={register.id} 
+              className="p-6 hover:shadow-lg transition-all duration-300 border border-gray-200 hover:border-[#00806a]/30 group"
+            >
+              {/* Icon and Title */}
+              <div className="mb-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="bg-[#00806a] rounded-lg p-2 group-hover:scale-110 transition-transform">
+                    <ClipboardDocumentListIcon className="h-6 w-6 text-white" />
                   </div>
-
-                  <div className="flex items-center gap-6 text-sm text-gray-500">
-                    <span>{register.registeredCount} / {register.totalCapacity} registered</span>
-                    <div className="flex-1">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-[#00806a] h-2 rounded-full" 
-                          style={{ width: `${(register.registeredCount / register.totalCapacity) * 100}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                    <span>Created {new Date(register.createdAt).toLocaleDateString()}</span>
-                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusColor(register.status)}`}>
+                    {register.status.replace('-', ' ')}
+                  </span>
                 </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{register.activityName}</h3>
+              </div>
 
-                <div className="flex items-center gap-2 ml-4">
-                  <button className="p-2 text-gray-400 hover:text-gray-600">
-                    <EyeIcon className="h-4 w-4" />
-                  </button>
-                  <button className="p-2 text-gray-400 hover:text-blue-600">
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteRegister(register.id)}
-                    className="p-2 text-gray-400 hover:text-red-600"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+              {/* Details */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <MapPinIcon className="h-4 w-4 text-[#00806a]" />
+                  <span className="truncate">{register.venueName}</span>
                 </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <UserGroupIcon className="h-4 w-4 text-[#00806a]" />
+                  <span className="truncate">{register.instructor}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CalendarDaysIcon className="h-4 w-4 text-[#00806a]" />
+                  <span>{new Date(register.date).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <ClockIcon className="h-4 w-4 text-[#00806a]" />
+                  <span>{register.time}</span>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-medium text-[#00806a]">
+                    {register.registeredCount} / {register.totalCapacity} registered
+                  </span>
+                  <span className="text-gray-500">{Math.round((register.registeredCount / register.totalCapacity) * 100)}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-[#00806a] h-full rounded-full transition-all duration-500" 
+                    style={{ width: `${Math.min((register.registeredCount / register.totalCapacity) * 100, 100)}%` }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Created Date */}
+              <div className="text-xs text-gray-500 mb-4 pb-4 border-b border-gray-200">
+                Created {new Date(register.createdAt).toLocaleDateString()}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <button 
+                  onClick={() => handleViewRegister(register.id)}
+                  className="flex-1 py-2 px-3 bg-[#00806a]/10 text-[#00806a] rounded-lg hover:bg-[#00806a] hover:text-white transition-all font-medium text-sm"
+                >
+                  <EyeIcon className="h-4 w-4 inline mr-1" />
+                  View
+                </button>
+                <button 
+                  onClick={() => handleEditRegister(register.id)}
+                  className="p-2 text-gray-600 hover:text-[#00806a] transition-colors"
+                  title="Edit"
+                >
+                  <PencilIcon className="h-5 w-5" />
+                </button>
+                <button 
+                  onClick={() => handleDeleteRegister(register.id)}
+                  className="p-2 text-gray-600 hover:text-red-600 transition-colors"
+                  title="Delete"
+                >
+                  <TrashIcon className="h-5 w-5" />
+                </button>
               </div>
             </Card>
           ))}
         </div>
 
         {filteredRegisters.length === 0 && (
-          <Card className="p-12 text-center">
-            <ClipboardDocumentListIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No registers found</h3>
-            <p className="text-gray-600 mb-4">
+          <Card className="p-8 sm:p-12 text-center bg-white border-2 border-dashed border-gray-300">
+            <div className="bg-[#00806a]/10 rounded-full p-4 w-fit mx-auto mb-6">
+              <ClipboardDocumentListIcon className="h-12 w-12 text-[#00806a]" />
+            </div>
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">No registers found</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
               {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search criteria'
-                : 'Get started by creating your first register'
+                ? 'Try adjusting your search criteria or filters'
+                : 'Get started by creating your first activity register'
               }
             </p>
-            <Button
-              onClick={() => {
-                // TODO: Navigate to create register page or open modal
-                toast('Create Register functionality coming soon!');
-              }}
-            >
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-[#00806a] hover:bg-[#006d5a] text-white"
+              >
               <PlusIcon className="h-5 w-5 mr-2" />
               Create Register
             </Button>
           </Card>
         )}
+
+        {/* Create Register Modal */}
+        <GeneralCreateRegisterModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onRegisterCreated={handleRegisterCreated}
+        />
       </div>
     </BusinessLayout>
   );

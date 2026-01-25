@@ -129,14 +129,13 @@ export class StripeConnectService {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: params.amount,
         currency: params.currency,
-        customer: params.customerId || undefined,
+        ...(params.customerId && { customer: params.customerId }),
         application_fee_amount: params.applicationFeeAmount,
         transfer_data: {
           destination: params.connectedAccountId,
         },
+        on_behalf_of: params.connectedAccountId,
         metadata: params.metadata || {},
-      }, {
-        stripeAccount: params.connectedAccountId,
       });
 
       return paymentIntent;
@@ -160,7 +159,7 @@ export class StripeConnectService {
         payment_intent: params.paymentIntentId,
         amount: params.amount || undefined,
         refund_application_fee: params.refundApplicationFee ?? true,
-        reason: params.reason || undefined,
+        ...(params.reason && { reason: params.reason as Stripe.RefundCreateParams.Reason })
       });
 
       return refund;

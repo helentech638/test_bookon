@@ -263,7 +263,7 @@ const RegisterManagementPage: React.FC = () => {
                 <option value="">All Activities</option>
                 {activities.map((activity) => (
                   <option key={activity.id} value={activity.id}>
-                    {activity.title} - {activity.venue.name}
+                    {activity.title} - {activity.venue?.name || 'No Venue'}
                   </option>
                 ))}
               </select>
@@ -361,10 +361,10 @@ const RegisterManagementPage: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
-                            {register.session.activity.title}
+                            {register.session?.activity?.title || 'Unknown Activity'}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {register.session.activity.type}
+                            {register.session?.activity?.type || 'Unknown Type'}
                           </div>
                         </div>
                       </td>
@@ -374,16 +374,16 @@ const RegisterManagementPage: React.FC = () => {
                             {formatDate(register.date)}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {formatTime(register.session.startTime)} - {formatTime(register.session.endTime)}
+                            {formatTime(register.session?.startTime)} - {formatTime(register.session?.endTime)}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {register.session.activity.venue.name}
+                          {register.session?.activity?.venue?.name || 'No Venue'}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {register.session.activity.venue.address}
+                          {register.session?.activity?.venue?.address || 'No Address'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -496,7 +496,7 @@ const AttendanceModal: React.FC<AttendanceModalProps> = ({ register, onClose, on
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Attendance Register</h2>
             <p className="text-sm text-gray-600">
-              {register.session.activity.title} - {new Date(register.date).toLocaleDateString('en-GB')}
+              {register.session?.activity?.title || 'Unknown Activity'} - {new Date(register.date).toLocaleDateString('en-GB')}
             </p>
           </div>
           <button

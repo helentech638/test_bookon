@@ -49,7 +49,7 @@ const AddChildPage: React.FC = () => {
 
       const result = await response.json();
       toast.success('Child added successfully!');
-      // Navigate to permissions page for the newly created child
+      // Navigate to single child permissions page
       navigate(`/children/${result.data.id}/permissions`);
     } catch (error) {
       console.error('Error adding child:', error);

@@ -9,50 +9,71 @@ datasource db {
 }
 
 model User {
-  id                      String           @id @default(uuid())
-  email                   String           @unique
-  password_hash           String?
-  firstName               String
-  lastName                String
-  phone                   String?
-  role                    String           @default("user")
-  businessName            String?
-  isActive                Boolean          @default(true)
-  emailVerified           Boolean          @default(false)
-  verificationToken       String?
-  resetToken              String?
-  resetTokenExpiry        DateTime?
-  stripeCustomerId        String?          @unique
-  venueId                 String?
-  notificationPreferences Json?
-  createdAt               DateTime         @default(now())
-  updatedAt               DateTime         @updatedAt
-  lastLoginAt             DateTime?
-  activitiesCreated       Activity[]       @relation("ActivityCreator")
-  activities              Activity[]
-  auditLogs               AuditLog[]
-  bookings                Booking[]
-  broadcasts              Broadcast[]
-  bulkOperations          BulkOperation[]
-  children                Child[]
-  courses                 Course[]
-  creditsCreated          Credit[]         @relation("CreditCreator")
-  credits                 Credit[]         @relation("CreditParent")
-  discounts               Discount[]
-  emailTemplates          EmailTemplate[]
-  emails                  Email[]
-  holidays                Holiday[]        @relation("HolidayCreator")
-  notifications           Notification[]
-  payments                Payment[]
-  promoCodeUsages         PromoCodeUsage[]
-  promoCodes              PromoCode[]
-  refunds                 Refund[]
-  registerSetups          RegisterSetup[]
-  templates               Template[]
-  transactions            Transaction[]
-  venues                  Venue[]
-  walletCredits           WalletCredit[]
-  widgetConfigs           WidgetConfig[]
+  id                          String                       @id @default(uuid())
+  email                       String                       @unique
+  password_hash               String?
+  firstName                   String
+  lastName                    String
+  phone                       String?
+  role                        String                       @default("user")
+  businessName                String?
+  isActive                    Boolean                      @default(true)
+  emailVerified               Boolean                      @default(false)
+  verificationToken           String?
+  resetToken                  String?
+  resetTokenExpiry            DateTime?
+  stripeCustomerId            String?                      @unique
+  venueId                     String?
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  lastLoginAt                 DateTime?
+  notificationPreferences     Json?
+  businessAddress             String?
+  businessCity                String?
+  businessCountry             String?
+  businessDescription         String?
+  businessEmail               String?
+  businessPhone               String?
+  businessPostcode            String?
+  businessType                String?
+  companyRegistrationNumber   String?
+  onboardingCompleted         Boolean                      @default(false)
+  tradingName                 String?
+  websiteUrl                  String?
+  creditBalance               Decimal                      @default(0)
+  activitiesCreated           Activity[]                   @relation("ActivityCreator")
+  activities                  Activity[]
+  analyticsEvents             AnalyticsEvent[]
+  auditLogs                   AuditLog[]
+  bookings                    Booking[]
+  broadcasts                  Broadcast[]
+  bulkOperations              BulkOperation[]
+  children                    Child[]
+  courses                     Course[]
+  creditTransactionsAdmin     CreditTransaction[]          @relation("CreditAdmin")
+  creditTransactions          CreditTransaction[]
+  creditsCreated              Credit[]                     @relation("CreditCreator")
+  credits                     Credit[]                     @relation("CreditParent")
+  dataAccessRequests          DataAccessRequest[]
+  discountCodesCreated        DiscountCode[]
+  discountUsages              DiscountUsage[]
+  discounts                   Discount[]
+  emailTemplates              EmailTemplate[]
+  emails                      Email[]
+  gdprConsents                GDPRConsent[]
+  holidays                    Holiday[]                    @relation("HolidayCreator")
+  notifications               Notification[]
+  payments                    Payment[]
+  promoCodeUsages             PromoCodeUsage[]
+  promoCodes                  PromoCode[]
+  refunds                     Refund[]
+  registerSetups              RegisterSetup[]
+  templates                   Template[]
+  transactions                Transaction[]
+  userNotificationPreferences UserNotificationPreferences?
+  venues                      Venue[]
+  walletCredits               WalletCredit[]
+  widgetConfigs               WidgetConfig[]
 
   @@index([email])
   @@index([role])
@@ -97,17 +118,17 @@ model Venue {
   inheritFranchiseFee Boolean           @default(true)
   franchiseFeeType    String?
   franchiseFeeValue   Decimal?          @db.Decimal(10, 2)
-  tfcEnabled          Boolean           @default(true)
-  tfcHoldPeriod       Int               @default(5)
-  tfcInstructions     String?
-  tfcDefaultToCredit  Boolean           @default(true)
-  facilities          String[]          @default([])
-  operatingHours      Json?
-  pricing             Json?
-  bookingRules        Json?
   isActive            Boolean           @default(true)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
+  tfcDefaultToCredit  Boolean           @default(true)
+  tfcEnabled          Boolean           @default(true)
+  tfcHoldPeriod       Int               @default(5)
+  tfcInstructions     String?
+  bookingRules        Json?
+  facilities          String[]          @default([])
+  operatingHours      Json?
+  pricing             Json?
   activities          Activity[]
   courses             Course[]
   notifications       Notification[]
@@ -134,46 +155,46 @@ model ActivityType {
 model Activity {
   id                    String            @id @default(uuid())
   title                 String
-  type                  String?
-  activityTypeId        String?
   description           String?
-  imageUrls             String[]          @default([])
   startDate             DateTime
   endDate               DateTime
   startTime             String
   endTime               String
   capacity              Int
   price                 Decimal           @db.Decimal(10, 2)
-  earlyDropoff          Boolean           @default(false)
-  earlyDropoffPrice     Decimal?          @db.Decimal(10, 2)
-  earlyDropoffStartTime String?
-  earlyDropoffEndTime   String?
-  latePickup            Boolean           @default(false)
-  latePickupPrice       Decimal?          @db.Decimal(10, 2)
-  latePickupStartTime   String?
-  latePickupEndTime     String?
   status                String            @default("active")
   venueId               String
   ownerId               String
-  createdBy             String
   whatToBring           String?
   isActive              Boolean           @default(true)
-  ageRange              String?
-  excludeDates          String[]          @default([])
-  siblingDiscount       Decimal?          @db.Decimal(5, 2)
-  bulkDiscount          Decimal?          @db.Decimal(5, 2)
-  weeklyDiscount        Decimal?          @db.Decimal(5, 2)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  createdBy             String
+  earlyDropoff          Boolean           @default(false)
+  earlyDropoffPrice     Decimal?          @db.Decimal(10, 2)
+  latePickup            Boolean           @default(false)
+  latePickupPrice       Decimal?          @db.Decimal(10, 2)
+  type                  String?
+  activityTypeId        String?
   isWraparoundCare      Boolean           @default(false)
   yearGroups            String[]          @default([])
+  ageRange              String?
+  bulkDiscount          Decimal?          @db.Decimal(5, 2)
+  excludeDates          String[]          @default([])
+  siblingDiscount       Decimal?          @db.Decimal(5, 2)
+  weeklyDiscount        Decimal?          @db.Decimal(5, 2)
   daysOfWeek            String[]          @default([])
-  proRataBooking        Boolean           @default(false)
   holidaySessions       Boolean           @default(true)
+  proRataBooking        Boolean           @default(false)
+  earlyDropoffEndTime   String?
+  earlyDropoffStartTime String?
+  latePickupEndTime     String?
+  latePickupStartTime   String?
+  imageUrls             String[]          @default([])
   durationWeeks         Int?
   regularDay            String?
   regularTime           String?
   courseExcludeDates    String[]          @default([])
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
   activityType          ActivityType?     @relation(fields: [activityTypeId], references: [id])
   creator               User              @relation("ActivityCreator", fields: [createdBy], references: [id])
   owner                 User              @relation(fields: [ownerId], references: [id])
@@ -196,7 +217,6 @@ model Activity {
 model HolidayTimeSlot {
   id            String    @id @default(uuid())
   activityId    String
-  sessionId     String?
   name          String
   startTime     String
   endTime       String
@@ -206,6 +226,7 @@ model HolidayTimeSlot {
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  sessionId     String?
   bookings      Booking[]
   activity      Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
   session       Session?  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -238,13 +259,8 @@ model Holiday {
 model Booking {
   id                   String                @id @default(uuid())
   activityId           String
-  sessionBlockId       String?
-  holidayTimeSlotId    String?
   childId              String
   parentId             String
-  status               BookingStatus         @default(pending)
-  paymentStatus        PaymentStatus         @default(pending)
-  paymentMethod        PaymentMethod         @default(card)
   amount               Decimal               @db.Decimal(10, 2)
   totalAmount          Decimal?              @db.Decimal(10, 2)
   currency             String                @default("GBP")
@@ -259,6 +275,15 @@ model Booking {
   notes                String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
+  status               BookingStatus         @default(pending)
+  paymentStatus        PaymentStatus         @default(pending)
+  paymentMethod        PaymentMethod         @default(card)
+  sessionBlockId       String?
+  holidayTimeSlotId    String?
+  earlyDropoffAmount   Decimal?              @db.Decimal(10, 2)
+  hasEarlyDropoff      Boolean               @default(false)
+  hasLatePickup        Boolean               @default(false)
+  latePickupAmount     Decimal?              @db.Decimal(10, 2)
   attendance           Attendance[]
   bankFeedTransactions BankFeedTransaction[]
   activity             Activity              @relation(fields: [activityId], references: [id])
@@ -276,6 +301,7 @@ model Booking {
   refunds_new          Refund[]
   transactions         Transaction[]
   credits              WalletCredit[]
+  creditTransactions   CreditTransaction[]
 
   @@index([parentId])
   @@index([parentId, status])
@@ -450,21 +476,22 @@ model Payment {
 }
 
 model ProviderSettings {
-  id                  String   @id @default(uuid())
-  providerId          String   @unique
-  tfcEnabled          Boolean  @default(false)
-  tfcHoldPeriod       Int      @default(5)
-  tfcInstructions     String?
-  tfcPayeeName        String?
-  tfcPayeeReference   String?
-  tfcSortCode         String?
-  tfcAccountNumber    String?
-  defaultRefundMethod String   @default("credit")
-  adminFeeAmount      Decimal  @default(2.00) @db.Decimal(10, 2)
-  creditExpiryMonths  Int      @default(12)
-  cancellationPolicy  Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                     String   @id @default(uuid())
+  providerId             String   @unique
+  tfcEnabled             Boolean  @default(false)
+  tfcHoldPeriod          Int      @default(5)
+  tfcInstructions         String?
+  tfcPayeeName            String?
+  tfcPayeeReference       String?
+  tfcSortCode             String?
+  tfcAccountNumber        String?
+  defaultRefundMethod     String   @default("credit")
+  adminFeeAmount          Decimal  @default(2.00) @db.Decimal(10, 2)
+  creditExpiryMonths      Int      @default(12)
+  requirePaymentAtBooking Boolean  @default(false)
+  cancellationPolicy      Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@map("provider_settings")
 }
@@ -647,10 +674,10 @@ model Session {
   startTime        String
   endTime          String
   status           String            @default("scheduled")
-  capacity         Int               @default(0)
-  bookingsCount    Int               @default(0)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  bookingsCount    Int               @default(0)
+  capacity         Int               @default(0)
   holidayTimeSlots HolidayTimeSlot[]
   registers        Register[]
   sessionBlocks    SessionBlock[]
@@ -967,6 +994,191 @@ model PaymentSuccess {
   booking         Booking  @relation(fields: [bookingId], references: [id])
 
   @@map("payment_successes")
+}
+
+model CreditTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  bookingId String?
+  amount    Decimal  @db.Decimal(10, 2)
+  type      String
+  reason    String
+  adminId   String?
+  createdAt DateTime @default(now())
+  admin     User?    @relation("CreditAdmin", fields: [adminId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([bookingId])
+  @@map("credit_transactions")
+}
+
+model DiscountCode {
+  id                String          @id @default(uuid())
+  code              String          @unique
+  type              String
+  value             Decimal         @db.Decimal(10, 2)
+  description       String?
+  minAmount         Decimal?        @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?        @db.Decimal(10, 2)
+  maxUsesPerUser    Int?
+  startDate         DateTime
+  endDate           DateTime
+  isActive          Boolean         @default(true)
+  createdBy         String
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  creator           User            @relation(fields: [createdBy], references: [id])
+  usages            DiscountUsage[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([startDate, endDate])
+  @@map("discount_codes")
+}
+
+model DiscountUsage {
+  id             String       @id @default(uuid())
+  discountCodeId String
+  userId         String
+  bookingId      String?
+  discountAmount Decimal      @db.Decimal(10, 2)
+  appliedAt      DateTime     @default(now())
+  discountCode   DiscountCode @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([discountCodeId])
+  @@index([appliedAt])
+  @@map("discount_usages")
+}
+
+model UserNotificationPreferences {
+  id                        String   @id @default(uuid())
+  userId                    String   @unique
+  inAppEnabled              Boolean  @default(true)
+  emailEnabled              Boolean  @default(true)
+  smsEnabled                Boolean  @default(false)
+  pushEnabled               Boolean  @default(true)
+  bookingCreatedEnabled     Boolean  @default(true)
+  bookingUpdatedEnabled     Boolean  @default(true)
+  bookingCancelledEnabled   Boolean  @default(true)
+  bookingTransferredEnabled Boolean  @default(true)
+  paymentSuccessEnabled     Boolean  @default(true)
+  paymentFailedEnabled      Boolean  @default(true)
+  activityReminderEnabled   Boolean  @default(true)
+  systemAlertEnabled        Boolean  @default(true)
+  quietHoursEnabled         Boolean  @default(false)
+  quietHoursStart           String   @default("22:00")
+  quietHoursEnd             String   @default("08:00")
+  frequency                 String   @default("immediate")
+  language                  String   @default("en")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_notification_preferences")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  eventType  String
+  userId     String
+  entityType String
+  entityId   String
+  properties Json
+  timestamp  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([entityType])
+  @@index([timestamp])
+  @@map("analytics_events")
+}
+
+model ScheduledNotification {
+  id           String   @id @default(uuid())
+  userId       String
+  type         String
+  title        String
+  message      String
+  data         Json?
+  priority     String   @default("medium")
+  scheduledFor DateTime
+  status       String   @default("pending")
+  venueId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([scheduledFor])
+  @@index([status])
+  @@map("scheduled_notifications")
+}
+
+model DataAccessRequest {
+  id          String    @id @default(uuid())
+  userId      String
+  childId     String?
+  requestType String
+  description String
+  status      String    @default("pending")
+  response    String?
+  requestedAt DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([requestType])
+  @@index([status])
+  @@map("data_access_requests")
+}
+
+model GDPRConsent {
+  id                      String    @id @default(uuid())
+  childId                 String
+  parentId                String
+  medicalInfoConsent      Boolean   @default(false)
+  allergiesConsent        Boolean   @default(false)
+  photoPermissionConsent  Boolean   @default(false)
+  walkHomeAloneConsent    Boolean   @default(false)
+  emergencyContactConsent Boolean   @default(false)
+  schoolInfoConsent       Boolean   @default(false)
+  personalDetailsConsent  Boolean   @default(false)
+  consentDate             DateTime  @default(now())
+  expiryDate              DateTime?
+  purpose                 String
+  legalBasis              String
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  user                    User      @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@index([childId])
+  @@index([parentId])
+  @@index([purpose])
+  @@index([consentDate])
+  @@map("gdpr_consents")
+}
+
+model DataAccessAudit {
+  id           String   @id @default(uuid())
+  userId       String
+  childId      String
+  dataAccessed String[]
+  purpose      String
+  accessedBy   String
+  timestamp    DateTime @default(now())
+
+  @@index([userId])
+  @@index([childId])
+  @@index([purpose])
+  @@index([timestamp])
+  @@map("data_access_audit")
 }
 
 enum BookingStatus {

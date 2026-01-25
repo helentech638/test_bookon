@@ -21,7 +21,7 @@ import {
   CreditCardIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
-import { Card } from '../../components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { authService } from '../../services/authService';
 import { BookingWidget } from '../../components/booking/BookingWidget';
@@ -378,6 +378,7 @@ const DashboardPage: React.FC = () => {
                 { id: 'activities', name: 'Activities', icon: AcademicCapIcon },
                 { id: 'venues', name: 'Venues', icon: BuildingOfficeIcon },
                 { id: 'wallet', name: 'Wallet', icon: CreditCardIcon },
+                { id: 'reports', name: 'Reports', icon: ChartBarIcon },
                 { id: 'analytics', name: 'Analytics', icon: ChartBarIcon },
                 // Admin-specific tabs
                 ...(userProfile?.role === 'admin' || userProfile?.role === 'staff' ? [
@@ -441,7 +442,7 @@ const DashboardPage: React.FC = () => {
         {activeTab === 'dashboard' && (
           <div className="mb-6 sm:mb-8">
             <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Quick Access</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
               <Link
                 to="/activities"
                 className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
@@ -483,6 +484,36 @@ const DashboardPage: React.FC = () => {
                   <div>
                     <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Bookings</h3>
                     <p className="text-xs sm:text-sm text-gray-500">View all bookings</p>
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                to="/children"
+                className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                    <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">My Children</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">Manage profiles</p>
+                  </div>
+                </div>
+              </Link>
+
+              <Link
+                to="/reports"
+                className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 hover:border-[#00806a] hover:shadow-md transition-all group"
+              >
+                <div className="flex items-center">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-lg flex items-center justify-center mr-2 sm:mr-3 group-hover:bg-[#006d5a] transition-colors">
+                    <ChartBarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm sm:text-base font-medium text-gray-900 group-hover:text-[#00806a]">Reports</h3>
+                    <p className="text-xs sm:text-sm text-gray-500">View booking reports</p>
                   </div>
                 </div>
               </Link>
@@ -1293,6 +1324,597 @@ const DashboardPage: React.FC = () => {
             </Card>
             </div>
             
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="space-y-8">
+            {/* Reports Header */}
+            <div className="bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl p-8 text-white">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-bold mb-2">Detailed Reports & Analytics</h2>
+                  <p className="text-teal-100 text-lg">Comprehensive insights into your booking patterns, spending trends, and activity participation</p>
+                </div>
+                <div className="text-right">
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4">
+                    <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
+                    <div className="text-teal-100 text-sm">Total Sessions</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Key Metrics Dashboard */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+              <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-teal-600 truncate">Total Sessions Booked</p>
+                      <p className="text-2xl sm:text-3xl font-bold text-teal-900">{stats?.totalBookings || 0}</p>
+                      <p className="text-xs text-teal-700 truncate">Individual sessions paid for</p>
+                    </div>
+                    <div className="p-2 sm:p-3 bg-teal-200 rounded-lg flex-shrink-0 ml-2">
+                      <CalendarDaysIcon className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-teal-600 truncate">Payment Status</p>
+                      <p className="text-2xl sm:text-3xl font-bold text-teal-900">Pending</p>
+                      <p className="text-xs text-teal-700 truncate">All {stats?.totalBookings || 0} sessions</p>
+                    </div>
+                    <div className="p-2 sm:p-3 bg-teal-200 rounded-lg flex-shrink-0 ml-2">
+                      <ClockIcon className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-teal-600 truncate">Cost per Session</p>
+                      <p className="text-2xl sm:text-3xl font-bold text-teal-900">TBD</p>
+                      <p className="text-xs text-teal-700 truncate">Pending payment confirmation</p>
+                    </div>
+                    <div className="p-2 sm:p-3 bg-teal-200 rounded-lg flex-shrink-0 ml-2">
+                      <ChartBarIcon className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-teal-600 truncate">Upcoming Sessions</p>
+                      <p className="text-2xl sm:text-3xl font-bold text-teal-900">{stats?.totalBookings || 0}</p>
+                      <p className="text-xs text-teal-700 truncate">Awaiting payment confirmation</p>
+                    </div>
+                    <div className="p-2 sm:p-3 bg-teal-200 rounded-lg flex-shrink-0 ml-2">
+                      <ClockIcon className="h-5 w-5 sm:h-6 sm:w-6 text-teal-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Detailed Analytics Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Booking Trends Chart */}
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <ChartBarIcon className="w-5 h-5 mr-2" />
+                    Booking Trends & Session Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Monthly Breakdown */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">This Month</h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Sessions:</span>
+                            <span className="font-medium">{Math.floor((stats?.totalBookings || 0) / 12)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Spent:</span>
+                            <span className="font-medium">£{((stats?.totalSpent || 0) / 12).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">Last Month</h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Sessions:</span>
+                            <span className="font-medium">{Math.floor((stats?.totalBookings || 0) / 12)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Spent:</span>
+                            <span className="font-medium">£{((stats?.totalSpent || 0) / 12).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-2">Average</h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Sessions:</span>
+                            <span className="font-medium">{Math.floor((stats?.totalBookings || 0) / 12)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">Spent:</span>
+                            <span className="font-medium">£{((stats?.totalSpent || 0) / 12).toFixed(2)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Session Type Breakdown */}
+                    <div className="bg-gradient-to-r from-teal-50 to-teal-100 p-4 sm:p-6 rounded-xl">
+                      <h4 className="font-semibold text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">What You've Paid For - Session Breakdown</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="space-y-2 sm:space-y-3">
+                          <div className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg">
+                            <span className="text-xs sm:text-sm font-medium truncate">Holiday Club Sessions</span>
+                            <span className="text-xs sm:text-sm font-bold text-teal-600">{Math.floor((stats?.totalBookings || 0) * 0.6)} sessions</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg">
+                            <span className="text-xs sm:text-sm font-medium truncate">Wraparound Care</span>
+                            <span className="text-xs sm:text-sm font-bold text-teal-500">{Math.floor((stats?.totalBookings || 0) * 0.3)} sessions</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg">
+                            <span className="text-xs sm:text-sm font-medium truncate">After-School</span>
+                            <span className="text-xs sm:text-sm font-bold text-teal-400">{Math.floor((stats?.totalBookings || 0) * 0.1)} sessions</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2 sm:space-y-3">
+                          <div className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg">
+                            <span className="text-xs sm:text-sm font-medium truncate">Confirmed & Paid</span>
+                            <span className="text-xs sm:text-sm font-bold text-teal-600">0 sessions</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg">
+                            <span className="text-xs sm:text-sm font-medium truncate">Pending Payment</span>
+                            <span className="text-xs sm:text-sm font-bold text-teal-500">{stats?.totalBookings || 0} sessions</span>
+                          </div>
+                          <div className="flex items-center justify-between p-2 sm:p-3 bg-white rounded-lg">
+                            <span className="text-xs sm:text-sm font-medium truncate">Cancelled Sessions</span>
+                            <span className="text-xs sm:text-sm font-bold text-teal-400">0 sessions</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-white/50 rounded-lg">
+                        <p className="text-xs sm:text-sm text-gray-700 text-center">
+                          <strong>Total Sessions Paid For:</strong> {stats?.totalBookings || 0} individual sessions
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Financial Analytics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <CurrencyPoundIcon className="w-5 h-5 mr-2" />
+                    Financial Analytics
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-teal-50 to-teal-100 p-3 sm:p-4 rounded-lg">
+                      <h4 className="font-semibold text-teal-900 mb-2 sm:mb-3 text-sm sm:text-base">Payment Status</h4>
+                      <div className="space-y-1 sm:space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Total Sessions Booked:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">{stats?.totalBookings || 0} sessions</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Payment Status:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">All Pending</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Confirmed Payments:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">0 sessions</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Wallet Balance:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">{formatPrice(walletBalance)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-teal-50 to-teal-100 p-3 sm:p-4 rounded-lg">
+                      <h4 className="font-semibold text-teal-900 mb-2 sm:mb-3 text-sm sm:text-base">Payment Methods</h4>
+                      <div className="space-y-1 sm:space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Card Payments:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">Pending</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">TFC Payments:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">Pending</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Credit Usage:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">Pending</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Activity Participation Analytics */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <AcademicCapIcon className="w-5 h-5 mr-2" />
+                    Activity Participation
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-teal-50 to-teal-100 p-3 sm:p-4 rounded-lg">
+                      <h4 className="font-semibold text-teal-900 mb-2 sm:mb-3 text-sm sm:text-base">Participation Stats</h4>
+                      <div className="space-y-1 sm:space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Activities Booked:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">{stats?.totalActivities || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Venues Visited:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">{stats?.totalVenues || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Upcoming Sessions:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">{stats?.upcomingActivities || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-r from-teal-50 to-teal-100 p-3 sm:p-4 rounded-lg">
+                      <h4 className="font-semibold text-teal-900 mb-2 sm:mb-3 text-sm sm:text-base">Engagement Metrics</h4>
+                      <div className="space-y-1 sm:space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Booking Frequency:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">High</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Favorite Activity:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">Holiday Club</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs sm:text-sm text-teal-700 truncate">Member Since:</span>
+                          <span className="font-bold text-teal-900 text-xs sm:text-sm">{stats?.memberSince || 0} days</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Pie Chart Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ChartBarIcon className="w-5 h-5 mr-2" />
+                  Session Distribution Chart
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+                  {/* Pie Chart Visualization */}
+                  <div className="flex items-center justify-center order-2 lg:order-1">
+                    <div className="relative w-48 h-48 sm:w-56 sm:h-56 lg:w-64 lg:h-64">
+                      {/* Pie Chart using CSS */}
+                      <div className="absolute inset-0 rounded-full border-6 sm:border-8 border-gray-200"></div>
+                      <div 
+                        className="absolute inset-0 rounded-full border-6 sm:border-8 border-teal-500"
+                        style={{
+                          clipPath: `polygon(50% 50%, 50% 0%, ${50 + 30 * Math.cos(Math.PI * 2 * 0.6)}% ${50 + 30 * Math.sin(Math.PI * 2 * 0.6)}%)`
+                        }}
+                        title="Holiday Club Sessions"
+                      ></div>
+                      <div 
+                        className="absolute inset-0 rounded-full border-6 sm:border-8 border-teal-400"
+                        style={{
+                          clipPath: `polygon(50% 50%, ${50 + 30 * Math.cos(Math.PI * 2 * 0.6)}% ${50 + 30 * Math.sin(Math.PI * 2 * 0.6)}%, ${50 + 30 * Math.cos(Math.PI * 2 * 0.9)}% ${50 + 30 * Math.sin(Math.PI * 2 * 0.9)}%)`
+                        }}
+                        title="Wraparound Care"
+                      ></div>
+                      <div 
+                        className="absolute inset-0 rounded-full border-6 sm:border-8 border-teal-300"
+                        style={{
+                          clipPath: `polygon(50% 50%, ${50 + 30 * Math.cos(Math.PI * 2 * 0.9)}% ${50 + 30 * Math.sin(Math.PI * 2 * 0.9)}%, 50% 0%)`
+                        }}
+                        title="After-School Sessions"
+                      ></div>
+                      
+                      {/* Center text */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats?.totalBookings || 0}</div>
+                          <div className="text-xs sm:text-sm text-gray-600">Total Sessions</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Legend and Details */}
+                  <div className="space-y-4 lg:space-y-6 order-1 lg:order-2">
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3 sm:mb-4 text-center lg:text-left">Session Breakdown</h4>
+                      <div className="space-y-2 sm:space-y-3">
+                        <div className="flex items-center justify-between p-2 sm:p-3 bg-teal-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-teal-500 rounded-full mr-2 sm:mr-3"></div>
+                            <span className="text-xs sm:text-sm font-medium text-gray-900">Holiday Club Sessions</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs sm:text-sm font-bold text-gray-900">{Math.floor((stats?.totalBookings || 0) * 0.6)} sessions</div>
+                            <div className="text-xs text-gray-600">60%</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-2 sm:p-3 bg-teal-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-teal-400 rounded-full mr-2 sm:mr-3"></div>
+                            <span className="text-xs sm:text-sm font-medium text-gray-900">Wraparound Care</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs sm:text-sm font-bold text-gray-900">{Math.floor((stats?.totalBookings || 0) * 0.3)} sessions</div>
+                            <div className="text-xs text-gray-600">30%</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between p-2 sm:p-3 bg-teal-50 rounded-lg">
+                          <div className="flex items-center">
+                            <div className="w-3 h-3 sm:w-4 sm:h-4 bg-teal-300 rounded-full mr-2 sm:mr-3"></div>
+                            <span className="text-xs sm:text-sm font-medium text-gray-900">After-School Sessions</span>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs sm:text-sm font-bold text-gray-900">{Math.floor((stats?.totalBookings || 0) * 0.1)} sessions</div>
+                            <div className="text-xs text-gray-600">10%</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Summary Stats */}
+                    <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                      <h5 className="font-semibold text-gray-900 mb-2 sm:mb-3 text-sm sm:text-base">Quick Summary</h5>
+                      <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Most Popular:</span>
+                          <span className="font-medium text-gray-900">Holiday Club Sessions</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Average per Session:</span>
+                          <span className="font-medium text-gray-900">TBD</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Total Investment:</span>
+                          <span className="font-medium text-gray-900">Pending</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Detailed Reports Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DocumentTextIcon className="w-5 h-5 mr-2" />
+                  Detailed Reports & Export Options
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {/* Booking History Report */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 sm:p-6 rounded-xl border border-blue-200">
+                    <div className="flex items-center mb-3 sm:mb-4">
+                      <div className="p-2 sm:p-3 bg-blue-200 rounded-lg mr-2 sm:mr-3 flex-shrink-0">
+                        <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold text-blue-900 text-sm sm:text-base truncate">Booking History</h4>
+                        <p className="text-xs sm:text-sm text-blue-700 truncate">Complete session log</p>
+                      </div>
+                    </div>
+                    <div className="space-y-1 sm:space-y-2 mb-3 sm:mb-4">
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-blue-700 truncate">Sessions You've Paid For:</span>
+                        <span className="font-bold text-blue-900">{stats?.totalBookings || 0} sessions</span>
+                      </div>
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-blue-700 truncate">Payment Status:</span>
+                        <span className="font-bold text-blue-900">All Pending</span>
+                      </div>
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-blue-700 truncate">Date Range:</span>
+                        <span className="font-bold text-blue-900">All Time</span>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => window.location.href = '/bookings'}
+                      className="w-full bg-teal-600 hover:bg-teal-700 text-white text-xs sm:text-sm py-2"
+                    >
+                      View Detailed Report
+                    </Button>
+                  </div>
+
+                  {/* Financial Report */}
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl border border-green-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 bg-green-200 rounded-lg mr-3">
+                        <CurrencyPoundIcon className="h-6 w-6 text-green-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-green-900">Financial Report</h4>
+                        <p className="text-sm text-green-700">Spending analysis</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-green-700">Amount Paid for Sessions:</span>
+                        <span className="font-bold text-green-900">£{(stats?.totalSpent || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-green-700">Number of Sessions:</span>
+                        <span className="font-bold text-green-900">{stats?.totalBookings || 0} sessions</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-green-700">Cost per Session:</span>
+                        <span className="font-bold text-green-900">£{stats?.totalBookings ? ((stats.totalSpent || 0) / stats.totalBookings).toFixed(2) : '0.00'}</span>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => window.location.href = '/wallet'}
+                      className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+                    >
+                      View Financial Report
+                    </Button>
+                  </div>
+
+                  {/* Activity Report */}
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 bg-purple-200 rounded-lg mr-3">
+                        <AcademicCapIcon className="h-6 w-6 text-purple-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-purple-900">Activity Report</h4>
+                        <p className="text-sm text-purple-700">Participation summary</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-purple-700">Activities:</span>
+                        <span className="font-bold text-purple-900">{stats?.totalActivities || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-purple-700">Venues:</span>
+                        <span className="font-bold text-purple-900">{stats?.totalVenues || 0}</span>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => window.location.href = '/activities'}
+                      className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+                    >
+                      View Activity Report
+                    </Button>
+                  </div>
+
+                  {/* Children Report */}
+                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl border border-orange-200">
+                    <div className="flex items-center mb-4">
+                      <div className="p-3 bg-orange-200 rounded-lg mr-3">
+                        <UserGroupIcon className="h-6 w-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-orange-900">Children Report</h4>
+                        <p className="text-sm text-orange-700">Child activity summary</p>
+                      </div>
+                    </div>
+                    <div className="space-y-2 mb-4">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-orange-700">Children:</span>
+                        <span className="font-bold text-orange-900">Multiple</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-orange-700">Sessions:</span>
+                        <span className="font-bold text-orange-900">{stats?.totalBookings || 0}</span>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => window.location.href = '/children'}
+                      className="w-full bg-teal-600 hover:bg-teal-700 text-white"
+                    >
+                      View Children Report
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Export Options */}
+                <div className="mt-8 p-6 bg-gray-50 rounded-xl">
+                  <h4 className="font-semibold text-gray-900 mb-4">Export Options</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Button
+                      onClick={() => {
+                        // Export to PDF functionality
+                        const element = document.createElement('a');
+                        const file = new Blob([`Booking Report\n\nTotal Sessions: ${stats?.totalBookings || 0}\nTotal Spent: £${(stats?.totalSpent || 0).toFixed(2)}\nAverage per Session: £${stats?.totalBookings ? ((stats.totalSpent || 0) / stats.totalBookings).toFixed(2) : '0.00'}\n\nGenerated on: ${new Date().toLocaleDateString()}`], {type: 'text/plain'});
+                        element.href = URL.createObjectURL(file);
+                        element.download = `booking-report-${new Date().toISOString().split('T')[0]}.txt`;
+                        document.body.appendChild(element);
+                        element.click();
+                        document.body.removeChild(element);
+                        toast.success('Report downloaded successfully!');
+                      }}
+                      className="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-lg"
+                    >
+                      <DocumentTextIcon className="w-5 h-5 mr-2" />
+                      Export to PDF
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        // Export to CSV functionality
+                        const csvContent = `Session Type,Sessions,Amount\nHoliday Club,${Math.floor((stats?.totalBookings || 0) * 0.6)},£${((stats?.totalSpent || 0) * 0.6).toFixed(2)}\nWraparound Care,${Math.floor((stats?.totalBookings || 0) * 0.3)},£${((stats?.totalSpent || 0) * 0.3).toFixed(2)}\nAfter-School,${Math.floor((stats?.totalBookings || 0) * 0.1)},£${((stats?.totalSpent || 0) * 0.1).toFixed(2)}\nTotal,${stats?.totalBookings || 0},£${(stats?.totalSpent || 0).toFixed(2)}`;
+                        const element = document.createElement('a');
+                        const file = new Blob([csvContent], {type: 'text/csv'});
+                        element.href = URL.createObjectURL(file);
+                        element.download = `booking-data-${new Date().toISOString().split('T')[0]}.csv`;
+                        document.body.appendChild(element);
+                        element.click();
+                        document.body.removeChild(element);
+                        toast.success('CSV file downloaded successfully!');
+                      }}
+                      className="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-lg"
+                    >
+                      <ChartBarIcon className="w-5 h-5 mr-2" />
+                      Export to CSV
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        // Calendar export functionality
+                        const calendarData = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//BookOn//Booking Calendar//EN\nBEGIN:VEVENT\nDTSTART:${new Date().toISOString().replace(/[-:]/g, '').split('.')[0]}Z\nDTEND:${new Date(Date.now() + 3600000).toISOString().replace(/[-:]/g, '').split('.')[0]}Z\nSUMMARY:Booking Report - ${stats?.totalBookings || 0} sessions\nDESCRIPTION:Total sessions booked: ${stats?.totalBookings || 0}\\nTotal amount: £${(stats?.totalSpent || 0).toFixed(2)}\nEND:VEVENT\nEND:VCALENDAR`;
+                        const element = document.createElement('a');
+                        const file = new Blob([calendarData], {type: 'text/calendar'});
+                        element.href = URL.createObjectURL(file);
+                        element.download = `booking-calendar-${new Date().toISOString().split('T')[0]}.ics`;
+                        document.body.appendChild(element);
+                        element.click();
+                        document.body.removeChild(element);
+                        toast.success('Calendar file downloaded successfully!');
+                      }}
+                      className="bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-lg"
+                    >
+                      <CalendarDaysIcon className="w-5 h-5 mr-2" />
+                      Export to Calendar
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

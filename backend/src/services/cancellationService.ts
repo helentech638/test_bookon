@@ -43,7 +43,9 @@ export interface ProRataCalculation {
 }
 
 class CancellationService {
-  private readonly ADMIN_FEE = 2.00; // £2 admin fee per cancellation
+  private readonly ADMIN_FEE = 2.00; // £2 admin fee per cancellation (exactly as per client requirements)
+  private readonly REFUND_CUTOFF_HOURS = 24; // 24-hour cutoff for refunds vs credits
+  private readonly CREDIT_EXPIRY_MONTHS = 12; // Credits expire after 12 months
 
   /**
    * Calculate pro-rata refund for a booking (enhanced for multi-session courses)
@@ -120,9 +122,9 @@ class CancellationService {
       // Calculate refundable amounts
       const refundableAmount = sessionsRemaining * valuePerSession;
       
-      // Apply admin fee only once per cancellation action
-      const creditAmount = Math.max(0, refundableAmount - this.ADMIN_FEE);
-      const cashRefund = 0; // Default to credit only
+      // For pro-rata calculations (courses after start), no admin fee on credits
+      const creditAmount = refundableAmount; // Full amount as credit, no admin fee
+      const cashRefund = 0; // Credits only for pro-rata
       const creditRefund = creditAmount;
 
       return {
@@ -132,11 +134,11 @@ class CancellationService {
         valuePerSession,
         refundableAmount,
         creditAmount: creditRefund,
-        adminFee: this.ADMIN_FEE,
+        adminFee: 0, // No admin fee on credits (per client requirements)
         breakdown: {
           cashRefund,
           creditRefund,
-          fees: this.ADMIN_FEE
+          fees: 0 // No admin fee on credits
         }
       };
     } catch (error) {
@@ -146,7 +148,11 @@ class CancellationService {
   }
 
   /**
-   * Determine cancellation eligibility and method
+   * Determine cancellation eligibility and method based on EXACT client requirements:
+   * 1) Refunds: Charge £2 admin fee, available if cancelled ≥24 hours before
+   * 2) Credits: No admin fee, issued when cancelled <24 hours
+   * 3) Pro-rata for courses after start date
+   * 4) Only one £2 admin fee per refund action
    */
   async determineCancellationEligibility(bookingId: string, cancellationDate: Date): Promise<CancellationResult> {
     try {
@@ -167,106 +173,110 @@ class CancellationService {
       const sessionDateTime = new Date(`${activityDate.toISOString().split('T')[0]}T${activityTime}`);
       const hoursUntilSession = (sessionDateTime.getTime() - cancellationDate.getTime()) / (1000 * 60 * 60);
 
-      // Enhanced eligibility check with 24-hour rule
+      // Check if session has already started
       const isPastSession = hoursUntilSession < 0;
-      const isWithin24Hours = hoursUntilSession < 24 && hoursUntilSession >= 0;
-      const isEligibleForCashRefund = hoursUntilSession >= 24 && booking.paymentMethod === 'card';
-      const isEligibleForCreditOnly = hoursUntilSession >= 24 && (booking.paymentMethod === 'tfc' || booking.paymentMethod === 'voucher');
-      const isEligibleForProRataCredit = hoursUntilSession < 24 && hoursUntilSession >= 0; // Mid-course cancellation
+      const isWithin24Hours = hoursUntilSession < this.REFUND_CUTOFF_HOURS && hoursUntilSession >= 0;
+      const isMoreThan24Hours = hoursUntilSession >= this.REFUND_CUTOFF_HOURS;
 
       if (isPastSession) {
-        return {
-          eligible: false,
-          refundAmount: 0,
-          creditAmount: 0,
-          adminFee: 0,
-          method: 'credit',
-          reason: 'Session has already occurred - no refund available',
-          breakdown: {
-            totalPaid: Number(booking.amount),
-            sessionsUsed: 1,
-            sessionsRemaining: 0,
-            valuePerSession: Number(booking.amount),
-            refundableAmount: 0,
+        // Session has started - check if it's a course for pro-rata calculation
+        const isCourse = booking.activity.duration && booking.activity.duration > 1;
+        if (isCourse) {
+          // Pro-rata refund for unused sessions
+          const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
+          return {
+            eligible: true,
+            refundAmount: 0, // Credits only after session starts
+            creditAmount: calculation.creditAmount,
+            adminFee: 0, // No admin fee for credits
+            method: 'credit',
+            reason: 'Course cancellation after start - pro-rata credit for unused sessions',
+            breakdown: calculation.breakdown
+          };
+        } else {
+          return {
+            eligible: false,
+            refundAmount: 0,
             creditAmount: 0,
+            adminFee: 0,
+            method: 'credit',
+            reason: 'Session has already occurred - no refund available',
+            breakdown: {
+              totalPaid: Number(booking.amount),
+              sessionsUsed: 1,
+              sessionsRemaining: 0,
+              valuePerSession: Number(booking.amount),
+              refundableAmount: 0,
+              creditAmount: 0,
+              adminFee: 0
+            }
+          };
+        }
+      }
+
+      // Apply EXACT client policy rules
+      if (isMoreThan24Hours) {
+        // ≥24 hours before: REFUND with £2 admin fee
+        const totalAmount = Number(booking.amount);
+        const refundAmount = Math.max(0, totalAmount - this.ADMIN_FEE);
+        
+        return {
+          eligible: true,
+          refundAmount: refundAmount,
+          creditAmount: 0,
+          adminFee: this.ADMIN_FEE,
+          method: 'cash',
+          reason: 'Cancelled ≥24 hours before session - refund minus £2 admin fee',
+          breakdown: {
+            totalPaid: totalAmount,
+            sessionsUsed: 0,
+            sessionsRemaining: 1,
+            valuePerSession: totalAmount,
+            refundableAmount: refundAmount,
+            creditAmount: 0,
+            adminFee: this.ADMIN_FEE
+          }
+        };
+      } else if (isWithin24Hours) {
+        // <24 hours: CREDIT with no admin fee
+        const totalAmount = Number(booking.amount);
+        
+        return {
+          eligible: true,
+          refundAmount: 0,
+          creditAmount: totalAmount, // Full amount as credit, no admin fee
+          adminFee: 0, // No admin fee on credits
+          method: 'credit',
+          reason: 'Cancelled <24 hours before session - full credit (no admin fee)',
+          breakdown: {
+            totalPaid: totalAmount,
+            sessionsUsed: 0,
+            sessionsRemaining: 1,
+            valuePerSession: totalAmount,
+            refundableAmount: 0,
+            creditAmount: totalAmount,
             adminFee: 0
           }
         };
       }
 
-      if (isWithin24Hours && booking.paymentMethod === 'card') {
-        // Inside 24h for card payments - offer pro-rata credit only
-        const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
-        return {
-          eligible: true,
-          refundAmount: 0, // No cash refund within 24h
-          creditAmount: calculation.creditAmount,
-          adminFee: this.ADMIN_FEE,
-          method: 'credit',
-          reason: 'Within 24 hours - pro-rata credit only (no cash refund)',
-          breakdown: calculation.breakdown
-        };
-      }
-
-      if (isWithin24Hours && (booking.paymentMethod === 'tfc' || booking.paymentMethod === 'voucher')) {
-        // Inside 24h for TFC/voucher - offer pro-rata credit
-        const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
-        return {
-          eligible: true,
-          refundAmount: 0,
-          creditAmount: calculation.creditAmount,
-          adminFee: this.ADMIN_FEE,
-          method: 'credit',
-          reason: 'Within 24 hours - pro-rata credit for unused sessions',
-          breakdown: calculation.breakdown
-        };
-      }
-
-      // Calculate refund amounts
-      const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
-      
-      // Determine refund method based on payment method and timing
-      let method: 'cash' | 'credit' | 'mixed' = 'credit';
-      let refundAmount = 0;
-      let creditAmount = calculation.creditAmount;
-
-      if (booking.paymentMethod === 'card' && hoursUntilSession >= 24) {
-        method = 'cash';
-        refundAmount = calculation.refundableAmount - this.ADMIN_FEE;
-        creditAmount = 0;
-      } else if (booking.paymentMethod === 'tfc' || booking.paymentMethod === 'voucher') {
-        method = 'credit';
-        refundAmount = 0;
-        creditAmount = calculation.refundableAmount - this.ADMIN_FEE;
-      } else if (booking.paymentMethod === 'mixed') {
-        method = 'mixed';
-        // For mixed payments, refund card portion as cash (if >=24h), TFC portion as credit
-        if (hoursUntilSession >= 24) {
-          // Refund card portion as cash, TFC portion as credit
-          const cardPortion = calculation.refundableAmount * 0.5; // Assume 50/50 split
-          const tfcPortion = calculation.refundableAmount * 0.5;
-          refundAmount = cardPortion - this.ADMIN_FEE;
-          creditAmount = tfcPortion - this.ADMIN_FEE;
-        } else {
-          // Within 24h - all as credit
-          refundAmount = 0;
-          creditAmount = calculation.refundableAmount - this.ADMIN_FEE;
-        }
-      } else if (booking.paymentMethod === 'card' && hoursUntilSession < 24) {
-        // Card payment within 24h - credit only
-        method = 'credit';
-        refundAmount = 0;
-        creditAmount = calculation.refundableAmount - this.ADMIN_FEE;
-      }
-
+      // Fallback (should not reach here)
       return {
-        eligible: true,
-        refundAmount: Math.max(0, refundAmount),
-        creditAmount: Math.max(0, creditAmount),
-        adminFee: this.ADMIN_FEE,
-        method,
-        reason: 'Cancellation eligible for refund',
-        breakdown: calculation.breakdown
+        eligible: false,
+        refundAmount: 0,
+        creditAmount: 0,
+        adminFee: 0,
+        method: 'credit',
+        reason: 'Unable to determine cancellation eligibility',
+        breakdown: {
+          totalPaid: Number(booking.amount),
+          sessionsUsed: 0,
+          sessionsRemaining: 1,
+          valuePerSession: Number(booking.amount),
+          refundableAmount: 0,
+          creditAmount: 0,
+          adminFee: 0
+        }
       };
     } catch (error) {
       logger.error('Error determining cancellation eligibility:', error);
@@ -334,7 +344,7 @@ class CancellationService {
             providerId: null, // Will be set based on venue
             bookingId,
             amount: eligibility.creditAmount,
-            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+            expiryDate: new Date(Date.now() + this.CREDIT_EXPIRY_MONTHS * 30 * 24 * 60 * 60 * 1000), // 12 months from now
             source: 'cancellation',
             status: 'active',
             description: `Credit from cancellation of booking ${bookingId}`
@@ -424,7 +434,7 @@ class CancellationService {
             providerId: booking.activity.venueId,
             bookingId,
             amount: totalAmount,
-            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+            expiryDate: new Date(Date.now() + this.CREDIT_EXPIRY_MONTHS * 30 * 24 * 60 * 60 * 1000),
             source: 'provider_cancellation',
             status: 'active',
             description: `Full credit from provider cancellation of booking ${bookingId}`
@@ -441,6 +451,16 @@ class CancellationService {
         refundTransactionId,
         creditId
       });
+
+      // Remove attendance records from registers
+      try {
+        const { RealTimeRegisterService } = await import('./realTimeRegisterService');
+        await RealTimeRegisterService.removeAttendanceForCancelledBooking(bookingId);
+        logger.info(`Removed attendance records for provider-cancelled booking ${bookingId}`);
+      } catch (attendanceError) {
+        logger.error('Failed to remove attendance records:', attendanceError);
+        // Don't fail the cancellation if attendance removal fails
+      }
 
       return { refundTransactionId, creditId };
     } catch (error) {

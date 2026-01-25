@@ -38,15 +38,15 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       success: true,
       data: children.map(child => ({
         id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name,
-        dateOfBirth: child.date_of_birth,
-        yearGroup: child.year_group,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        dateOfBirth: child.dateOfBirth,
+        yearGroup: child.yearGroup,
         allergies: child.allergies,
-        medicalInfo: child.medical_info,
-        emergencyContacts: child.emergency_contacts,
-        createdAt: child.created_at,
-        updatedAt: child.updated_at
+        medicalInfo: child.medicalInfo,
+        emergencyContacts: child.emergencyContacts,
+        createdAt: child.createdAt,
+        updatedAt: child.updatedAt
       }))
     });
   } catch (error) {
@@ -61,11 +61,15 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     const { id } = req.params;
     const userId = req.user!.id;
     
-    const child = await db('children')
-      .where('id', id)
-      .where('user_id', userId)
-      .where('is_active', true)
-      .first();
+    const child = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          id: id,
+          parentId: userId,
+          isActive: true
+        }
+      });
+    });
 
     if (!child) {
       throw new AppError('Child not found', 404, 'CHILD_NOT_FOUND');
@@ -75,15 +79,15 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       success: true,
       data: {
         id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name,
-        dateOfBirth: child.date_of_birth,
-        yearGroup: child.year_group,
+        firstName: child.firstName,
+        lastName: child.lastName,
+        dateOfBirth: child.dateOfBirth,
+        yearGroup: child.yearGroup,
         allergies: child.allergies,
-        medicalInfo: child.medical_info,
-        emergencyContacts: child.emergency_contacts,
-        createdAt: child.created_at,
-        updatedAt: child.updated_at
+        medicalInfo: child.medicalInfo,
+        emergencyContacts: child.emergencyContacts,
+        createdAt: child.createdAt,
+        updatedAt: child.updatedAt
       }
     });
   } catch (error) {
@@ -113,31 +117,42 @@ router.post('/', authenticateToken, validateChild, asyncHandler(async (req: Requ
     } = req.body;
 
     // Check if child with same name and date of birth already exists for this user
-    const existingChild = await db('children')
-      .where('user_id', userId)
-      .where('first_name', firstName)
-      .where('last_name', lastName)
-      .where('date_of_birth', dateOfBirth)
-      .where('is_active', true)
-      .first();
+    const existingChild = await safePrismaQuery(async (client) => {
+      return await client.child.findFirst({
+        where: {
+          parentId: userId,
+          firstName: firstName,
+          lastName: lastName,
+          dateOfBirth: new Date(dateOfBirth),
+          isActive: true
+        }
+      });
+    });
 
     if (existingChild) {
       throw new AppError('Child with this name and date of birth already exists', 400, 'CHILD_ALREADY_EXISTS');
     }
 
-    const [child] = await db('children')
-      .insert({
-        user_id: userId,
-        first_name: firstName,
-        last_name: lastName,
-        date_of_birth: dateOfBirth,
-        year_group: yearGroup,
-        allergies,
-        medical_info: medicalInfo,
-        emergency_contacts: emergencyContacts,
-        is_active: true,
-      })
-      .returning(['id', 'first_name', 'last_name']);
+    const child = await safePrismaQuery(async (client) => {
+      return await client.child.create({
+        data: {
+          parentId: userId,
+          firstName: firstName,
+          lastName: lastName,
+          dateOfBirth: new Date(dateOfBirth),
+          yearGroup: yearGroup,
+          allergies: allergies,
+          medicalInfo: medicalInfo,
+          emergencyContacts: emergencyContacts,
+          isActive: true
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true
+        }
+      });
+    });
 
     logger.info('Child created successfully', { 
       childId: child.id, 
@@ -149,8 +164,8 @@ router.post('/', authenticateToken, validateChild, asyncHandler(async (req: Requ
       message: 'Child created successfully',
       data: {
         id: child.id,
-        firstName: child.first_name,
-        lastName: child.last_name
+        firstName: child.firstName,
+        lastName: child.lastName
       }
     });
   } catch (error) {

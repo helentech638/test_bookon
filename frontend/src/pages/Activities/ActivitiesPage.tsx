@@ -16,13 +16,28 @@ import {
   Clock, 
   Users, 
   Calendar,
-  Tag
+  Tag,
+  CalendarDays,
+  DollarSign,
+  User,
+  Ticket
 } from 'lucide-react';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { 
+  ArrowLeftIcon,
+  MapPinIcon,
+  CalendarIcon,
+  ClockIcon,
+  UserGroupIcon,
+  CalendarDaysIcon,
+  CurrencyDollarIcon,
+  UserIcon,
+  TicketIcon
+} from '@heroicons/react/24/outline';
 
 const ActivitiesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+
   const [activities, setActivities] = useState<Activity[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +45,20 @@ const ActivitiesPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedVenue, setSelectedVenue] = useState<string>('');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 100]);
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
+
+  // Function to toggle session expansion
+  const toggleSessionExpansion = (activityId: string) => {
+    setExpandedSessions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(activityId)) {
+        newSet.delete(activityId);
+      } else {
+        newSet.add(activityId);
+      }
+      return newSet;
+    });
+  };
 
   // Function to format activity type for display
   const formatActivityType = (type: string): string => {
@@ -102,24 +131,6 @@ const ActivitiesPage: React.FC = () => {
         }
 
         const activitiesData = await activitiesResponse.json();
-        console.log('Activity images:', activitiesData.data?.map((a: any) => ({ title: a.title, imageUrls: a.imageUrls })));
-        console.log('Activity dates:', activitiesData.data?.map((a: any) => ({ 
-          title: a.title, 
-          startDate: a.startDate, 
-          endDate: a.endDate,
-          start_date: a.start_date,
-          end_date: a.end_date
-        })));
-        console.log('Activity types:', activitiesData.data?.map((a: any) => ({ 
-          title: a.title, 
-          type: a.type,
-          category: formatActivityType(a.type)
-        })));
-        console.log('Age range data:', activitiesData.data?.map((a: any) => ({ 
-          title: a.title, 
-          ageRange: a.ageRange,
-          age_range: a.age_range
-        })));
         
         if (activitiesData.success) {
           // Transform backend data to frontend format
@@ -174,6 +185,8 @@ const ActivitiesPage: React.FC = () => {
             daysOfWeek: activity.daysOfWeek || [],
             courseExcludeDates: activity.courseExcludeDates || [],
             images: activity.imageUrls && activity.imageUrls.length > 0 ? activity.imageUrls : ['/images/default-activity.jpg'],
+            proRataBooking: activity.proRataBooking || false,
+            holidaySessions: activity.holidaySessions || false,
             rating: activity.rating || null,
             reviewCount: activity.reviewCount || 0,
             created_at: activity.createdAt || '2024-01-01T00:00:00Z',
@@ -220,24 +233,19 @@ const ActivitiesPage: React.FC = () => {
 
           if (venuesResponse && venuesResponse.ok) {
             const venuesData = await venuesResponse.json();
-            console.log('Venues API response:', venuesData);
             if (venuesData.success) {
               setVenues(venuesData.data);
             } else {
-              console.warn('Failed to fetch venues:', venuesData.message);
               setVenues([]);
             }
           } else {
-            console.warn('Venues API not available, using empty array');
             setVenues([]);
           }
         } catch (error) {
-          console.warn('Error fetching venues:', error);
           setVenues([]);
         }
 
       } catch (error) {
-        console.error('Error fetching data:', error);
         toast.error('Failed to load activities. Please try again.');
       } finally {
         setLoading(false);
@@ -262,22 +270,27 @@ const ActivitiesPage: React.FC = () => {
   });
 
   const handleBookActivity = (activityId: string, activityType?: string) => {
-    console.log('handleBookActivity called:', { activityId, activityType });
+    // Find the activity to check if it's fully booked
+    const activity = activities.find(a => a.id === activityId);
+    const isFullyBooked = activity && activity.max_capacity && activity.current_capacity !== undefined && 
+      (activity.max_capacity - activity.current_capacity) <= 0;
+
+    if (isFullyBooked) {
+      // Navigate to waiting list page for any activity type
+      navigate(`/activities/${activityId}/waiting-list`);
+    } else {
+      // Normal booking flow
     if (activityType === 'holiday_club') {
-      console.log('Navigating to Holiday Club booking page');
       navigate(`/activities/${activityId}/holiday-club-booking`);
     } else if (activityType === 'activity') {
-      console.log('Navigating to Activity booking page');
       navigate(`/activities/${activityId}/activity-booking`);
     } else if (activityType === 'wraparound_care') {
-      console.log('Navigating to Wraparound Care booking page');
       navigate(`/activities/${activityId}/wraparound-booking`);
     } else if (activityType === 'course/program') {
-      console.log('Navigating to Course booking page');
       navigate(`/activities/${activityId}/course-booking`);
     } else {
-      console.log('Navigating to regular booking flow');
       navigate(`/bookings/flow/${activityId}`);
+      }
     }
   };
 
@@ -420,10 +433,19 @@ const ActivitiesPage: React.FC = () => {
                         <Tag className="h-4 w-4" />
                         <span>{activity.category}</span>
                       </div>
+                      {/* Pro Rata Indicator */}
+                      {activity.proRataBooking && (
+                        <div className="mt-1">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                            <CalendarDays className="h-3 w-3 mr-1" />
+                            Pro Rata Billing
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold text-green-600">
-                        £{Number(activity.price).toFixed(2)}
+                        from £{Number(activity.price).toFixed(2)}
                       </div>
                       <div className="text-sm text-gray-500">per session</div>
                     </div>
@@ -456,7 +478,6 @@ const ActivitiesPage: React.FC = () => {
                                 }
                                 return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
                               } catch (error) {
-                                console.error('Error parsing dates:', error);
                                 return 'Dates TBD';
                               }
                             })()
@@ -495,6 +516,21 @@ const ActivitiesPage: React.FC = () => {
                       </div>
                     )}
                     
+                    {/* Pro Rata Billing Information */}
+                    {activity.proRataBooking && (
+                      <div className="mt-2">
+                        <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
+                          <div className="flex items-center text-xs text-teal-800">
+                            <CalendarDays className="h-3 w-3 mr-1" />
+                            <span className="font-medium">Pro Rata Billing Enabled</span>
+                          </div>
+                          <div className="text-xs text-teal-700 mt-1">
+                            Only pay for remaining sessions when booking mid-course
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     {/* Show individual session dates for Holiday Club and Activity */}
                     {((activity.type === 'holiday_club' || activity.type === 'activity') && activity.schedule && Object.keys(activity.schedule).length > 0) && (
                       <div className="mt-3">
@@ -510,22 +546,37 @@ const ActivitiesPage: React.FC = () => {
                     {/* Show Holiday Club and Activity time slots if available */}
                     {activity.holidayTimeSlots && activity.holidayTimeSlots.length > 0 && (
                       <div className="mt-3">
-                        <div className="text-xs font-medium text-gray-700 mb-2">Available Sessions:</div>
-                        <div className="space-y-1">
-                          {activity.holidayTimeSlots.slice(0, 3).map((slot: any, index: number) => (
-                            <div 
-                              key={index}
-                              className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1"
-                            >
-                              <span className="font-medium text-gray-700">{slot.name}</span>
-                              <span className="text-gray-500">{slot.startTime} - {slot.endTime}</span>
-                            </div>
-                          ))}
-                          {activity.holidayTimeSlots.length > 3 && (
-                            <div className="text-xs text-gray-500 text-center py-1">
-                              +{activity.holidayTimeSlots.length - 3} more sessions
-                            </div>
-                          )}
+                        <div className="bg-gradient-to-r from-[#00806a] to-[#00a085] p-3 rounded-lg text-white">
+                          <div className="text-sm font-medium text-white mb-2 flex items-center">
+                            <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                            Available Sessions:
+                          </div>
+                          <div className="space-y-1">
+                            {activity.holidayTimeSlots.slice(0, expandedSessions.has(activity.id) ? activity.holidayTimeSlots.length : 3).map((slot: any, index: number) => (
+                              <div 
+                                key={index}
+                                className="flex items-center justify-between text-xs bg-white/20 rounded px-2 py-1"
+                              >
+                                <span className="font-medium text-white">{slot.name}</span>
+                                <span className="text-white/80">{slot.startTime} - {slot.endTime}</span>
+                              </div>
+                            ))}
+                            {activity.holidayTimeSlots.length > 3 && (
+                              <div className="text-xs text-center py-2">
+                                <button
+                                  onClick={() => toggleSessionExpansion(activity.id)}
+                                  className="inline-flex items-center px-2 py-1 rounded-full bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-colors cursor-pointer"
+                                >
+                                  <span className="font-medium">
+                                    {expandedSessions.has(activity.id) ? 'Show Less' : `+${activity.holidayTimeSlots.length - 3}`}
+                                  </span>
+                                  <span className="ml-1">
+                                    {expandedSessions.has(activity.id) ? '' : 'more sessions'}
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -533,11 +584,16 @@ const ActivitiesPage: React.FC = () => {
                     {/* Fallback: Show basic session info for Activity type without detailed slots */}
                     {(activity.type === 'activity' && (!activity.holidayTimeSlots || activity.holidayTimeSlots.length === 0)) && (
                       <div className="mt-3">
-                        <div className="text-xs font-medium text-gray-700 mb-2">Available Sessions:</div>
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1">
-                            <span className="font-medium text-gray-700">Standard Day</span>
-                            <span className="text-gray-500">{activity.start_time} - {activity.end_time}</span>
+                        <div className="bg-gradient-to-r from-[#00806a] to-[#00a085] p-3 rounded-lg text-white">
+                          <div className="text-sm font-medium text-white mb-2 flex items-center">
+                            <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                            Available Sessions:
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between text-xs bg-white/20 rounded px-2 py-1">
+                              <span className="font-medium text-white">Standard Day</span>
+                              <span className="text-white/80">{activity.start_time} - {activity.end_time}</span>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -546,22 +602,37 @@ const ActivitiesPage: React.FC = () => {
                     {/* Show Wraparound Care session blocks if available */}
                     {activity.sessionBlocks && activity.sessionBlocks.length > 0 && (
                       <div className="mt-3">
-                        <div className="text-xs font-medium text-gray-700 mb-2">Available Sessions:</div>
-                        <div className="space-y-1">
-                          {activity.sessionBlocks.slice(0, 3).map((block: any, index: number) => (
-                            <div 
-                              key={index}
-                              className="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1"
-                            >
-                              <span className="font-medium text-gray-700">{block.name}</span>
-                              <span className="text-gray-500">{block.startTime} - {block.endTime}</span>
-                            </div>
-                          ))}
-                          {activity.sessionBlocks.length > 3 && (
-                            <div className="text-xs text-gray-500 text-center py-1">
-                              +{activity.sessionBlocks.length - 3} more sessions
-                            </div>
-                          )}
+                        <div className="bg-gradient-to-r from-[#00806a] to-[#00a085] p-3 rounded-lg text-white">
+                          <div className="text-sm font-medium text-white mb-2 flex items-center">
+                            <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                            Available Sessions:
+                          </div>
+                          <div className="space-y-1">
+                            {activity.sessionBlocks.slice(0, expandedSessions.has(activity.id) ? activity.sessionBlocks.length : 3).map((block: any, index: number) => (
+                              <div 
+                                key={index}
+                                className="flex items-center justify-between text-xs bg-white/20 rounded px-2 py-1"
+                              >
+                                <span className="font-medium text-white">{block.name}</span>
+                                <span className="text-white/80">{block.startTime} - {block.endTime}</span>
+                              </div>
+                            ))}
+                            {activity.sessionBlocks.length > 3 && (
+                              <div className="text-xs text-center py-2">
+                                <button
+                                  onClick={() => toggleSessionExpansion(activity.id)}
+                                  className="inline-flex items-center px-2 py-1 rounded-full bg-white/20 text-white border border-white/30 hover:bg-white/30 transition-colors cursor-pointer"
+                                >
+                                  <span className="font-medium">
+                                    {expandedSessions.has(activity.id) ? 'Show Less' : `+${activity.sessionBlocks.length - 3}`}
+                                  </span>
+                                  <span className="ml-1">
+                                    {expandedSessions.has(activity.id) ? '' : 'more sessions'}
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -574,16 +645,22 @@ const ActivitiesPage: React.FC = () => {
                           <div className="space-y-1">
                             {/* Description */}
                             <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Description:</span>
-                              <span className="font-medium">
+                              <span className="text-white/80 flex items-center">
+                                <Tag className="w-3 h-3 mr-1" />
+                                Description:
+                              </span>
+                              <span className="font-medium text-white">
                                 {activity.description || 'No description available'}
                               </span>
                             </div>
                             
                             {/* Location */}
                             <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Location:</span>
-                              <span className="font-medium">
+                              <span className="text-white/80 flex items-center">
+                                <MapPinIcon className="w-3 h-3 mr-1" />
+                                Location:
+                              </span>
+                              <span className="font-medium text-white">
                                 {(() => {
                                   const venue = venues.find(v => v.id === activity.venue_id);
                                   return venue ? venue.name : 'Venue TBD';
@@ -593,8 +670,11 @@ const ActivitiesPage: React.FC = () => {
                             
                             {/* Dates */}
                             <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Dates:</span>
-                              <span className="font-medium">
+                              <span className="text-white/80 flex items-center">
+                                <CalendarIcon className="w-3 h-3 mr-1" />
+                                Dates:
+                              </span>
+                              <span className="font-medium text-white">
                                 {activity.start_date && activity.end_date ? 
                                   `${new Date(activity.start_date).toLocaleDateString()} - ${new Date(activity.end_date).toLocaleDateString()}` : 
                                   'TBD'}
@@ -603,37 +683,42 @@ const ActivitiesPage: React.FC = () => {
                             
                             {/* Day and Times */}
                             <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Schedule:</span>
-                              <span className="font-medium">
-                                {activity.type === 'course/program' && activity.daysOfWeek && activity.daysOfWeek.length > 0 ? 
-                                  `${activity.daysOfWeek.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ')} ${activity.start_time && activity.end_time ? 
-                                    `${activity.start_time} - ${activity.end_time}` : 
-                                    'TBD'}` :
-                                  `${activity.regular_day || activity.regularDay || 
+                              <span className="text-white/80 flex items-center">
+                                <ClockIcon className="w-3 h-3 mr-1" />
+                                Schedule:
+                              </span>
+                              <span className="font-medium text-white">
+                                {(() => {
+                                  
+                                  if (activity.type === 'course/program' && activity.daysOfWeek && activity.daysOfWeek.length > 0) {
+                                    const daysText = activity.daysOfWeek.map(day => day.charAt(0).toUpperCase() + day.slice(1)).join(', ');
+                                    const timeText = activity.start_time && activity.end_time ? 
+                                      `${activity.start_time} - ${activity.end_time}` : 'TBD';
+                                    return `${daysText} ${timeText}`;
+                                  } else {
+                                    const dayText = activity.regular_day || activity.regularDay || 
                                     (activity.start_date ? 
                                       new Date(activity.start_date).toLocaleDateString('en-US', { weekday: 'long' }) : 
-                                      'TBD')} ${activity.regular_time || activity.regularTime || 
+                                        'TBD');
+                                    const timeText = activity.regular_time || activity.regularTime || 
                                     (activity.start_time && activity.end_time ? 
                                       `${activity.start_time} - ${activity.end_time}` : 
-                                      'TBD')}`
+                                        'TBD');
+                                    return `${dayText} ${timeText}`;
                                 }
+                                })()}
                               </span>
                             </div>
                             
+                            
                             {/* Sessions Remaining */}
                             <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Sessions:</span>
-                              <span className="font-medium text-yellow-200">
+                              <span className="text-white/80 flex items-center">
+                                <CalendarDaysIcon className="w-3 h-3 mr-1" />
+                                Sessions:
+                              </span>
+                              <span className="font-medium text-yellow-300">
                                 {(() => {
-                                  // Debug logging for Dasper testing
-                                  if (activity.name === 'Dasper testing') {
-                                    console.log('Dasper testing data:', {
-                                      name: activity.name,
-                                      durationWeeks: activity.durationWeeks,
-                                      duration_weeks: activity.duration_weeks,
-                                      type: activity.type
-                                    });
-                                  }
                                   
                                   // Use durationWeeks if available (from backend calculation)
                                   if (activity.duration_weeks || activity.durationWeeks) {
@@ -647,8 +732,11 @@ const ActivitiesPage: React.FC = () => {
                             
                             {/* Age Range */}
                             <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Age:</span>
-                              <span className="font-medium">
+                              <span className="text-white/80 flex items-center">
+                                <UserGroupIcon className="w-3 h-3 mr-1" />
+                                Age:
+                              </span>
+                              <span className="font-medium text-white">
                                 {activity.age_range?.min && activity.age_range?.max ? 
                                   `${activity.age_range.min}-${activity.age_range.max} years` : 
                                   'All ages'}
@@ -702,8 +790,11 @@ const ActivitiesPage: React.FC = () => {
                               
                               return duration && (
                                 <div className="flex justify-between text-xs border-t border-white/20 pt-1 mt-1">
-                                  <span className="opacity-90">Total Cost:</span>
-                                  <span className="font-bold text-yellow-200">
+                                  <span className="text-white/80 flex items-center">
+                                    <CurrencyDollarIcon className="w-3 h-3 mr-1" />
+                                    Total Cost:
+                                  </span>
+                                  <span className="font-bold text-yellow-300">
                                     £{(duration * Number(activity.price || 0)).toFixed(2)}
                                   </span>
                                 </div>
@@ -712,25 +803,38 @@ const ActivitiesPage: React.FC = () => {
                             
                             {/* Spaces Available */}
                             <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Spaces:</span>
-                              <span className="font-medium">
+                              <span className="text-white/80 flex items-center">
+                                <UserIcon className="w-3 h-3 mr-1" />
+                                Spaces:
+                              </span>
+                              <span className="font-medium text-white">
                                 {activity.max_capacity && activity.current_capacity !== undefined ? 
-                                  `${activity.max_capacity - activity.current_capacity} available` : 
+                                  `${Math.max(0, activity.max_capacity - activity.current_capacity)} available` : 
                                   'Check availability'}
                               </span>
                             </div>
                             
-                            {/* Booking Type */}
-                            <div className="flex justify-between text-xs">
-                              <span className="opacity-90">Booking:</span>
-                              <span className="font-medium">
-                                {activity.proRataBooking ? 'Pro-rata Available' : 'Full Course Only'}
-                              </span>
-                            </div>
                           </div>
                         </div>
                       </div>
                     )}
+                    
+                    {/* Pro Rata Status - Show for all activity types */}
+                    <div className="mt-3">
+                      <div className="flex justify-between items-center p-2 bg-gray-50 rounded-lg">
+                        <span className="text-sm text-gray-600 flex items-center">
+                          <TicketIcon className="w-4 h-4 mr-2" />
+                          Booking Type:
+                        </span>
+                        <span className={`text-sm font-medium px-2 py-1 rounded-full ${
+                          activity.proRataBooking 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-teal-100 text-teal-800'
+                        }`}>
+                          {activity.proRataBooking ? 'Pro-rata Available' : 'Full Booking Only'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -738,14 +842,29 @@ const ActivitiesPage: React.FC = () => {
                       onClick={() => handleBookActivity(activity.id, activity.type)}
                       className="px-6 py-3 font-semibold text-white rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl bg-gradient-to-r from-[#00806a] to-[#00a085] hover:from-[#006b5a] hover:to-[#008a73]"
                     >
-                      {activity.type === 'holiday_club' ? 'Book Holiday Club' : 
-                       activity.type === 'activity' ? 'Book Activity' :
-                       activity.type === 'wraparound_care' ? 'Book Wraparound Care' : 
-                       activity.type === 'course/program' ? 
-                         (activity.max_capacity && activity.current_capacity !== undefined && 
-                          (activity.max_capacity - activity.current_capacity) <= 0 ? 
-                          'Join Waiting List' : 'Book Course') :
-                       'Book Now'}
+                      {(() => {
+                        // Check if activity is fully booked
+                        const isFullyBooked = activity.max_capacity && activity.current_capacity !== undefined && 
+                          (activity.max_capacity - activity.current_capacity) <= 0;
+                        
+                        if (isFullyBooked) {
+                          return 'Add to Waiting List';
+                        }
+                        
+                        // Return appropriate booking text based on activity type
+                        switch (activity.type) {
+                          case 'holiday_club':
+                            return 'Book Holiday Club';
+                          case 'activity':
+                            return 'Book Activity';
+                          case 'wraparound_care':
+                            return 'Book Wraparound Care';
+                          case 'course/program':
+                            return 'Book Course';
+                          default:
+                            return 'Book Now';
+                        }
+                      })()}
                     </Button>
                   </div>
                 </CardContent>

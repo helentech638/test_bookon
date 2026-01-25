@@ -174,6 +174,17 @@ export class RefundPolicyService {
           reason: calculation.reason
         });
       });
+
+      // Remove attendance records from registers (outside transaction to avoid conflicts)
+      try {
+        const { RealTimeRegisterService } = await import('./realTimeRegisterService');
+        await RealTimeRegisterService.removeAttendanceForCancelledBooking(context.bookingId);
+        logger.info(`Removed attendance records for cancelled booking ${context.bookingId}`);
+      } catch (attendanceError) {
+        logger.error('Failed to remove attendance records:', attendanceError);
+        // Don't fail the refund if attendance removal fails
+      }
+
     } catch (error) {
       logger.error('Error processing refund:', error);
       throw error;

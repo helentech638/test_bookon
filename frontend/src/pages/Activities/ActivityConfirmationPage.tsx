@@ -100,6 +100,11 @@ const ActivityConfirmationPage: React.FC = () => {
   }, [activityId]);
 
   const handleContinue = () => {
+    if (!activityId) {
+      setError('No activity ID provided');
+      return;
+    }
+    
     if (!selectedChildId) {
       setError('Please select a child');
       return;
@@ -110,6 +115,24 @@ const ActivityConfirmationPage: React.FC = () => {
   };
 
   const selectedChild = children.find(child => child.id === selectedChildId);
+
+  // Early return if no activityId
+  if (!activityId) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="flex items-center justify-center h-screen px-4">
+          <div className="text-center">
+            <ExclamationTriangleIcon className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Invalid Activity</h2>
+            <p className="text-gray-600 mb-4">No activity ID provided.</p>
+            <Button onClick={() => navigate('/activities')}>
+              Back to Activities
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

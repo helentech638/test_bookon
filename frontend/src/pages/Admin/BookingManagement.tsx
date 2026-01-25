@@ -7,7 +7,8 @@ import {
   EyeIcon, 
   CheckIcon, 
   XMarkIcon,
-  ClockIcon
+  ClockIcon,
+  CurrencyPoundIcon
 } from '@heroicons/react/24/outline';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -24,6 +25,7 @@ interface Booking {
   totalAmount: number;
   bookingDate: string;
   createdAt: string;
+  paymentStatus?: string;
   user: {
     id: string;
     name: string;
@@ -200,6 +202,34 @@ const BookingManagement: React.FC = () => {
     }
   };
 
+  const updatePaymentStatus = async (bookingId: string, paymentStatus: string) => {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(buildApiUrl(`/bookings/${bookingId}/payment-status`), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          paymentStatus,
+          paymentIntentId: `pi_manual_${Date.now()}`
+        })
+      });
+
+      if (response.ok) {
+        toast.success('Payment status updated successfully');
+        fetchBookings();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to update payment status');
+      }
+    } catch (error) {
+      toast.error('Error updating payment status');
+      console.error('Payment status update error:', error);
+    }
+  };
+
   const handleFilterChange = (field: string, value: string) => {
     setFilters(prev => ({ ...prev, [field]: value }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
@@ -352,9 +382,17 @@ const BookingManagement: React.FC = () => {
       key: 'totalAmount',
       label: 'Amount',
       mobileLabel: 'Amount',
-      render: (value: number) => (
-        <div className="text-sm font-medium text-gray-900">
-          {formatPrice(value)}
+      render: (value: number, row: Booking) => (
+        <div>
+          <div className="text-sm font-medium text-gray-900">
+            {formatPrice(value)}
+          </div>
+          {row.paymentStatus === 'pending' && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
+              <ClockIcon className="w-3 h-3 mr-1" />
+              Pending
+            </span>
+          )}
         </div>
       )
     },
@@ -374,36 +412,50 @@ const BookingManagement: React.FC = () => {
       label: 'Actions',
       mobileLabel: 'Actions',
       render: (value: any, row: Booking) => (
-        <div className="flex space-x-2">
-          {row.status === 'pending' && (
-            <>
+        <div className="flex flex-col space-y-2">
+          {/* Booking Status Actions */}
+          <div className="flex space-x-2">
+            {row.status === 'pending' && (
+              <>
+                <Button
+                  onClick={() => updateBookingStatus(row.id, 'confirmed')}
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckIcon className="w-4 h-4 mr-1" />
+                  Confirm
+                </Button>
+                <Button
+                  onClick={() => updateBookingStatus(row.id, 'cancelled')}
+                  size="sm"
+                  variant="outline"
+                  className="text-red-600 border-red-600 hover:bg-red-50"
+                >
+                  <XMarkIcon className="w-4 h-4 mr-1" />
+                  Cancel
+                </Button>
+              </>
+            )}
+            {row.status === 'confirmed' && (
               <Button
-                onClick={() => updateBookingStatus(row.id, 'confirmed')}
+                onClick={() => updateBookingStatus(row.id, 'completed')}
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <CheckIcon className="w-4 h-4 mr-1" />
-                Confirm
+                Complete
               </Button>
-              <Button
-                onClick={() => updateBookingStatus(row.id, 'cancelled')}
-                size="sm"
-                variant="outline"
-                className="text-red-600 border-red-600 hover:bg-red-50"
-              >
-                <XMarkIcon className="w-4 h-4 mr-1" />
-                Cancel
-              </Button>
-            </>
-          )}
-          {row.status === 'confirmed' && (
+            )}
+          </div>
+          {/* Payment Status Actions */}
+          {row.paymentStatus === 'pending' && (
             <Button
-              onClick={() => updateBookingStatus(row.id, 'completed')}
+              onClick={() => updatePaymentStatus(row.id, 'paid')}
               size="sm"
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              <CheckIcon className="w-4 h-4 mr-1" />
-              Complete
+              <CurrencyPoundIcon className="w-4 h-4 mr-1" />
+              Mark as Paid
             </Button>
           )}
         </div>

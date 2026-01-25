@@ -25,6 +25,8 @@ import {
   CogIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import authService from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface Notification {
   id: string;
@@ -98,69 +100,34 @@ const NotificationsPage: React.FC = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          title: 'New Booking Received',
-          message: 'You have received a new booking for Swimming Lessons on January 20th at 10:00 AM.',
-          type: 'success',
-          channel: 'email',
-          status: 'sent',
-          targetAudience: 'venue_staff',
-          sentAt: '2024-01-15T10:30:00Z',
-          readCount: 3,
-          totalRecipients: 5,
-          createdAt: '2024-01-15T10:00:00Z',
-          updatedAt: '2024-01-15T10:30:00Z'
-        },
-        {
-          id: '2',
-          title: 'Payment Processing Issue',
-          message: 'There was an issue processing payment for booking #12345. Please review.',
-          type: 'error',
-          channel: 'email',
-          status: 'sent',
-          targetAudience: 'venue_staff',
-          sentAt: '2024-01-15T09:15:00Z',
-          readCount: 2,
-          totalRecipients: 3,
-          createdAt: '2024-01-15T09:00:00Z',
-          updatedAt: '2024-01-15T09:15:00Z'
-        },
-        {
-          id: '3',
-          title: 'Weekly Activity Reminder',
-          message: 'Don\'t forget! Your weekly swimming lesson is tomorrow at 10:00 AM.',
-          type: 'info',
-          channel: 'email',
-          status: 'scheduled',
-          targetAudience: 'customers',
-          scheduledAt: '2024-01-20T08:00:00Z',
-          readCount: 0,
-          totalRecipients: 0,
-          createdAt: '2024-01-15T14:00:00Z',
-          updatedAt: '2024-01-15T14:00:00Z'
-        },
-        {
-          id: '4',
-          title: 'Venue Maintenance Notice',
-          message: 'The main sports centre will be closed for maintenance on January 25th.',
-          type: 'warning',
-          channel: 'push',
-          status: 'draft',
-          targetAudience: 'all',
-          readCount: 0,
-          totalRecipients: 0,
-          createdAt: '2024-01-15T16:00:00Z',
-          updatedAt: '2024-01-15T16:00:00Z'
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to view notifications');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/business/notifications'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      ];
-      
-      setNotifications(mockNotifications);
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch notifications');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setNotifications(data.data);
+      } else {
+        throw new Error(data.message || 'Failed to fetch notifications');
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
       toast.error('Failed to fetch notifications');
+      // Set empty array on error instead of mock data
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -168,54 +135,66 @@ const NotificationsPage: React.FC = () => {
 
   const fetchTemplates = async () => {
     try {
-      // Mock templates - replace with actual API call
-      const mockTemplates: NotificationTemplate[] = [
-        {
-          id: '1',
-          name: 'Booking Confirmation',
-          subject: 'Booking Confirmed - {{activity_name}}',
-          content: 'Your booking for {{activity_name}} on {{date}} at {{time}} has been confirmed. Please arrive 10 minutes early.',
-          type: 'booking_confirmation',
-          isDefault: true
-        },
-        {
-          id: '2',
-          name: 'Booking Reminder',
-          subject: 'Reminder: {{activity_name}} Tomorrow',
-          content: 'This is a friendly reminder that you have {{activity_name}} scheduled for tomorrow at {{time}}. See you there!',
-          type: 'booking_reminder',
-          isDefault: true
-        },
-        {
-          id: '3',
-          name: 'Cancellation Notice',
-          subject: 'Booking Cancelled - {{activity_name}}',
-          content: 'Your booking for {{activity_name}} on {{date}} has been cancelled. If you have any questions, please contact us.',
-          type: 'cancellation',
-          isDefault: true
-        },
-        {
-          id: '4',
-          name: 'Payment Confirmation',
-          subject: 'Payment Received - {{activity_name}}',
-          content: 'Thank you! We have received your payment of £{{amount}} for {{activity_name}}. Your booking is confirmed.',
-          type: 'payment',
-          isDefault: true
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to view templates');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/business/notifications/templates'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      ];
-      
-      setTemplates(mockTemplates);
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch templates');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setTemplates(data.data);
+      } else {
+        throw new Error(data.message || 'Failed to fetch templates');
+      }
     } catch (error) {
       console.error('Error fetching templates:', error);
+      toast.error('Failed to fetch templates');
+      // Set empty array on error instead of mock data
+      setTemplates([]);
     }
   };
 
   const fetchSettings = async () => {
     try {
-      // Mock settings - replace with actual API call
-      // Settings are already initialized in state
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to view settings');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/business/notifications/settings'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch settings');
+      }
+
+      const data = await response.json();
+      if (data.success && data.data) {
+        setSettings(data.data);
+      } else {
+        throw new Error(data.message || 'Failed to fetch settings');
+      }
     } catch (error) {
       console.error('Error fetching settings:', error);
+      toast.error('Failed to fetch settings');
+      // Keep default settings on error
     }
   };
 
@@ -253,35 +232,60 @@ const NotificationsPage: React.FC = () => {
     e.preventDefault();
     
     try {
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to create notifications');
+        return;
+      }
+
       if (editingNotification) {
         // Update existing notification
-        const updatedNotification = { 
-          ...editingNotification, 
-          ...formData,
-          updatedAt: new Date().toISOString()
-        };
-        setNotifications(prev => 
-          prev.map(notification => notification.id === editingNotification.id ? updatedNotification : notification)
-        );
+        const response = await fetch(buildApiUrl(`/business/notifications/${editingNotification.id}`), {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: formData.scheduledAt ? 'scheduled' : 'pending'
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update notification');
+        }
+
         toast.success('Notification updated successfully');
       } else {
         // Create new notification
-        const newNotification: Notification = {
-          id: Date.now().toString(),
-          ...formData,
-          status: 'draft',
-          readCount: 0,
-          totalRecipients: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        setNotifications(prev => [...prev, newNotification]);
-        toast.success('Notification created successfully');
+        const response = await fetch(buildApiUrl('/business/notifications'), {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            title: formData.title,
+            message: formData.message,
+            type: formData.type,
+            channel: formData.channel,
+            targetAudience: formData.targetAudience,
+            scheduledAt: formData.scheduledAt || null
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to create notification');
+        }
+
+        const data = await response.json();
+        toast.success(`Notification created successfully! Sent to ${data.data.targetUserCount} users.`);
       }
       
       setShowCreateModal(false);
       setEditingNotification(null);
       resetForm();
+      fetchNotifications(); // Refresh the list
     } catch (error) {
       console.error('Error saving notification:', error);
       toast.error('Failed to save notification');
@@ -336,7 +340,25 @@ const NotificationsPage: React.FC = () => {
 
   const handleSaveSettings = async () => {
     try {
-      // Save settings to API
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to save settings');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/business/notifications/settings'), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(settings)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
+      }
+
       toast.success('Notification settings saved successfully');
     } catch (error) {
       console.error('Error saving settings:', error);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
@@ -19,14 +19,21 @@ const Layout: React.FC<LayoutProps> = ({ children, user, onLogout }) => {
   const location = useLocation();
   const isAdminRoute = location.pathname.startsWith('/admin');
   const isBusinessRoute = location.pathname.startsWith('/business');
+  const mountedRef = useRef(false);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+    }
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header user={user} onLogout={onLogout} />
+      <Header key="main-header" user={user} onLogout={onLogout} />
       <main className="flex-grow">
         {children}
       </main>
-      {!isAdminRoute && !isBusinessRoute && <Footer />}
+      {!isAdminRoute && !isBusinessRoute && <Footer key="main-footer" />}
     </div>
   );
 };

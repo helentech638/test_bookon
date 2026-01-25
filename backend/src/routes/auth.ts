@@ -8,6 +8,7 @@ import { authenticateToken, authRateLimit, logout } from '../middleware/auth';
 import { redis } from '../utils/redis';
 import { logger, logSecurity } from '../utils/logger';
 import { prisma, safePrismaQuery } from '../utils/prisma';
+import businessOnboardingRouter from './businessOnboarding';
 
 const router = Router();
 
@@ -1123,6 +1124,7 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
         lastName: 'Smith',
         dateOfBirth: new Date('2015-03-15'),
         parentId: parentUser.id,
+        school: 'Example Primary School',
       },
     });
 
@@ -1173,5 +1175,8 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
     });
   }
 }));
+
+// Business onboarding routes
+router.use('/', businessOnboardingRouter);
 
 export default router;

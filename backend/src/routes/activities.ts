@@ -225,11 +225,12 @@ router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(
         id: activity.id,
         name: activity.title,
         description: activity.description,
-        startTime: activity.startDate,
-        endTime: activity.endDate,
+        start_time: activity.startDate,
+        end_time: activity.endDate,
         capacity: activity.capacity,
-        currentBookings: activity.bookings.filter((b: any) => b.status === 'confirmed').length,
-        venue: activity.venue,
+        booked: activity.bookings.filter((b: any) => b.status === 'confirmed').length,
+        venue_name: activity.venue?.name || 'Unknown Venue',
+        waitlist_count: 0, // Add waitlist count
         status: activity.status
       }));
     });
@@ -420,7 +421,9 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
         regular_time: (activity as any).regularTime,
         courseExcludeDates: (activity as any).courseExcludeDates || [],
         sessions: transformedSessions,
-        currency: (activity as any).currency || 'GBP' // Add default currency if not present
+        currency: (activity as any).currency || 'GBP', // Add default currency if not present
+        // Explicitly include pro rata booking
+        proRataBooking: activity.proRataBooking
       }
     });
   } catch (error) {
@@ -453,7 +456,9 @@ router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), async
       // Wraparound Care fields
       isWraparoundCare,
       yearGroups,
-      sessionBlocks
+      sessionBlocks,
+      // Pro rata billing
+      proRataBooking
     } = req.body;
 
     // Validate required fields
@@ -484,7 +489,9 @@ router.post('/', authenticateToken, requireRole(['admin', 'coordinator']), async
       // Wraparound Care fields
       isWraparoundCare: isWraparoundCare || false,
       yearGroups: yearGroups || [],
-      sessionBlocks: sessionBlocks || []
+      sessionBlocks: sessionBlocks || [],
+      // Pro rata billing
+      proRataBooking: proRataBooking || false
     };
 
     const sessionOptions = {
@@ -547,7 +554,9 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asy
       earlyDropoffPrice,
       latePickup,
       latePickupPrice,
-      status
+      status,
+      // Pro rata billing
+      proRataBooking
     } = req.body;
 
     if (!id) {
@@ -572,7 +581,8 @@ router.put('/:id', authenticateToken, requireRole(['admin', 'coordinator']), asy
           ...(earlyDropoffPrice !== undefined && { earlyDropoffPrice: earlyDropoffPrice ? parseFloat(earlyDropoffPrice) : null }),
           ...(latePickup !== undefined && { latePickup }),
           ...(latePickupPrice !== undefined && { latePickupPrice: latePickupPrice ? parseFloat(latePickupPrice) : null }),
-          ...(status && { status })
+          ...(status && { status }),
+          ...(proRataBooking !== undefined && { proRataBooking })
         },
         include: {
           venue: {

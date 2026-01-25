@@ -14,9 +14,11 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Stepper } from '../../components/ui/Stepper';
+import { CalendarIntegration } from '../../components/CalendarIntegration';
 import PaymentForm from '../../components/payment/PaymentForm';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
+import { calendarService } from '../../services/calendarService';
 
 
 interface Activity {
@@ -24,6 +26,7 @@ interface Activity {
   title: string;
   description: string;
   startDate: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   price: number;
@@ -53,6 +56,7 @@ interface BookingSummary {
   totalAmount: number;
   currency: string;
 }
+
 
 const ParentBookingFlow: React.FC = () => {
   const navigate = useNavigate();
@@ -131,7 +135,31 @@ const ParentBookingFlow: React.FC = () => {
       // Process activity response
       if (activityResponse.status === 'fulfilled' && activityResponse.value.ok) {
         const activityData = await activityResponse.value.json();
-        setActivity(activityData.data);
+        console.log('Activity data received:', activityData.data);
+        
+        // Transform the activity data to match our interface
+        const transformedActivity = {
+          ...activityData.data,
+          startDate: activityData.data.startDate ? 
+            (typeof activityData.data.startDate === 'string' ? 
+              activityData.data.startDate : 
+              new Date(activityData.data.startDate).toISOString().split('T')[0]) :
+            activityData.data.start_date,
+          endDate: activityData.data.endDate ? 
+            (typeof activityData.data.endDate === 'string' ? 
+              activityData.data.endDate : 
+              new Date(activityData.data.endDate).toISOString().split('T')[0]) :
+            activityData.data.end_date,
+          title: activityData.data.title || activityData.data.name,
+          venue: {
+            id: activityData.data.venue_id || activityData.data.venue?.id,
+            name: activityData.data.venue_name || activityData.data.venue?.name || 'Unknown Venue',
+            address: activityData.data.venue_address || activityData.data.venue?.address || ''
+          }
+        };
+        
+        console.log('Transformed activity:', transformedActivity);
+        setActivity(transformedActivity);
       } else if (activityResponse.status === 'fulfilled' && activityResponse.value.status === 401) {
         toast.error('Session expired. Please login again.');
         authService.logout();
@@ -178,8 +206,9 @@ const ParentBookingFlow: React.FC = () => {
 
   const handleNextStep = () => {
     if (currentStep === 1) {
-      if (!selectedChild) {
-        toast.error('Please select a child to continue');
+      // Step 1: Check if user has children before proceeding
+      if (children.length === 0) {
+        toast.error('Please add a child first before booking activities');
         return;
       }
       setCurrentStep(2);
@@ -246,6 +275,19 @@ const ParentBookingFlow: React.FC = () => {
   const handlePaymentCancel = () => {
     setShowPayment(false);
     setCurrentStep(2);
+  };
+
+  const handleAddToCalendar = () => {
+    if (!activity) return;
+    
+    try {
+      const calendarEvent = calendarService.createEventFromActivity(activity);
+      calendarService.downloadICalFile(calendarEvent);
+      toast.success('Activity added to calendar!');
+    } catch (err) {
+      console.error('Error creating calendar event:', err);
+      toast.error('Failed to add to calendar');
+    }
   };
 
   if (loading) {
@@ -342,10 +384,19 @@ const ParentBookingFlow: React.FC = () => {
           {currentStep === 1 && (
             <Card>
               <CardHeader>
+                <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center">
                   <CalendarIcon className="w-6 h-6 mr-2" />
                   Activity Details
                 </CardTitle>
+                  {activity && (
+                    <CalendarIntegration
+                      event={calendarService.createEventFromActivity(activity)}
+                      buttonText="Add to Calendar"
+                      showOptions={true}
+                    />
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
@@ -394,7 +445,7 @@ const ParentBookingFlow: React.FC = () => {
                       <div>
                         <p className="text-sm font-medium text-gray-900">Availability</p>
                         <p className="text-sm text-gray-600">
-                          {activity.capacity - activity.bookedCount} of {activity.capacity} spots left
+                          {activity.capacity - (activity.bookedCount || 0)} of {activity.capacity} spots left
                         </p>
                       </div>
                     </div>
@@ -407,7 +458,7 @@ const ParentBookingFlow: React.FC = () => {
                         <p className="text-2xl font-bold text-blue-900">
                           {new Intl.NumberFormat('en-GB', {
                             style: 'currency',
-                            currency: activity.currency.toUpperCase(),
+                            currency: (activity.currency || 'GBP').toUpperCase(),
                           }).format(activity.price)}
                         </p>
                       </div>
@@ -494,11 +545,18 @@ const ParentBookingFlow: React.FC = () => {
           {currentStep === 3 && showPayment && (
             <PaymentForm
               amount={activity.price}
-              currency={activity.currency}
+              currency={activity.currency || 'GBP'}
               bookingId={`temp-${Date.now()}`}
               venueId={activity.venue.id}
+              activityId={activityId}
+              childId={selectedChild}
               activityName={activity.title}
               venueName={activity.venue.name}
+              startDate={activity.startDate}
+              endDate={activity.endDate}
+              startTime={activity.startTime}
+              endTime={activity.endTime}
+              childName={children.find(c => c.id === selectedChild)?.firstName + ' ' + children.find(c => c.id === selectedChild)?.lastName}
               onSuccess={handlePaymentSuccess}
               onCancel={handlePaymentCancel}
             />
@@ -521,14 +579,19 @@ const ParentBookingFlow: React.FC = () => {
 
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Date & Time</span>
-                    <span className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-gray-900 text-right">
+                      <div>
                       {new Date(activity.startDate).toLocaleDateString('en-GB', {
+                          month: 'short',
+                          day: 'numeric'
+                        })} - {new Date(activity.endDate).toLocaleDateString('en-GB', {
                         month: 'short',
                         day: 'numeric'
                       })}
                       <br />
                       {activity.startTime}
-                    </span>
+                      </div>
+                    </div>
                   </div>
 
                   {selectedChild && (
@@ -546,9 +609,12 @@ const ParentBookingFlow: React.FC = () => {
                       <span className="text-2xl font-bold text-gray-900">
                         {new Intl.NumberFormat('en-GB', {
                           style: 'currency',
-                          currency: activity.currency.toUpperCase(),
+                          currency: (activity.currency || 'GBP').toUpperCase(),
                         }).format(activity.price)}
                       </span>
+                    </div>
+                    <div className="text-xs text-gray-500 text-right mt-1">
+                      Full program price
                     </div>
                   </div>
 
@@ -564,12 +630,21 @@ const ParentBookingFlow: React.FC = () => {
                       </Button>
                     )}
 
-                    {currentStep < 3 && selectedChild && (
+                    {currentStep === 1 && (
                       <Button
                         onClick={handleNextStep}
                         className="w-full"
                       >
-                        Continue to {currentStep === 1 ? 'Child Selection' : 'Payment'}
+                        Continue to Child Selection
+                      </Button>
+                    )}
+
+                    {currentStep === 2 && selectedChild && (
+                      <Button
+                        onClick={handleNextStep}
+                        className="w-full"
+                      >
+                        Continue to Payment
                       </Button>
                     )}
 

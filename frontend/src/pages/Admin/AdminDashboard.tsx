@@ -209,7 +209,7 @@ const AdminDashboard: React.FC = () => {
       const token = authService.getToken();
       if (!token) return;
 
-      const response = await fetch(buildApiUrl(`/dashboard/snapshot?range=${dateRange}`), {
+      const response = await fetch(buildApiUrl(`/dashboard/admin-snapshot?range=${dateRange}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -2244,78 +2244,98 @@ const AdminDashboard: React.FC = () => {
     </div>
   );
 
-  // New Snapshot Cards Component
+  // New Snapshot Cards Component - Premium Design
   const SnapshotCards = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 p-4 lg:p-6">
       {/* Activities Running Today */}
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/activities')}>
-        <CardContent className="p-4 lg:p-6">
-          <div className="flex items-center">
-            <div className="p-2 lg:p-3 bg-teal-100 rounded-lg mr-3 lg:mr-4">
-              <CalendarDaysIcon className="h-5 w-5 lg:h-6 lg:w-6 text-teal-600" />
+      <Card className="group hover:shadow-xl transition-all duration-300 cursor-pointer bg-gradient-to-br from-white to-teal-50 border-0 shadow-lg hover:scale-105">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                <CalendarDaysIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Activities Running</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {dashboardSnapshot?.activities_running || 0}
+                </p>
+                <p className="text-sm text-teal-600 font-medium">
+                  {dashboardSnapshot?.attendees_today || 0} children
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Activities Running Today</p>
-              <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                {dashboardSnapshot?.activities_running || 0}
-              </p>
-              <p className="text-xs text-gray-500">
-                {dashboardSnapshot?.attendees_today || 0} children
-              </p>
+            <div className="text-right">
+              <div className="w-3 h-3 bg-teal-500 rounded-full animate-pulse"></div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Parents Registered */}
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/users')}>
-        <CardContent className="p-4 lg:p-6">
-          <div className="flex items-center">
-            <div className="p-2 lg:p-3 bg-blue-100 rounded-lg mr-3 lg:mr-4">
-              <UsersIcon className="h-5 w-5 lg:h-6 lg:w-6 text-blue-600" />
+      <Card className="group hover:shadow-xl transition-all duration-300 cursor-pointer bg-gradient-to-br from-white to-blue-50 border-0 shadow-lg hover:scale-105">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                <UsersIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Parents Registered</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {dashboardSnapshot?.parents_registered || 0}
+                </p>
+                <p className="text-sm text-blue-600 font-medium">Active accounts</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Parents Registered</p>
-              <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                {dashboardSnapshot?.parents_registered || 0}
-              </p>
-              <p className="text-xs text-gray-500">Active accounts</p>
+            <div className="text-right">
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Payments Collected Today */}
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/payments')}>
-        <CardContent className="p-4 lg:p-6">
-          <div className="flex items-center">
-            <div className="p-2 lg:p-3 bg-green-100 rounded-lg mr-3 lg:mr-4">
-              <CurrencyPoundIcon className="h-5 w-5 lg:h-6 lg:w-6 text-green-600" />
+      <Card className="group hover:shadow-xl transition-all duration-300 cursor-pointer bg-gradient-to-br from-white to-green-50 border-0 shadow-lg hover:scale-105">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                <CurrencyPoundIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Payments Collected</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {formatPrice(dashboardSnapshot?.payments_total)}
+                </p>
+                <p className="text-sm text-green-600 font-medium">Settled today</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Payments Collected Today</p>
-              <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                {formatPrice(dashboardSnapshot?.payments_total)}
-              </p>
-              <p className="text-xs text-gray-500">Settled today</p>
+            <div className="text-right">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Refunds / Credits Issued */}
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/refunds')}>
-        <CardContent className="p-4 lg:p-6">
-          <div className="flex items-center">
-            <div className="p-2 lg:p-3 bg-red-100 rounded-lg mr-3 lg:mr-4">
-              <ArrowPathIcon className="h-5 w-5 lg:h-6 lg:w-6 text-red-600" />
+      <Card className="group hover:shadow-xl transition-all duration-300 cursor-pointer bg-gradient-to-br from-white to-red-50 border-0 shadow-lg hover:scale-105">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="p-3 bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+                <ArrowPathIcon className="h-6 w-6 text-white" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Refunds & Credits</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {formatPrice((dashboardSnapshot?.refunds_total || 0) + (dashboardSnapshot?.credits_total || 0))}
+                </p>
+                <p className="text-sm text-red-600 font-medium">Issued today</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs lg:text-sm font-medium text-gray-600 truncate">Refunds / Credits Issued</p>
-              <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                {formatPrice((dashboardSnapshot?.refunds_total || 0) + (dashboardSnapshot?.credits_total || 0))}
-              </p>
-              <p className="text-xs text-gray-500">Today</p>
+            <div className="text-right">
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
             </div>
           </div>
         </CardContent>
@@ -2342,7 +2362,9 @@ const AdminDashboard: React.FC = () => {
         {upcomingActivities.length > 0 ? (
           <div className="space-y-4">
             {upcomingActivities.map((activity) => {
-              const capacityPercentage = (activity.booked / activity.capacity) * 100;
+              const booked = activity.booked || 0;
+              const capacity = activity.capacity || 0;
+              const capacityPercentage = capacity > 0 ? (booked / capacity) * 100 : 0;
               const isFull = capacityPercentage >= 100;
               const isNearFull = capacityPercentage >= 80;
               
@@ -2356,13 +2378,19 @@ const AdminDashboard: React.FC = () => {
                         isNearFull ? 'bg-yellow-100 text-yellow-800' :
                         'bg-green-100 text-green-800'
                       }`}>
-                        {isFull ? 'Full' : `${activity.booked}/${activity.capacity}`}
+                        {isFull ? 'Full' : `${booked}/${capacity}`}
                       </span>
                     </div>
                     <div className="flex items-center space-x-4 mt-1">
                       <div className="flex items-center text-xs text-gray-500">
                         <ClockIcon className="h-3 w-3 mr-1" />
-                        {new Date(activity.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {new Date(activity.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(activity.start_time).toLocaleDateString('en-GB', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </div>
                       <div className="flex items-center text-xs text-gray-500">
                         <MapPinIcon className="h-3 w-3 mr-1" />

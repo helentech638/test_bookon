@@ -25,13 +25,13 @@ router.get('/config/:venueId', authenticateToken, asyncHandler(async (req: Reque
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
     }
 
-    // Get TFC configuration (this would typically come from venue settings)
+    // Get TFC configuration from venue settings
     const tfcConfig = {
-      enabled: true,
+      enabled: venue.tfcEnabled || false,
       providerName: venue.businessAccount?.name || venue.name,
       providerNumber: venue.businessAccount?.providerNumber || 'TFC001',
-      holdPeriodDays: 5,
-      instructionText: `Please use the payment reference when making your Tax-Free Childcare payment. Your booking will be confirmed once payment is received.`,
+      holdPeriodDays: venue.tfcHoldPeriod || 5,
+      instructionText: venue.tfcInstructions || `Please use the payment reference when making your Tax-Free Childcare payment. Your booking will be confirmed once payment is received.`,
       bankDetails: {
         accountName: venue.businessAccount?.name || venue.name,
         sortCode: venue.businessAccount?.sortCode || '20-00-00',
@@ -260,7 +260,81 @@ router.post('/booking/:bookingId/resend-instructions', authenticateToken, asyncH
   }
 }));
 
-// Admin: Get TFC pending queue
+// Get TFC pending queue (admin access)
+router.get('/pending', authenticateToken, requireRole(['admin', 'coordinator', 'staff']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { status, page = '1', limit = '50' } = req.query;
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+
+    const where: any = {
+      paymentMethod: 'tfc',
+      status: status === 'all' ? undefined : status
+    };
+
+    const [bookings, total] = await Promise.all([
+      safePrismaQuery(async (client) => {
+        return await client.booking.findMany({
+          where,
+          include: {
+            activity: {
+              include: {
+                venue: true
+              }
+            },
+            child: true,
+            parent: true
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limitNum
+        });
+      }),
+      safePrismaQuery(async (client) => {
+        return await client.booking.count({ where });
+      })
+    ]);
+
+    // Transform data to match frontend interface
+    const transformedBookings = bookings.map(booking => {
+      const now = new Date();
+      const deadline = new Date(booking.tfcDeadline || booking.createdAt);
+      const daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      return {
+        id: booking.id,
+        child: `${booking.child.firstName} ${booking.child.lastName}`,
+        parent: `${booking.parent.firstName} ${booking.parent.lastName}`,
+        parentEmail: booking.parent.email,
+        activity: booking.activity.title,
+        venue: booking.activity.venue.name,
+        venueId: booking.activity.venue.id,
+        amount: parseFloat(booking.amount.toString()),
+        reference: booking.tfcReference || 'N/A',
+        deadline: deadline.toISOString(),
+        createdAt: booking.createdAt.toISOString(),
+        daysRemaining: daysRemaining
+      };
+    });
+
+    res.json({
+      success: true,
+      data: transformedBookings,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching TFC pending queue:', error);
+    throw new AppError('Failed to fetch TFC pending queue', 500, 'TFC_PENDING_QUEUE_ERROR');
+  }
+}));
+
+// Admin: Get TFC pending queue (legacy route)
 router.get('/admin/pending', authenticateToken, requireRole(['admin', 'coordinator']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { status, page = '1', limit = '50' } = req.query;
@@ -322,6 +396,264 @@ router.get('/admin/pending', authenticateToken, requireRole(['admin', 'coordinat
   } catch (error) {
     logger.error('Error fetching TFC pending queue:', error);
     throw new AppError('Failed to fetch TFC pending queue', 500, 'TFC_PENDING_QUEUE_ERROR');
+  }
+}));
+
+// Cancel TFC booking
+router.post('/cancel/:bookingId', authenticateToken, requireRole(['admin', 'coordinator', 'staff']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user!.id;
+
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.findUnique({
+        where: { id: bookingId }
+      });
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    }
+
+    if (booking.paymentMethod !== 'tfc') {
+      throw new AppError('Booking is not a TFC payment', 400, 'NOT_TFC_BOOKING');
+    }
+
+    // Update booking status to cancelled
+    await safePrismaQuery(async (client) => {
+      return await client.booking.update({
+        where: { id: bookingId },
+        data: {
+          paymentStatus: 'cancelled',
+          status: 'cancelled',
+          updatedAt: new Date(),
+          cancellationReason: reason || 'Cancelled by admin'
+        }
+      });
+    });
+
+    logger.info('TFC booking cancelled', {
+      bookingId,
+      adminId,
+      reason: reason || 'Cancelled by admin'
+    });
+
+    res.json({
+      success: true,
+      message: 'TFC booking cancelled successfully'
+    });
+  } catch (error) {
+    logger.error('Error cancelling TFC booking:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to cancel TFC booking', 500, 'TFC_CANCEL_ERROR');
+  }
+}));
+
+// Mark TFC booking as part-paid
+router.post('/part-paid/:bookingId', authenticateToken, requireRole(['admin', 'coordinator', 'staff']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const { amountReceived } = req.body;
+    const adminId = req.user!.id;
+
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.findUnique({
+        where: { id: bookingId }
+      });
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    }
+
+    if (booking.paymentMethod !== 'tfc') {
+      throw new AppError('Booking is not a TFC payment', 400, 'NOT_TFC_BOOKING');
+    }
+
+    if (!amountReceived || amountReceived <= 0) {
+      throw new AppError('Invalid amount received', 400, 'INVALID_AMOUNT');
+    }
+
+    // Update booking status to part-paid
+    await safePrismaQuery(async (client) => {
+      return await client.booking.update({
+        where: { id: bookingId },
+        data: {
+          paymentStatus: 'part_paid',
+          status: 'part_paid',
+          amountReceived: parseFloat(amountReceived),
+          updatedAt: new Date()
+        }
+      });
+    });
+
+    logger.info('TFC booking marked as part-paid', {
+      bookingId,
+      adminId,
+      amountReceived: parseFloat(amountReceived),
+      totalAmount: booking.amount
+    });
+
+    res.json({
+      success: true,
+      message: 'TFC booking marked as part-paid successfully'
+    });
+  } catch (error) {
+    logger.error('Error marking TFC booking as part-paid:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to mark TFC booking as part-paid', 500, 'TFC_PART_PAID_ERROR');
+  }
+}));
+
+// Convert TFC booking to wallet credit
+router.post('/convert-to-credit/:bookingId', authenticateToken, requireRole(['admin', 'coordinator', 'staff']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingId } = req.params;
+    const adminId = req.user!.id;
+
+    const booking = await safePrismaQuery(async (client) => {
+      return await client.booking.findUnique({
+        where: { id: bookingId },
+        include: {
+          parent: true
+        }
+      });
+    });
+
+    if (!booking) {
+      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    }
+
+    if (booking.paymentMethod !== 'tfc') {
+      throw new AppError('Booking is not a TFC payment', 400, 'NOT_TFC_BOOKING');
+    }
+
+    // Update booking status and add wallet credit
+    await safePrismaQuery(async (client) => {
+      await client.$transaction(async (tx) => {
+        // Update booking status
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: {
+            paymentStatus: 'converted_to_credit',
+            status: 'converted_to_credit',
+            updatedAt: new Date()
+          }
+        });
+
+        // Add wallet credit to parent
+        await tx.walletTransaction.create({
+          data: {
+            userId: booking.parentId,
+            amount: booking.amount,
+            type: 'credit',
+            description: `TFC booking converted to wallet credit - Booking ID: ${bookingId}`,
+            reference: `TFC-CONVERT-${bookingId}`,
+            status: 'completed'
+          }
+        });
+      });
+    });
+
+    logger.info('TFC booking converted to wallet credit', {
+      bookingId,
+      adminId,
+      parentId: booking.parentId,
+      amount: booking.amount
+    });
+
+    res.json({
+      success: true,
+      message: 'TFC booking converted to wallet credit successfully'
+    });
+  } catch (error) {
+    logger.error('Error converting TFC booking to wallet credit:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to convert TFC booking to wallet credit', 500, 'TFC_CONVERT_ERROR');
+  }
+}));
+
+// Bulk confirm TFC payments
+router.post('/bulk-confirm', authenticateToken, requireRole(['admin', 'coordinator', 'staff']), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { bookingIds } = req.body;
+    const adminId = req.user!.id;
+
+    if (!bookingIds || !Array.isArray(bookingIds) || bookingIds.length === 0) {
+      throw new AppError('Invalid booking IDs provided', 400, 'INVALID_BOOKING_IDS');
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (const bookingId of bookingIds) {
+      try {
+        const booking = await safePrismaQuery(async (client) => {
+          return await client.booking.findUnique({
+            where: { id: bookingId }
+          });
+        });
+
+        if (!booking) {
+          errors.push(`Booking ${bookingId} not found`);
+          errorCount++;
+          continue;
+        }
+
+        if (booking.paymentMethod !== 'tfc') {
+          errors.push(`Booking ${bookingId} is not a TFC payment`);
+          errorCount++;
+          continue;
+        }
+
+        if (booking.paymentStatus !== 'pending_payment') {
+          errors.push(`Booking ${bookingId} is not in pending payment status`);
+          errorCount++;
+          continue;
+        }
+
+        // Update booking status to confirmed
+        await safePrismaQuery(async (client) => {
+          return await client.booking.update({
+            where: { id: bookingId },
+            data: {
+              paymentStatus: 'paid',
+              status: 'confirmed',
+              updatedAt: new Date()
+            }
+          });
+        });
+
+        successCount++;
+      } catch (error) {
+        errors.push(`Error processing booking ${bookingId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        errorCount++;
+      }
+    }
+
+    logger.info('Bulk TFC payment confirmation completed', {
+      adminId,
+      totalBookings: bookingIds.length,
+      successCount,
+      errorCount
+    });
+
+    res.json({
+      success: true,
+      message: `Bulk confirmation completed: ${successCount} successful, ${errorCount} errors`,
+      data: {
+        totalBookings: bookingIds.length,
+        successCount,
+        errorCount,
+        errors: errors.length > 0 ? errors : undefined
+      }
+    });
+  } catch (error) {
+    logger.error('Error in bulk TFC payment confirmation:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to bulk confirm TFC payments', 500, 'TFC_BULK_CONFIRM_ERROR');
   }
 }));
 

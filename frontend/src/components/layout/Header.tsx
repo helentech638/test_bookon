@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bars3Icon, XMarkIcon, UserCircleIcon, ArrowRightOnRectangleIcon, BellIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, XMarkIcon, UserCircleIcon, ArrowRightOnRectangleIcon, BellIcon, ShoppingCartIcon } from '@heroicons/react/24/outline';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useBasket } from '../../contexts/CartContext';
 
 interface HeaderProps {
   user?: {
@@ -18,6 +19,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { notificationCount } = useNotifications();
+  const { getTotalItems } = useBasket();
 
   const handleLogout = () => {
     if (onLogout) {
@@ -27,7 +29,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
   };
 
   return (
-    <header className="bg-white shadow-lg border-b border-gray-100 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
+    <header className="bg-white shadow-lg border-b border-gray-100 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
         <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Logo */}
@@ -61,10 +63,32 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             >
               Activities
             </Link>
+            {user && (
+              <Link 
+                to="/dashboard" 
+                className="text-gray-600 hover:text-[#00806a] px-3 py-2 text-sm font-medium transition-colors duration-200"
+              >
+                Dashboard
+              </Link>
+            )}
           </nav>
 
           {/* Right side - Auth button and mobile menu button */}
           <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Basket Icon */}
+            <Link
+              to="/basket"
+              className="relative p-2 text-gray-600 hover:text-[#00806a] transition-colors duration-200"
+            >
+              <ShoppingCartIcon className="h-5 w-5" />
+              {/* Basket badge */}
+              {getTotalItems() > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-teal-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                  {getTotalItems() > 99 ? '99+' : getTotalItems()}
+                </span>
+              )}
+            </Link>
+
             {/* Auth button */}
             {user ? (
               <div className="hidden sm:flex items-center space-x-3">
@@ -158,9 +182,33 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
             >
               Activities
             </Link>
+            {user && (
+              <Link
+                to="/dashboard"
+                className="text-gray-600 hover:text-[#00806a] block px-3 py-2 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+            )}
             
             {/* Mobile auth section */}
             <div className="border-t border-gray-100 pt-3 mt-3">
+              {/* Basket Icon for Mobile */}
+              <Link
+                to="/basket"
+                className="flex items-center space-x-2 text-gray-600 hover:text-[#00806a] px-3 py-2 text-base font-medium rounded-lg hover:bg-gray-50 transition-colors duration-200"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <ShoppingCartIcon className="h-5 w-5" />
+                <span>Basket</span>
+                {getTotalItems() > 0 && (
+                  <span className="ml-auto h-4 w-4 bg-teal-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                    {getTotalItems() > 99 ? '99+' : getTotalItems()}
+                  </span>
+                )}
+              </Link>
+
               {user ? (
                 <div className="space-y-2">
                   {/* Notification Bell for Mobile */}

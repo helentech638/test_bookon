@@ -81,8 +81,8 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
   }
 }));
 
-// Get single activity
-router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Get single activity (public - no auth required for viewing)
+router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -128,7 +128,10 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
 
     res.json({
       success: true,
-      data: activity
+      data: {
+        ...activity,
+        currency: activity.currency || 'GBP' // Add default currency if not present
+      }
     });
   } catch (error) {
     logger.error('Error fetching activity:', error);

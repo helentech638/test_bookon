@@ -77,6 +77,7 @@ const BusinessDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(true);
 
   useEffect(() => {
     fetchDashboardData();
@@ -95,6 +96,23 @@ const BusinessDashboard: React.FC = () => {
       // Set a timeout for the request
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      // Check onboarding status first
+      const onboardingResponse = await fetch(buildApiUrl('/auth/business-profile'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        signal: controller.signal
+      });
+
+      if (onboardingResponse.ok) {
+        const onboardingData = await onboardingResponse.json();
+        if (!onboardingData.data.user.onboardingCompleted) {
+          navigate('/business/onboarding');
+          return;
+        }
+        setOnboardingCompleted(true);
+      }
 
       // Fetch business dashboard data
       const response = await fetch(buildApiUrl('/dashboard/business'), {
@@ -139,7 +157,8 @@ const BusinessDashboard: React.FC = () => {
   };
 
   const handleViewRegister = (activityId: string) => {
-    navigate(`/business/activities/${activityId}/register`);
+    // Navigate to registers page - the register should exist for this activity
+    navigate(`/business/registers`);
   };
 
   const handleEditActivity = (activityId: string) => {

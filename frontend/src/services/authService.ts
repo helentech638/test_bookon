@@ -248,7 +248,6 @@ class AuthService {
         }
         
         this.setAuth(accessToken, refreshToken, user);
-        toast.success('Login successful!');
         return data;
       } else {
         throw new Error(data.message || 'Login failed');

@@ -330,21 +330,18 @@ router.get('/master-report', authenticateToken, requireRole(['admin']), asyncHan
   }
 }));
 
-// Franchise Analytics
+// Franchise Analytics - Use business users as franchises
 async function getFranchiseAnalytics(startDate: Date, endDate: Date, franchiseId?: string) {
   const whereClause: any = {
-    createdAt: {
-      gte: startDate,
-      lte: endDate
-    }
+    role: 'business'
   };
 
   if (franchiseId) {
-    whereClause.businessAccountId = franchiseId;
+    whereClause.id = franchiseId;
   }
 
-  const franchises = await safePrismaQuery(async (client) => {
-    return await client.businessAccount.findMany({
+  const businessUsers = await safePrismaQuery(async (client) => {
+    return await client.user.findMany({
       where: whereClause,
       include: {
         venues: {
@@ -371,24 +368,21 @@ async function getFranchiseAnalytics(startDate: Date, endDate: Date, franchiseId
     });
   });
 
-  const franchiseAnalytics = franchises.map(franchise => {
+  const franchiseAnalytics = businessUsers.map(business => {
     let totalRevenue = 0;
     let totalBookings = 0;
     let totalFranchiseFees = 0;
     let totalRefunds = 0;
     let totalCredits = 0;
 
-    franchise.venues.forEach(venue => {
+    business.venues.forEach(venue => {
       venue.activities.forEach(activity => {
         activity.bookings.forEach(booking => {
           totalBookings++;
           totalRevenue += Number(booking.amount || 0);
           
-          // Calculate franchise fees
-          const franchiseFeeRate = franchise.franchiseFeeType === 'percent' 
-            ? Number(franchise.franchiseFeeValue) / 100 
-            : Number(franchise.franchiseFeeValue) / Number(booking.amount || 1);
-          totalFranchiseFees += Number(booking.amount || 0) * franchiseFeeRate;
+          // Calculate franchise fees (placeholder for future implementation)
+          totalFranchiseFees += 0;
 
           // Calculate refunds and credits
           booking.refunds.forEach(refund => {
@@ -399,35 +393,29 @@ async function getFranchiseAnalytics(startDate: Date, endDate: Date, franchiseId
     });
 
     return {
-      id: franchise.id,
-      name: franchise.name,
-      venueCount: franchise.venues.length,
+      id: business.id,
+      name: business.businessName || `${business.firstName} ${business.lastName}`,
+      email: business.email,
+      venueCount: business.venues.length,
       totalRevenue,
       totalBookings,
       totalFranchiseFees,
       totalRefunds,
       totalCredits,
-      franchiseFeeRate: franchise.franchiseFeeType === 'percent' ? franchise.franchiseFeeValue : null,
-      franchiseFeeFixed: franchise.franchiseFeeType === 'fixed' ? franchise.franchiseFeeValue : null,
       netRevenue: totalRevenue - totalFranchiseFees - totalRefunds,
       averageBookingValue: totalBookings > 0 ? totalRevenue / totalBookings : 0
     };
   });
 
   return {
-    totalFranchises: franchises.length,
+    totalFranchises: businessUsers.length,
     franchises: franchiseAnalytics.sort((a, b) => b.totalRevenue - a.totalRevenue)
   };
 }
 
 // Venue Analytics
 async function getVenueAnalytics(startDate: Date, endDate: Date, venueId?: string) {
-  const whereClause: any = {
-    createdAt: {
-      gte: startDate,
-      lte: endDate
-    }
-  };
+  const whereClause: any = {};
 
   if (venueId) {
     whereClause.id = venueId;
@@ -503,11 +491,7 @@ async function getParentAnalytics(startDate: Date, endDate: Date) {
   const parents = await safePrismaQuery(async (client) => {
     return await client.user.findMany({
       where: {
-        role: 'parent',
-        createdAt: {
-          gte: startDate,
-          lte: endDate
-        }
+        role: 'parent'
       },
       include: {
         bookings: {

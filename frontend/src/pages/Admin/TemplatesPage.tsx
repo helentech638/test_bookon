@@ -35,7 +35,7 @@ interface Template {
   years: string;
   description?: string;
   whatToBring?: string;
-  defaultPrice?: number;
+  defaultPrice?: number | string;
   defaultCapacity?: number;
   flags?: {
     photo_consent_required: boolean;
@@ -52,7 +52,7 @@ interface Template {
     lastName: string;
   };
   _count: {
-    activities: number;
+    courses: number;
   };
 }
 
@@ -280,7 +280,9 @@ const TemplatesPage: React.FC = () => {
   };
 
   const TemplateCard = ({ template }: { template: Template }) => {
-    const needsDefaults = !template.defaultPrice || !template.defaultCapacity;
+    // Handle Decimal values from Prisma (they come as strings)
+    const defaultPrice = template.defaultPrice ? (typeof template.defaultPrice === 'string' ? parseFloat(template.defaultPrice) : template.defaultPrice) : null;
+    const needsDefaults = !defaultPrice || isNaN(defaultPrice) || !template.defaultCapacity;
     
     return (
       <Card className="hover:shadow-lg transition-shadow" role="article" aria-labelledby={`template-${template.id}-title`}>
@@ -328,7 +330,7 @@ const TemplatesPage: React.FC = () => {
           <div className="flex items-center text-sm text-gray-600">
             <CurrencyPoundIcon className="h-4 w-4 mr-2 text-gray-400" />
             <span>
-              {template.defaultPrice ? `£${template.defaultPrice.toFixed(2)} per session` : 'No default price set'}
+              {defaultPrice && !isNaN(defaultPrice) ? `£${defaultPrice.toFixed(2)} per session` : 'No default price set'}
             </span>
           </div>
           <div className="flex items-center text-sm text-gray-600">
@@ -378,7 +380,7 @@ const TemplatesPage: React.FC = () => {
             )}
           </div>
           <div className="text-sm text-gray-500">
-            {template._count.activities} activities created
+            {template._count.courses} courses created
           </div>
         </div>
 

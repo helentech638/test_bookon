@@ -190,10 +190,10 @@ class StripeService {
       if (venueId) {
         // Get venue's Stripe Connect account ID
         const venue = await this.getVenueStripeAccount(venueId);
-        if (venue?.stripe_account_id) {
+        if (venue?.stripeAccountId) {
           return this.createConnectPaymentIntent({
             ...data,
-            connectAccountId: venue.stripe_account_id,
+            connectAccountId: venue.stripeAccountId,
           });
         }
       }
@@ -211,7 +211,8 @@ class StripeService {
         automatic_payment_methods: {
           enabled: true,
         },
-        application_fee_amount: platformFee,
+        // Note: application_fee_amount is only allowed for Connect payments
+        // For platform payments, we'll handle fees separately
       });
 
       logger.info(`Payment intent created: ${paymentIntent.id} for booking: ${bookingId}`);
@@ -225,15 +226,15 @@ class StripeService {
   /**
    * Get venue's Stripe Connect account
    */
-  private async getVenueStripeAccount(venueId: string): Promise<{ stripe_account_id: string } | null> {
+  private async getVenueStripeAccount(venueId: string): Promise<{ stripeAccountId: string } | null> {
     try {
-      // This would typically come from the database
-      // For now, we'll return a mock implementation
-      const { db } = await import('../utils/database');
-      const venue = await db('venues')
-        .select('stripe_account_id')
-        .where('id', venueId)
-        .first();
+      // Import Prisma client
+      const { prisma } = await import('../utils/prisma');
+      
+      const venue = await prisma.venue.findUnique({
+        where: { id: venueId },
+        select: { stripeAccountId: true }
+      });
       
       return venue || null;
     } catch (error) {

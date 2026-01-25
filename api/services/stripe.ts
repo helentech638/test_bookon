@@ -211,7 +211,8 @@ class StripeService {
         automatic_payment_methods: {
           enabled: true,
         },
-        application_fee_amount: platformFee,
+        // Note: application_fee_amount is only allowed for Connect payments
+        // For platform payments, we'll handle fees separately
       });
 
       logger.info(`Payment intent created: ${paymentIntent.id} for booking: ${bookingId}`);

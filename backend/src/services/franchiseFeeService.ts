@@ -23,12 +23,15 @@ export interface VenueFranchiseFeeOverride {
 
 export class FranchiseFeeService {
   /**
-   * Get franchise fee configuration for a business account
+   * Get franchise fee configuration for a business account (using User entity)
    */
   static async getFranchiseFeeConfig(businessAccountId: string): Promise<FranchiseFeeConfig | null> {
     try {
-      const businessAccount = await prisma.businessAccount.findUnique({
-        where: { id: businessAccountId },
+      const businessUser = await prisma.user.findFirst({
+        where: { 
+          id: businessAccountId,
+          role: 'business'
+        },
         select: {
           id: true,
           franchiseFeeType: true,
@@ -41,20 +44,20 @@ export class FranchiseFeeService {
         },
       });
 
-      if (!businessAccount) {
+      if (!businessUser) {
         return null;
       }
 
       return {
-        id: businessAccount.id,
-        businessAccountId: businessAccount.id,
-        franchiseFeeType: businessAccount.franchiseFeeType as 'percent' | 'fixed',
-        franchiseFeeValue: Number(businessAccount.franchiseFeeValue),
-        vatMode: businessAccount.vatMode as 'inclusive' | 'exclusive',
-        adminFeeAmount: businessAccount.adminFeeAmount ? Number(businessAccount.adminFeeAmount) : undefined,
-        isActive: businessAccount.isActive,
-        createdAt: businessAccount.createdAt,
-        updatedAt: businessAccount.updatedAt,
+        id: businessUser.id,
+        businessAccountId: businessUser.id,
+        franchiseFeeType: businessUser.franchiseFeeType as 'percent' | 'fixed',
+        franchiseFeeValue: businessUser.franchiseFeeValue ? Number(businessUser.franchiseFeeValue) : 0,
+        vatMode: businessUser.vatMode as 'inclusive' | 'exclusive',
+        adminFeeAmount: businessUser.adminFeeAmount ? Number(businessUser.adminFeeAmount) : undefined,
+        isActive: businessUser.isActive,
+        createdAt: businessUser.createdAt,
+        updatedAt: businessUser.updatedAt,
       };
     } catch (error) {
       console.error('Error getting franchise fee config:', error);
@@ -63,7 +66,7 @@ export class FranchiseFeeService {
   }
 
   /**
-   * Update franchise fee configuration for a business account
+   * Update franchise fee configuration for a business account (using User entity)
    */
   static async updateFranchiseFeeConfig(
     businessAccountId: string,
@@ -75,8 +78,11 @@ export class FranchiseFeeService {
     }
   ): Promise<FranchiseFeeConfig> {
     try {
-      const updatedAccount = await prisma.businessAccount.update({
-        where: { id: businessAccountId },
+      const updatedUser = await prisma.user.update({
+        where: { 
+          id: businessAccountId,
+          role: 'business'
+        },
         data: {
           franchiseFeeType: config.franchiseFeeType,
           franchiseFeeValue: config.franchiseFeeValue,
@@ -87,15 +93,15 @@ export class FranchiseFeeService {
       });
 
       return {
-        id: updatedAccount.id,
-        businessAccountId: updatedAccount.id,
-        franchiseFeeType: updatedAccount.franchiseFeeType as 'percent' | 'fixed',
-        franchiseFeeValue: Number(updatedAccount.franchiseFeeValue),
-        vatMode: updatedAccount.vatMode as 'inclusive' | 'exclusive',
-        adminFeeAmount: updatedAccount.adminFeeAmount ? Number(updatedAccount.adminFeeAmount) : undefined,
-        isActive: updatedAccount.isActive,
-        createdAt: updatedAccount.createdAt,
-        updatedAt: updatedAccount.updatedAt,
+        id: updatedUser.id,
+        businessAccountId: updatedUser.id,
+        franchiseFeeType: updatedUser.franchiseFeeType as 'percent' | 'fixed',
+        franchiseFeeValue: updatedUser.franchiseFeeValue ? Number(updatedUser.franchiseFeeValue) : 0,
+        vatMode: updatedUser.vatMode as 'inclusive' | 'exclusive',
+        adminFeeAmount: updatedUser.adminFeeAmount ? Number(updatedUser.adminFeeAmount) : undefined,
+        isActive: updatedUser.isActive,
+        createdAt: updatedUser.createdAt,
+        updatedAt: updatedUser.updatedAt,
       };
     } catch (error) {
       console.error('Error updating franchise fee config:', error);
@@ -192,12 +198,20 @@ export class FranchiseFeeService {
       const venue = await prisma.venue.findUnique({
         where: { id: venueId },
         include: {
-          businessAccount: true,
+          owner: {
+            select: {
+              id: true,
+              franchiseFeeType: true,
+              franchiseFeeValue: true,
+              vatMode: true,
+              adminFeeAmount: true
+            }
+          }
         },
       });
 
-      if (!venue || !venue.businessAccount) {
-        throw new Error('Venue or business account not found');
+      if (!venue || !venue.owner) {
+        throw new Error('Venue or business owner not found');
       }
 
       let franchiseFeeType: 'percent' | 'fixed';
@@ -206,17 +220,17 @@ export class FranchiseFeeService {
       let adminFeeAmount: number | undefined;
 
       if (venue.inheritFranchiseFee) {
-        // Use business account settings
-        franchiseFeeType = venue.businessAccount.franchiseFeeType as 'percent' | 'fixed';
-        franchiseFeeValue = Number(venue.businessAccount.franchiseFeeValue);
-        vatMode = venue.businessAccount.vatMode as 'inclusive' | 'exclusive';
-        adminFeeAmount = venue.businessAccount.adminFeeAmount ? Number(venue.businessAccount.adminFeeAmount) : undefined;
+        // Use business account (owner) settings
+        franchiseFeeType = venue.owner.franchiseFeeType as 'percent' | 'fixed';
+        franchiseFeeValue = venue.owner.franchiseFeeValue ? Number(venue.owner.franchiseFeeValue) : 0;
+        vatMode = venue.owner.vatMode as 'inclusive' | 'exclusive';
+        adminFeeAmount = venue.owner.adminFeeAmount ? Number(venue.owner.adminFeeAmount) : undefined;
       } else {
         // Use venue override settings
         franchiseFeeType = venue.franchiseFeeType as 'percent' | 'fixed';
         franchiseFeeValue = Number(venue.franchiseFeeValue || 0);
-        vatMode = venue.businessAccount.vatMode as 'inclusive' | 'exclusive'; // VAT mode always from business account
-        adminFeeAmount = venue.businessAccount.adminFeeAmount ? Number(venue.businessAccount.adminFeeAmount) : undefined;
+        vatMode = venue.owner.vatMode as 'inclusive' | 'exclusive'; // VAT mode always from business account
+        adminFeeAmount = venue.owner.adminFeeAmount ? Number(venue.owner.adminFeeAmount) : undefined;
       }
 
       // Calculate franchise fee
@@ -266,15 +280,20 @@ export class FranchiseFeeService {
   }
 
   /**
-   * Get all franchise fee configurations
+   * Get all franchise fee configurations (using User entities)
    */
   static async getAllFranchiseFeeConfigs(): Promise<FranchiseFeeConfig[]> {
     try {
-      const businessAccounts = await prisma.businessAccount.findMany({
-        where: { isActive: true },
+      const businessUsers = await prisma.user.findMany({
+        where: { 
+          isActive: true,
+          role: 'business'
+        },
         select: {
           id: true,
-          name: true,
+          businessName: true,
+          firstName: true,
+          lastName: true,
           franchiseFeeType: true,
           franchiseFeeValue: true,
           vatMode: true,
@@ -286,16 +305,16 @@ export class FranchiseFeeService {
         orderBy: { createdAt: 'desc' },
       });
 
-      return businessAccounts.map(account => ({
-        id: account.id,
-        businessAccountId: account.id,
-        franchiseFeeType: account.franchiseFeeType as 'percent' | 'fixed',
-        franchiseFeeValue: Number(account.franchiseFeeValue),
-        vatMode: account.vatMode as 'inclusive' | 'exclusive',
-        adminFeeAmount: account.adminFeeAmount ? Number(account.adminFeeAmount) : undefined,
-        isActive: account.isActive,
-        createdAt: account.createdAt,
-        updatedAt: account.updatedAt,
+      return businessUsers.map(user => ({
+        id: user.id,
+        businessAccountId: user.id,
+        franchiseFeeType: user.franchiseFeeType as 'percent' | 'fixed',
+        franchiseFeeValue: user.franchiseFeeValue ? Number(user.franchiseFeeValue) : 0,
+        vatMode: user.vatMode as 'inclusive' | 'exclusive',
+        adminFeeAmount: user.adminFeeAmount ? Number(user.adminFeeAmount) : undefined,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       }));
     } catch (error) {
       console.error('Error getting all franchise fee configs:', error);

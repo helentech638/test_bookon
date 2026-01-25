@@ -81,7 +81,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           },
           _count: {
             select: {
-              activities: true
+              courses: true
             }
           }
         },

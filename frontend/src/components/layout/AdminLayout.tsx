@@ -61,6 +61,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     { id: 'widget', name: 'Widget Management', icon: ComputerDesktopIcon, path: '/admin/widget' },
     { id: 'communications', name: 'Communications', icon: ChatBubbleLeftRightIcon, path: '/admin/communications' },
     { id: 'finance', name: 'Finance', icon: CurrencyPoundIcon, path: '/admin/finance' },
+    { id: 'master-reports', name: 'Master Reports', icon: ChartBarIcon, path: '/admin/master-reports' },
     { id: 'create-activity', name: 'Create Activity', icon: PlusIcon, path: '/admin/create-activity' },
     { id: 'register-management', name: 'Register Management', icon: ClipboardDocumentListIcon, path: '/admin/register-management' },
     { id: 'tfc-pending-queue', name: 'TFC Pending Queue', icon: ClockIcon, path: '/admin/tfc-pending-queue' },

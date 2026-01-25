@@ -32,11 +32,11 @@ const BookingEditPage: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      loadBooking(parseInt(id));
+      loadBooking(id);
     }
   }, [id]);
 
-  const loadBooking = async (bookingId: number) => {
+  const loadBooking = async (bookingId: string) => {
     try {
       setLoading(true);
       const data = await bookingService.getBooking(bookingId);
@@ -48,8 +48,8 @@ const BookingEditPage: React.FC = () => {
       });
       setError(null);
     } catch (err) {
-      setError('Failed to load booking');
       console.error('Error loading booking:', err);
+      setError('Failed to load booking');
     } finally {
       setLoading(false);
     }
@@ -158,11 +158,15 @@ const BookingEditPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Activity</p>
-                  <p className="text-sm text-gray-900">{booking.activity || 'Loading...'}</p>
+                  <p className="text-sm text-gray-900">
+                    {typeof booking.activity === 'string' ? booking.activity : booking.activity?.title || 'Loading...'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Venue</p>
-                  <p className="text-sm text-gray-900">{booking.venue || 'Loading...'}</p>
+                  <p className="text-sm text-gray-900">
+                    {typeof booking.venue === 'string' ? booking.venue : booking.venue?.name || 'Loading...'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500">Status</p>

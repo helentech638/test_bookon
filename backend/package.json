@@ -18,7 +18,8 @@
     "db:migrate": "knex migrate:latest",
     "db:seed": "knex seed:run",
     "db:push": "prisma db push",
-    "db:seed-prisma": "ts-node src/scripts/seed.ts"
+    "db:seed-prisma": "ts-node src/scripts/seed.ts",
+    "db:optimize": "ts-node src/scripts/add-performance-indexes.ts"
   },
   "keywords": [
     "booking",

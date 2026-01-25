@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../hooks/useNotifications';
 import { 
   HomeIcon,
   CalendarDaysIcon,
@@ -48,6 +49,7 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
   const location = useLocation();
   const navigate = useNavigate();
   const { user: contextUser, isLoading } = useAuth();
+  const { notificationCount } = useNotifications();
 
   // Use prop user if provided, otherwise use context user
   const user = propUser || contextUser;
@@ -101,24 +103,32 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
   // Auto-expand groups that contain the current active item
   useEffect(() => {
     const currentPath = location.pathname;
-    const groupsToExpand = new Set(['operations']); // Always start with operations expanded
     
-    // Auto-expand groups that contain the current active item
-    navigationGroups.forEach(group => {
-      const hasActiveItem = group.items.some(item => 
-        currentPath === item.href || currentPath.startsWith(item.href + '/')
-      );
+    // Small delay to prevent menu jumping
+    const timeoutId = setTimeout(() => {
+      const groupsToExpand = new Set(['operations']); // Always start with operations expanded
       
-      if (hasActiveItem) {
-        groupsToExpand.add(group.id);
+      // Auto-expand groups that contain the current active item
+      navigationGroups.forEach(group => {
+        const hasActiveItem = group.items.some(item => 
+          currentPath === item.href || currentPath.startsWith(item.href + '/')
+        );
+        
+        if (hasActiveItem) {
+          groupsToExpand.add(group.id);
+        }
+      });
+      
+      // Only update if there are changes to avoid unnecessary re-renders
+      const hasChanges = groupsToExpand.size !== expandedGroups.size || 
+          !Array.from(groupsToExpand).every(id => expandedGroups.has(id));
+      
+      if (hasChanges) {
+        setExpandedGroups(groupsToExpand);
       }
-    });
+    }, 50); // Small delay for smooth transition
     
-    // Only update if there are changes to avoid unnecessary re-renders
-    if (groupsToExpand.size !== expandedGroups.size || 
-        !Array.from(groupsToExpand).every(id => expandedGroups.has(id))) {
-      setExpandedGroups(groupsToExpand);
-    }
+    return () => clearTimeout(timeoutId);
   }, [location.pathname]);
 
   const navigationItems = [
@@ -141,6 +151,18 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
           href: '/business/activities',
           icon: CalendarDaysIcon,
           current: location.pathname.startsWith('/business/activities')
+        },
+        {
+          name: 'Bookings',
+          href: '/business/bookings',
+          icon: ClipboardDocumentListIcon,
+          current: location.pathname.startsWith('/business/bookings')
+        },
+        {
+          name: 'Session Management',
+          href: '/business/sessions',
+          icon: UserGroupIcon,
+          current: location.pathname.startsWith('/business/sessions')
         },
         {
           name: 'Templates',
@@ -184,6 +206,12 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
           href: '/business/finance',
           icon: ChartBarIcon,
           current: location.pathname === '/business/finance'
+        },
+        {
+          name: 'Payment Management',
+          href: '/business/payments',
+          icon: BanknotesIcon,
+          current: location.pathname === '/business/payments'
         },
         {
           name: 'Transactions',
@@ -383,17 +411,19 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
                   <group.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                   <span className="flex-1 text-left">{group.name}</span>
                   {expandedGroups.has(group.id) ? (
-                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 ease-in-out" />
                   ) : (
-                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 ease-in-out" />
                   )}
                 </button>
                 
                 {/* Group Items */}
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  expandedGroups.has(group.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                  expandedGroups.has(group.id) ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
                 }`}>
-                  <div className="ml-6 space-y-1 pt-1">
+                  <div className={`ml-6 space-y-1 pt-1 transition-transform duration-500 ease-in-out ${
+                    expandedGroups.has(group.id) ? 'translate-y-0' : '-translate-y-2'
+                  }`}>
                     {group.items.map((item) => (
                       <Link
                         key={item.name}
@@ -455,17 +485,19 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
                   <group.icon className="mr-3 h-5 w-5 flex-shrink-0" />
                   <span className="flex-1 text-left">{group.name}</span>
                   {expandedGroups.has(group.id) ? (
-                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                    <ChevronDownIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 ease-in-out" />
                   ) : (
-                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200" />
+                    <ChevronRightIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-300 ease-in-out" />
                   )}
                 </button>
                 
                 {/* Group Items */}
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                  expandedGroups.has(group.id) ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                  expandedGroups.has(group.id) ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
                 }`}>
-                  <div className="ml-6 space-y-1 pt-1">
+                  <div className={`ml-6 space-y-1 pt-1 transition-transform duration-500 ease-in-out ${
+                    expandedGroups.has(group.id) ? 'translate-y-0' : '-translate-y-2'
+                  }`}>
                     {group.items.map((item) => (
                       <Link
                         key={item.name}
@@ -529,12 +561,18 @@ const BusinessLayout: React.FC<BusinessLayoutProps> = ({ children, user: propUse
               
               {/* Notifications */}
               <div className="relative">
-                <button className="text-gray-500 hover:text-gray-600">
+                <Link
+                  to="/business/notifications"
+                  className="text-gray-500 hover:text-gray-600 transition-colors duration-200"
+                >
                   <BellIcon className="h-6 w-6" />
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    3
-                  </span>
-                </button>
+                  {/* Notification badge */}
+                  {notificationCount.unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                      {notificationCount.unreadCount > 99 ? '99+' : notificationCount.unreadCount}
+                    </span>
+                  )}
+                </Link>
               </div>
               
               {/* User menu */}

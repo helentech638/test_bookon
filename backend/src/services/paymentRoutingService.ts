@@ -59,7 +59,7 @@ export class PaymentRoutingService {
       const paymentIntent = await StripeConnectService.createPaymentIntent({
         amount: params.amount,
         currency: params.currency,
-        customerId: params.customerId || undefined,
+        customerId: params.customerId,
         connectedAccountId: venue.businessAccount.stripeAccountId,
         applicationFeeAmount: applicationFeeAmount,
         metadata: {
@@ -117,7 +117,7 @@ export class PaymentRoutingService {
         paymentIntentId: params.paymentIntentId,
         amount: refundAmount,
         refundApplicationFee: true, // Always reverse franchise fee proportionally
-        reason: params.reason || undefined,
+        reason: params.reason,
       });
 
       return {
@@ -151,7 +151,7 @@ export class PaymentRoutingService {
       }
 
       const venue = await prisma.venue.findUnique({
-        where: { id: paymentIntent.metadata.venueId },
+        where: { id: paymentIntent.metadata['venueId'] },
         include: {
           businessAccount: true,
         },

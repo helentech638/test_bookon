@@ -37,6 +37,43 @@ const BookingsPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
+  // Helper functions to safely extract display values
+  const getActivityName = (activity: string | { id: string; title: string; description?: string; price?: number; max_capacity?: number; current_capacity?: number; } | any): string => {
+    if (typeof activity === 'string') return activity;
+    if (activity && typeof activity === 'object' && activity.title) return activity.title;
+    return 'Unknown Activity';
+  };
+
+  const getVenueName = (venue: string | { id: string; name: string; address?: string; city?: string; } | any): string => {
+    if (typeof venue === 'string') return venue;
+    if (venue && typeof venue === 'object' && venue.name) return venue.name;
+    return 'Unknown Venue';
+  };
+
+  const getChildName = (booking: Booking): string => {
+    return booking.childName || booking.child_name || 'Loading...';
+  };
+
+  const getBookingDate = (booking: Booking): string => {
+    return booking.date || booking.start_date || 'Loading...';
+  };
+
+  const getBookingTime = (booking: Booking): string => {
+    return booking.time || booking.start_time || 'Loading...';
+  };
+
+  const getBookingAmount = (booking: Booking): number => {
+    return booking.amount || booking.total_amount || 0;
+  };
+
+  const getPaymentStatus = (booking: Booking): string => {
+    return booking.paymentStatus || booking.payment_status || 'pending';
+  };
+
+  const getCreatedAt = (booking: Booking): string => {
+    return booking.createdAt || booking.created_at || 'Loading...';
+  };
+
   // Load bookings on component mount
   useEffect(() => {
     loadBookings();
@@ -68,108 +105,24 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  // Mock data fallback - remove this when API is fully implemented
-  const mockBookings: Booking[] = [
-    {
-      id: 1,
-      bookingNumber: 'BK-2024-001',
-      childName: 'Emma Johnson',
-      activity: 'Swimming Lessons',
-      venue: 'Aqua Sports Centre',
-      date: '2024-01-20',
-      time: '14:00-15:00',
-      status: 'confirmed',
-      amount: 25.00,
-      paymentStatus: 'paid',
-      createdAt: '2024-01-15T10:30:00Z',
-      notes: 'First swimming lesson, please bring swimwear and towel'
-    },
-    {
-      id: 2,
-      bookingNumber: 'BK-2024-002',
-      childName: 'Liam Smith',
-      activity: 'Football Training',
-      venue: 'City Football Club',
-      date: '2024-01-21',
-      time: '16:30-17:30',
-      status: 'pending',
-      amount: 18.50,
-      paymentStatus: 'pending',
-      createdAt: '2024-01-16T14:20:00Z',
-      notes: 'Returning player, needs new kit'
-    },
-    {
-      id: 3,
-      bookingNumber: 'BK-2024-003',
-      childName: 'Sophia Brown',
-      activity: 'Dance Class',
-      venue: 'Star Dance Academy',
-      date: '2024-01-22',
-      time: '15:00-16:00',
-      status: 'confirmed',
-      amount: 22.00,
-      paymentStatus: 'paid',
-      createdAt: '2024-01-17T09:15:00Z',
-      notes: 'Ballet shoes required'
-    },
-    {
-      id: 4,
-      bookingNumber: 'BK-2024-004',
-      childName: 'Noah Wilson',
-      activity: 'Art Workshop',
-      venue: 'Creative Arts Studio',
-      date: '2024-01-23',
-      time: '10:00-12:00',
-      status: 'cancelled',
-      amount: 30.00,
-      paymentStatus: 'refunded',
-      createdAt: '2024-01-18T11:45:00Z',
-      notes: 'Cancelled due to illness, refund processed'
-    },
-    {
-      id: 5,
-      bookingNumber: 'BK-2024-005',
-      childName: 'Olivia Davis',
-      activity: 'Science Discovery Lab',
-      venue: 'Discovery Science Centre',
-      date: '2024-01-24',
-      time: '13:00-15:00',
-      status: 'confirmed',
-      amount: 35.00,
-      paymentStatus: 'paid',
-      createdAt: '2024-01-19T16:30:00Z',
-      notes: 'Lab coat provided, closed-toe shoes required'
-    },
-    {
-      id: 6,
-      bookingNumber: 'BK-2024-006',
-      childName: 'William Taylor',
-      activity: 'Music & Instrument Lessons',
-      venue: 'Harmony Music School',
-      date: '2024-01-25',
-      time: '14:00-15:00',
-      status: 'pending',
-      amount: 28.00,
-      paymentStatus: 'pending',
-      createdAt: '2024-01-20T13:20:00Z',
-      notes: 'Piano lesson, sheet music will be provided'
-    }
-  ];
 
   const statuses = ['all', 'confirmed', 'pending', 'cancelled', 'completed'];
   const venues = ['all', 'Aqua Sports Centre', 'City Football Club', 'Creative Arts Studio', 'Star Dance Academy', 'Discovery Science Centre', 'Harmony Music School'];
 
-  // Use mock data if API fails
-  const displayBookings = bookings.length > 0 ? bookings : mockBookings;
+  // Use real bookings from API
+  const displayBookings = bookings;
 
   const filteredBookings = displayBookings.filter(booking => {
+    const activityName = getActivityName(booking.activity);
+    const venueName = getVenueName(booking.venue);
+    
     const matchesSearch = 
-      booking.bookingNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.childName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.activity.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.venue.toLowerCase().includes(searchTerm.toLowerCase());
+      (booking.bookingNumber?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (booking.childName || booking.child_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      activityName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venueName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || booking.status === selectedStatus;
-    const matchesVenue = selectedVenue === 'all' || booking.venue === selectedVenue;
+    const matchesVenue = selectedVenue === 'all' || venueName === selectedVenue;
     
     return matchesSearch && matchesStatus && matchesVenue;
   });
@@ -232,30 +185,59 @@ const BookingsPage: React.FC = () => {
   };
 
   // Action handlers
-  const handleViewBooking = (bookingId: number) => {
+  const handleViewBooking = (bookingId: string) => {
     navigate(`/bookings/${bookingId}`);
   };
 
-  const handleEditBooking = (bookingId: number) => {
+  const handleEditBooking = (bookingId: string) => {
     navigate(`/bookings/${bookingId}/edit`);
   };
 
-  const handleConfirmBooking = async (bookingId: number) => {
+  const handleConfirmBooking = async (bookingId: string) => {
     try {
-      await bookingService.confirmBooking(bookingId);
+      const response = await bookingService.confirmBooking(bookingId);
+      
+      // Check if TFC admin confirmation is required
+      if (response && typeof response === 'object' && 'requiresAdminConfirmation' in response) {
+        // TFC booking - show instruction message
+        setError('This is a Tax-Free Childcare booking. Please wait for admin to confirm payment. Check your email for payment instructions.');
+        return;
+      }
+      
+      // Check if payment is required
+      if (response && typeof response === 'object' && 'requiresPayment' in response) {
+        // Payment is required - redirect to payment page
+        setError('Payment required to confirm booking. Redirecting to payment...');
+        setTimeout(() => {
+          // Navigate to payment page with booking ID
+          window.location.href = `/payment/${bookingId}`;
+        }, 2000);
+        return;
+      }
+      
       // Reload bookings to get updated status
       await loadBookings();
       setSuccessMessage('Booking confirmed successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      setError('Failed to confirm booking');
-      console.error('Error confirming booking:', err);
+    } catch (err: any) {
+      // Check if the error indicates TFC admin confirmation is required
+      if (err?.response?.data?.data?.requiresAdminConfirmation) {
+        setError('This is a Tax-Free Childcare booking. Please wait for admin to confirm payment. Check your email for payment instructions.');
+      } else if (err?.response?.data?.data?.requiresPayment) {
+        setError('Payment required to confirm booking. Redirecting to payment...');
+        setTimeout(() => {
+          window.location.href = `/payment/${bookingId}`;
+        }, 2000);
+      } else {
+        setError('Failed to confirm booking');
+        console.error('Error confirming booking:', err);
+      }
     }
   };
 
-  const handleCancelBooking = async (bookingId: number) => {
+  const handleCancelBooking = async (bookingId: string) => {
     try {
-      await bookingService.cancelBooking(bookingId);
+      await bookingService.cancelBooking(bookingId, 'Cancelled by user');
       // Reload bookings to get updated status
       await loadBookings();
       setSuccessMessage('Booking cancelled successfully!');
@@ -266,7 +248,7 @@ const BookingsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteBooking = async (bookingId: number) => {
+  const handleDeleteBooking = async (bookingId: string) => {
     try {
       await bookingService.deleteBooking(bookingId);
       // Reload bookings to get updated list
@@ -444,7 +426,7 @@ const BookingsPage: React.FC = () => {
 
         {/* Bookings Table */}
         <Card>
-          <div className={`${isMobile ? 'block' : 'overflow-x-auto'}`}>
+          <div className="overflow-x-auto">
             {isMobile ? (
               // Mobile card layout
               <div className="space-y-4 p-4">
@@ -452,9 +434,9 @@ const BookingsPage: React.FC = () => {
                   <div key={booking.id} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h3 className="font-medium text-gray-900">{booking.childName || 'Loading...'}</h3>
-                        <p className="text-sm text-gray-600">{booking.activity || 'Loading...'}</p>
-                        <p className="text-sm text-gray-500">{booking.venue || 'Loading...'}</p>
+                        <h3 className="font-medium text-gray-900">{booking.childName || booking.child_name || 'Loading...'}</h3>
+                        <p className="text-sm text-gray-600">{getActivityName(booking.activity)}</p>
+                        <p className="text-sm text-gray-500">{getVenueName(booking.venue)}</p>
                       </div>
                       <div className="text-right">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(booking.status || 'pending')}`}>
@@ -543,135 +525,147 @@ const BookingsPage: React.FC = () => {
               </div>
             ) : (
               // Desktop table layout
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Booking Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Activity & Venue
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date & Time
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-[#00806a] rounded-full flex items-center justify-center">
-                          <span className="text-white text-sm font-medium">
-                            {booking.childName ? booking.childName.split(' ').map(n => n[0]).join('') : '?'}
+              <div className="min-w-full">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px]">
+                        Booking Details
+                      </th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[180px]">
+                        Activity & Venue
+                      </th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                        Date & Time
+                      </th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                        Amount
+                      </th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                        Status
+                      </th>
+                      <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px]">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredBookings.map((booking) => (
+                      <tr key={booking.id} className="hover:bg-gray-50">
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-[#00806a] rounded-full flex items-center justify-center flex-shrink-0">
+                              <span className="text-white text-xs sm:text-sm font-medium">
+                                {booking.childName ? booking.childName.split(' ').map(n => n[0]).join('') : '?'}
+                              </span>
+                            </div>
+                            <div className="ml-2 sm:ml-3 min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900 truncate">
+                                {booking.childName || booking.child_name || 'Unknown Child'}
+                              </div>
+                              <div className="text-xs sm:text-sm text-gray-500 truncate">
+                                {booking.bookingNumber || `#${booking.id?.slice(-8)}`}
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                Booked {(booking.createdAt || booking.created_at) ? formatDate(booking.createdAt || booking.created_at || '') : 'Recently'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 truncate">{getActivityName(booking.activity)}</div>
+                            <div className="text-xs sm:text-sm text-gray-500 truncate">{getVenueName(booking.venue)}</div>
+                            {booking.notes && (
+                              <div className="text-xs text-gray-400 mt-1 flex items-center">
+                                <DocumentTextIcon className="w-3 h-3 mr-1 flex-shrink-0" />
+                                <span className="truncate">
+                                  {booking.notes.length > 30 ? `${booking.notes.substring(0, 30)}...` : booking.notes}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {(booking.date || booking.start_date) ? formatDate(booking.date || booking.start_date || '') : 'TBD'}
+                          </div>
+                          <div className="text-xs sm:text-sm text-gray-500">
+                            {(booking.time || booking.start_time) ? formatTime(booking.time || booking.start_time || '') : 'TBD'}
+                          </div>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{formatPrice(booking.amount || booking.total_amount || 0)}</div>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.paymentStatus || booking.payment_status || 'pending')}`}>
+                            {(booking.paymentStatus || booking.payment_status || 'pending').charAt(0).toUpperCase() + (booking.paymentStatus || booking.payment_status || 'pending').slice(1)}
                           </span>
-                        </div>
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">{booking.childName || 'Loading...'}</div>
-                          <div className="text-sm text-gray-500">{booking.bookingNumber || 'Loading...'}</div>
-                          <div className="text-xs text-gray-400">
-                            Booked {booking.createdAt ? formatDate(booking.createdAt) : 'Loading...'}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{booking.activity || 'Loading...'}</div>
-                        <div className="text-sm text-gray-500">{booking.venue || 'Loading...'}</div>
-                        {booking.notes && (
-                          <div className="text-xs text-gray-400 mt-1 flex items-center">
-                            <DocumentTextIcon className="w-3 h-3 mr-1" />
-                            {booking.notes && booking.notes.length > 50 ? `${booking.notes.substring(0, 50)}...` : booking.notes}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{booking.date ? formatDate(booking.date) : 'Loading...'}</div>
-                      <div className="text-sm text-gray-500">{booking.time ? formatTime(booking.time) : 'Loading...'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{formatPrice(booking.amount || 0)}</div>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.paymentStatus || 'pending')}`}>
-                        {(booking.paymentStatus || 'pending').charAt(0).toUpperCase() + (booking.paymentStatus || 'pending').slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${getStatusColor(booking.status || 'pending')}`}>
-                        {getStatusIcon(booking.status || 'pending')}
-                        <span className="ml-1">{(booking.status || 'pending').charAt(0).toUpperCase() + (booking.status || 'pending').slice(1)}</span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleViewBooking(booking.id)}
-                          className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]"
-                        >
-                          <EyeIcon className="w-4 h-4 mr-1" />
-                          View
-                        </Button>
-                        {(booking.status || 'pending') === 'pending' && (
-                          <>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(booking.status || 'pending')}`}>
+                            {getStatusIcon(booking.status || 'pending')}
+                            <span className="ml-1">{(booking.status || 'pending').charAt(0).toUpperCase() + (booking.status || 'pending').slice(1)}</span>
+                          </span>
+                        </td>
+                        <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex flex-wrap gap-1">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleEditBooking(booking.id)}
-                              className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]"
+                              onClick={() => handleViewBooking(booking.id)}
+                              className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
                             >
-                              <PencilIcon className="w-4 h-4 mr-1" />
-                              Edit
+                              <EyeIcon className="w-3 h-3 mr-1" />
+                              View
                             </Button>
+                            {(booking.status || 'pending') === 'pending' && (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditBooking(booking.id)}
+                                  className="inline-flex items-center px-2 py-1 border border-gray-300 rounded text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
+                                >
+                                  <PencilIcon className="w-3 h-3 mr-1" />
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleConfirmBooking(booking.id)}
+                                  className="text-green-600 border-green-300 hover:bg-green-50 inline-flex items-center px-2 py-1 rounded text-xs"
+                                >
+                                  <CheckIcon className="w-3 h-3 mr-1" />
+                                  Confirm
+                                </Button>
+                              </>
+                            )}
+                            {(booking.status || 'pending') === 'confirmed' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCancelBooking(booking.id)}
+                                className="text-red-600 border-red-300 hover:bg-red-50 inline-flex items-center px-2 py-1 rounded text-xs"
+                              >
+                                <XMarkIcon className="w-3 h-3 mr-1" />
+                                Cancel
+                              </Button>
+                            )}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleConfirmBooking(booking.id)}
-                              className="text-green-600 border-green-300 hover:bg-green-50 inline-flex items-center"
+                              onClick={() => openDeleteModal(booking)}
+                              className="text-red-600 border-red-300 hover:bg-red-50 inline-flex items-center px-2 py-1 rounded text-xs"
                             >
-                              <CheckIcon className="w-4 h-4 mr-1" />
-                              Confirm
+                              <TrashIcon className="w-3 h-3 mr-1" />
+                              Delete
                             </Button>
-                          </>
-                        )}
-                        {(booking.status || 'pending') === 'confirmed' && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleCancelBooking(booking.id)}
-                            className="text-red-600 border-red-300 hover:bg-red-50 inline-flex items-center"
-                          >
-                            <XMarkIcon className="w-4 h-4 mr-1" />
-                            Cancel
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDeleteModal(booking)}
-                          className="text-red-600 border-red-300 hover:bg-red-50 inline-flex items-center"
-                        >
-                          <TrashIcon className="w-4 h-4 mr-1" />
-                          Delete
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </Card>
@@ -710,16 +704,6 @@ const BookingsPage: React.FC = () => {
             </Link>
           </Card>
 
-          <Card className="p-6 text-center">
-            <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center mx-auto mb-4">
-              <CheckIcon className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Bulk Actions</h3>
-            <p className="text-gray-600 mb-4">Manage multiple bookings at once</p>
-            <Link to="/bookings/bulk" className="inline-flex items-center justify-center w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00806a]">
-              Bulk Actions
-            </Link>
-          </Card>
         </div>
       </div>
 

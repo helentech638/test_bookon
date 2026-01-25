@@ -35,7 +35,18 @@ const LoginPage = () => {
       const success = await login(email, password);
       if (success) {
         toast.success('Login successful!');
-        navigate('/dashboard');
+        
+        // Get user data from localStorage to check role
+        const userData = JSON.parse(localStorage.getItem('bookon_user') || '{}');
+        
+        // Redirect based on user role
+        if (userData.role === 'admin') {
+          navigate('/admin');
+        } else if (userData.role === 'business') {
+          navigate('/business/dashboard');
+        } else {
+          navigate('/dashboard'); // Default for parent role
+        }
       } else {
         toast.error('Login failed. Please check your credentials.');
       }
@@ -47,7 +58,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-blue-50 relative overflow-hidden">
+    <div className="min-h-screen relative overflow-hidden">
       {/* Background Illustration */}
       <div className="absolute inset-0 pointer-events-none">
         {/* Calendar Icon */}
@@ -66,33 +77,33 @@ const LoginPage = () => {
 
       <div className="relative z-10 flex min-h-screen">
         {/* Left Side - Branding */}
-        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#00806a] to-[#006d5a] text-white p-12 flex-col justify-center">
+        <div className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-center">
           <div className="max-w-md">
             <div className="flex items-center mb-8">
               <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-12 w-auto" />
             </div>
             
-            <h2 className="text-4xl font-bold mb-6 leading-tight">
+            <h2 className="text-4xl font-bold mb-6 leading-tight text-teal-600">
               Simple. Seamless. Bookings.
             </h2>
             
-            <p className="text-xl text-green-100 mb-8 leading-relaxed">
+            <p className="text-xl text-teal-600 mb-8 leading-relaxed">
               Streamline your school clubs and activities with our intuitive booking platform. 
               Manage schedules, track attendance, and simplify administration.
             </p>
             
             <div className="space-y-4">
               <div className="flex items-center">
-                <CheckCircleIcon className="w-6 h-6 text-green-200 mr-3 flex-shrink-0" />
-                <span className="text-green-100">Easy-to-use interface for staff and parents</span>
+                <CheckCircleIcon className="w-6 h-6 text-teal-600 mr-3 flex-shrink-0" />
+                <span className="text-teal-600">Easy-to-use interface for staff and parents</span>
               </div>
               <div className="flex items-center">
-                <CheckCircleIcon className="w-6 h-6 text-green-200 mr-3 flex-shrink-0" />
-                <span className="text-green-100">Secure and GDPR compliant</span>
+                <CheckCircleIcon className="w-6 h-6 text-teal-600 mr-3 flex-shrink-0" />
+                <span className="text-teal-600">Secure and GDPR compliant</span>
               </div>
               <div className="flex items-center">
-                <CheckCircleIcon className="w-6 h-6 text-green-200 mr-3 flex-shrink-0" />
-                <span className="text-green-100">Real-time updates and notifications</span>
+                <CheckCircleIcon className="w-6 h-6 text-teal-600 mr-3 flex-shrink-0" />
+                <span className="text-teal-600">Real-time updates and notifications</span>
               </div>
             </div>
           </div>

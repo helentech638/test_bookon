@@ -260,8 +260,10 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
     }
 
     const { id } = req.params;
-    const { reason, refundRequested } = req.body;
+    const { reason } = req.body;
     const userId = req.user!.id;
+    
+    console.log('Cancellation request:', { id, reason, userId });
     
     // Check if booking exists and belongs to user
     const booking = await prisma.booking.findFirst({
@@ -269,6 +271,11 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
         id: id,
         parentId: userId,
         status: { not: 'cancelled' }
+      },
+      include: {
+        activity: true,
+        child: true,
+        parent: true
       }
     });
 
@@ -276,31 +283,43 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
       throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
     }
 
+    console.log('Found booking:', { 
+      id: booking.id, 
+      status: booking.status, 
+      activityTitle: booking.activity?.title,
+      childName: booking.child?.firstName 
+    });
+
     // Check if booking can be cancelled
     if (booking.status === 'cancelled' || booking.status === 'completed') {
       throw new AppError('Booking cannot be cancelled', 400, 'BOOKING_CANNOT_BE_CANCELLED');
     }
 
-    // Update booking status
-    await prisma.booking.update({
+    // Simple cancellation - just update the status
+    const updatedBooking = await prisma.booking.update({
       where: { id: id },
       data: {
         status: 'cancelled',
-        // Note: cancelled_at, cancellation_reason, refund_requested fields don't exist in current schema
-        // These would need to be added to the Booking model if needed
+        updatedAt: new Date()
       }
     });
 
-    // Note: booking_cancellations table doesn't exist in current schema
-    // This would need to be added if cancellation tracking is required
+    console.log('Booking cancelled successfully:', updatedBooking.id);
 
-    logger.info(`Booking cancelled: ${id} by user: ${userId}`);
+    // Log the cancellation
+    logger.info(`Booking cancelled: ${id} by user: ${userId}, reason: ${reason}`);
 
     res.json({
       success: true,
       message: 'Booking cancelled successfully',
+      data: {
+        id: updatedBooking.id,
+        status: updatedBooking.status,
+        cancelledAt: updatedBooking.updatedAt
+      }
     });
   } catch (error) {
+    console.error('Error cancelling booking:', error);
     logger.error('Error cancelling booking:', error);
     throw error;
   }
@@ -448,6 +467,145 @@ router.put('/:id/amend', authenticateToken, validateAmendBooking, asyncHandler(a
   } catch (error) {
     logger.error('Error amending booking:', error);
     throw error;
+  }
+}));
+
+// Confirm a pending booking
+router.patch('/:id/confirm', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+
+    if (!id) {
+      throw new AppError('Booking ID is required', 400, 'MISSING_BOOKING_ID');
+    }
+
+    // Find the booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: id },
+      include: {
+        activity: {
+          include: {
+            venue: true
+          }
+        },
+        child: true
+      }
+    });
+
+    if (!booking || booking.parentId !== userId) {
+      throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
+    }
+
+    // Check if booking can be confirmed
+    if (booking.status !== 'pending') {
+      throw new AppError('Only pending bookings can be confirmed', 400, 'INVALID_BOOKING_STATUS');
+    }
+
+    // Check payment method and handle TFC bookings differently
+    if (booking.paymentMethod === 'tfc') {
+      // TFC bookings cannot be confirmed by parents - only admins can mark as paid
+      res.json({
+        success: false,
+        message: 'TFC bookings cannot be confirmed by parents. Please wait for admin to mark payment as received.',
+        data: {
+          requiresAdminConfirmation: true,
+          bookingId: id,
+          paymentMethod: 'tfc',
+          tfcReference: booking.tfcReference,
+          tfcDeadline: booking.tfcDeadline,
+          amount: booking.amount
+        }
+      });
+      return;
+    }
+
+    // Check payment status for non-TFC bookings
+    if (booking.paymentStatus === 'failed' || booking.paymentStatus === 'pending') {
+      // If payment failed or is pending, we need to retry payment
+      // Return payment retry information instead of confirming
+      res.json({
+        success: false,
+        message: 'Payment required to confirm booking',
+        data: {
+          requiresPayment: true,
+          bookingId: id,
+          amount: booking.amount,
+          paymentMethod: booking.paymentMethod,
+          paymentStatus: booking.paymentStatus
+        }
+      });
+      return;
+    }
+
+    // Only confirm if payment is successful
+    if (booking.paymentStatus !== 'paid') {
+      throw new AppError('Payment must be completed before confirming booking', 400, 'PAYMENT_REQUIRED');
+    }
+
+    // Update booking status to confirmed
+    const updatedBooking = await prisma.booking.update({
+      where: { id: id },
+      data: {
+        status: 'confirmed',
+        updatedAt: new Date()
+      },
+      include: {
+        activity: {
+          include: {
+            venue: true
+          }
+        },
+        child: true
+      }
+    });
+
+    // Transform the data to match frontend expectations
+    const transformedBooking = {
+      id: updatedBooking.id,
+      child_name: `${updatedBooking.child.firstName} ${updatedBooking.child.lastName}`,
+      activity_name: updatedBooking.activity.title,
+      venue_name: updatedBooking.activity.venue.name,
+      start_date: updatedBooking.activityDate,
+      start_time: updatedBooking.activityTime,
+      end_time: updatedBooking.activityTime,
+      total_amount: updatedBooking.amount,
+      status: updatedBooking.status,
+      created_at: updatedBooking.createdAt,
+      payment_status: updatedBooking.paymentStatus || 'pending',
+      notes: updatedBooking.notes,
+      activity: {
+        id: updatedBooking.activityId,
+        title: updatedBooking.activity.title,
+        description: updatedBooking.activity.description || updatedBooking.activity.title,
+        price: updatedBooking.activity.price || updatedBooking.amount,
+        max_capacity: updatedBooking.activity.maxCapacity || 20,
+        current_capacity: 15,
+      },
+      venue: {
+        id: updatedBooking.activity.venue.id,
+        name: updatedBooking.activity.venue.name,
+        address: updatedBooking.activity.venue.address,
+        city: updatedBooking.activity.venue.city,
+      },
+      child: {
+        id: updatedBooking.childId,
+        firstName: updatedBooking.child.firstName,
+        lastName: updatedBooking.child.lastName,
+      },
+    };
+
+    logger.info('Booking confirmed successfully', { bookingId: id, userId });
+
+    res.json({
+      success: true,
+      message: 'Booking confirmed successfully',
+      data: transformedBooking
+    });
+  } catch (error) {
+    logger.error('Error confirming booking:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to confirm booking', 500, 'BOOKING_CONFIRM_ERROR');
   }
 }));
 

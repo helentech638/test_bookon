@@ -25,7 +25,7 @@ const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'after-school',
+    type: 'activity',
     years: 'Y1-Y2',
     description: '',
     defaultPrice: '',
@@ -61,7 +61,7 @@ const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
         // Reset form
         setFormData({
           name: '',
-          type: 'after-school',
+          type: 'activity',
           years: 'Y1-Y2',
           description: '',
           defaultPrice: '',
@@ -156,10 +156,9 @@ const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     required
                   >
-                    <option value="after-school">After-School</option>
-                    <option value="holiday-club">Holiday Club</option>
-                    <option value="weekend">Weekend</option>
-                    <option value="evening">Evening</option>
+                    <option value="activity">Activity</option>
+                    <option value="holiday_club">Holiday Club</option>
+                    <option value="wraparound_care">Wraparound Care</option>
                   </select>
                 </div>
                 <div>
@@ -192,6 +191,36 @@ const CreateTemplateModal: React.FC<CreateTemplateModalProps> = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   placeholder="Describe what this template is for..."
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Template Photo
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setFormData(prev => ({ ...prev, image: event.target?.result as string }));
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                {formData.image && (
+                  <div className="mt-2">
+                    <img 
+                      src={formData.image} 
+                      alt="Template preview" 
+                      className="w-32 h-32 object-cover rounded-lg border"
+                    />
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

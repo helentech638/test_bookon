@@ -351,13 +351,13 @@ router.get('/bookings', authenticateToken, asyncHandler(async (req: Request, res
   }
 }));
 
-// Get dashboard snapshot data
-router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
+// Get admin dashboard snapshot data
+router.get('/admin-snapshot', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { range = 'today' } = req.query;
     const userId = req.user!.id;
     
-    logger.info('Dashboard snapshot requested', { 
+    logger.info('Admin dashboard snapshot requested', { 
       user: req.user?.email,
       range,
       userId 
@@ -381,40 +381,68 @@ router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(
     }
 
     const snapshotData = await safePrismaQuery(async () => {
-      // Get basic stats
-      const [totalBookings, totalRevenue, totalActivities, totalVenues] = await Promise.all([
-        prisma.booking.count({
-          where: {
-            createdAt: { gte: startDate, lte: endDate }
+      // Get activities running today
+      const activitiesRunning = await prisma.activity.count({
+        where: {
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+          status: 'active'
+        }
+      });
+
+      // Get attendees today (confirmed bookings for today's activities)
+      const attendeesToday = await prisma.booking.count({
+        where: {
+          status: 'confirmed',
+          activity: {
+            startDate: { lte: endDate },
+            endDate: { gte: startDate }
           }
-        }),
-        prisma.booking.aggregate({
-          where: {
-            createdAt: { gte: startDate, lte: endDate },
-            status: 'confirmed'
-          },
-          _sum: { amount: true }
-        }),
-        prisma.activity.count({
-          where: {
-            createdAt: { gte: startDate, lte: endDate }
-          }
-        }),
-        prisma.venue.count()
-      ]);
+        }
+      });
+
+      // Get total parents registered
+      const parentsRegistered = await prisma.user.count({
+        where: {
+          role: 'parent'
+        }
+      });
+
+      // Get payments total for the period
+      const paymentsData = await prisma.booking.aggregate({
+        where: {
+          createdAt: { gte: startDate, lte: endDate },
+          status: 'confirmed'
+        },
+        _sum: { amount: true }
+      });
+
+      // Get refunds total for the period
+      const refundsData = await prisma.booking.aggregate({
+        where: {
+          createdAt: { gte: startDate, lte: endDate },
+          status: 'cancelled'
+        },
+        _sum: { amount: true }
+      });
+
+      // Get credits total (mock for now - would need credits table)
+      const creditsTotal = 0; // TODO: Implement credits system
 
       return {
-        totalBookings,
-        totalRevenue: totalRevenue._sum.amount || 0,
-        totalActivities,
-        totalVenues,
-        dateRange: { startDate, endDate }
+        activities_running: activitiesRunning,
+        attendees_today: attendeesToday,
+        parents_registered: parentsRegistered,
+        payments_total: paymentsData._sum.amount || 0,
+        refunds_total: refundsData._sum.amount || 0,
+        credits_total: creditsTotal
       };
     });
 
-    logger.info('Dashboard snapshot data retrieved', { 
-      totalBookings: snapshotData.totalBookings,
-      totalRevenue: snapshotData.totalRevenue
+    logger.info('Admin dashboard snapshot data retrieved', { 
+      activities_running: snapshotData.activities_running,
+      attendees_today: snapshotData.attendees_today,
+      parents_registered: snapshotData.parents_registered
     });
 
     res.json({
@@ -422,8 +450,8 @@ router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(
       data: snapshotData
     });
   } catch (error) {
-    logger.error('Error fetching dashboard snapshot:', error);
-    throw new AppError('Failed to fetch dashboard snapshot', 500, 'DASHBOARD_SNAPSHOT_ERROR');
+    logger.error('Error fetching admin dashboard snapshot:', error);
+    throw new AppError('Failed to fetch admin dashboard snapshot', 500, 'ADMIN_SNAPSHOT_ERROR');
   }
 }));
 

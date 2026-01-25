@@ -1,4 +1,4 @@
-import ical, { ICalCalendar, ICalEvent } from 'ical-generator';
+import ical from 'ical-generator';
 import { Activity, Session, Venue } from '@prisma/client';
 
 export interface BookingCalendarEvent {
@@ -24,8 +24,8 @@ export class CalendarService {
    */
   generateCourseCalendar(activity: Activity & { sessions: Session[], venue: Venue }): string {
     const calendar = ical({
-      name: `${activity.name} - BookOn`,
-      description: `Course sessions for ${activity.name}`,
+      name: `${activity.title} - BookOn`,
+      description: `Course sessions for ${activity.title}`,
       timezone: 'Europe/London',
       prodId: {
         company: 'BookOn',
@@ -39,19 +39,19 @@ export class CalendarService {
       const event = calendar.createEvent({
         start: new Date(`${session.date.toISOString().split('T')[0]}T${session.startTime}`),
         end: new Date(`${session.date.toISOString().split('T')[0]}T${session.endTime}`),
-        summary: activity.name,
-        description: activity.description || `Session for ${activity.name}`,
+        summary: activity.title,
+        description: activity.description || `Session for ${activity.title}`,
         location: activity.venue.name,
-        url: `${process.env.FRONTEND_URL}/activities/${activity.id}`,
+        url: `${process.env['FRONTEND_URL']}/activities/${activity.id}`,
         status: 'CONFIRMED',
         busyStatus: 'BUSY'
       });
 
       // Add organizer info if available
-      if (process.env.ADMIN_EMAIL) {
+      if (process.env['ADMIN_EMAIL']) {
         event.organizer({
           name: 'BookOn Admin',
-          email: process.env.ADMIN_EMAIL
+          email: process.env['ADMIN_EMAIL']
         });
       }
     });

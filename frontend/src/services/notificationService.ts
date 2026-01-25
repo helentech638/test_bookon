@@ -17,6 +17,7 @@ export interface Notification {
 
 class NotificationService {
   private baseUrl = buildApiUrl('/notifications');
+  private countRequestPromise: Promise<NotificationCount> | null = null;
 
   /**
    * Get notification count for the current user
@@ -28,22 +29,43 @@ class NotificationService {
         return { unreadCount: 0, totalCount: 0 };
       }
 
-      const response = await authService.authenticatedFetch(`${this.baseUrl}/count`, {
-        method: 'GET',
-      });
-
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to fetch notification count');
+      // If there's already a request in progress, return that promise
+      if (this.countRequestPromise) {
+        return this.countRequestPromise;
       }
 
-      return result.data;
+      // Create new request promise
+      this.countRequestPromise = this.fetchNotificationCount();
+
+      try {
+        const result = await this.countRequestPromise;
+        return result;
+      } finally {
+        // Clear the promise after completion
+        this.countRequestPromise = null;
+      }
     } catch (error) {
       console.error('Error fetching notification count:', error);
       // Return default values on error
       return { unreadCount: 0, totalCount: 0 };
     }
+  }
+
+  /**
+   * Internal method to fetch notification count
+   */
+  private async fetchNotificationCount(): Promise<NotificationCount> {
+    const response = await authService.authenticatedFetch(`${this.baseUrl}/count`, {
+      method: 'GET',
+    });
+
+    const result = await response.json();
+    
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to fetch notification count');
+    }
+
+    return result.data;
   }
 
   /**

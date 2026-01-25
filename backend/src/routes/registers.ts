@@ -1,9 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole } from '../middleware/auth';
-import { safePrismaQuery } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { registerService } from '../services/registerService';
+import { GDPRComplianceService } from '../services/gdprComplianceService';
+import PDFDocument from 'pdfkit';
 
 const router = Router();
 
@@ -16,11 +18,19 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       dateFrom,
       dateTo,
       page = '1',
-      limit = '20'
+      limit = '20',
+      fields = 'all' // New parameter for custom fields
     } = req.query;
 
     const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
     const take = parseInt(limit as string);
+
+    // Parse fields parameter to determine which fields to include
+    const requestedFields = fields === 'all' ? ['all'] : (fields as string).split(',');
+    const includeMedicalInfo = requestedFields.includes('all') || requestedFields.includes('medical');
+    const includePermissions = requestedFields.includes('all') || requestedFields.includes('permissions');
+    const includeBookingOptions = requestedFields.includes('all') || requestedFields.includes('booking_options');
+    const includeBasicInfo = requestedFields.includes('all') || requestedFields.includes('basic');
 
     const where: any = {};
     
@@ -39,6 +49,68 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       };
     }
 
+    // ADMIN ACCESS: Admin users should see ALL registers regardless of venue ownership
+    // Business users should only see registers from their owned venues
+    const userRole = req.user!.role;
+    logger.info('Register API access', {
+      userId: req.user!.id,
+      userRole: userRole,
+      endpoint: 'admin-registers'
+    });
+    
+    // Note: Admin users skip venue filtering entirely - they see ALL registers
+    // Non-admin users will filter by venue ownership below
+    if (userRole !== 'admin') {
+      // For non-admin users, filter by venue ownership
+      const userVenues = await safePrismaQuery(async (client) => {
+        return await client.venue.findMany({
+          where: { ownerId: req.user!.id },
+          select: { id: true }
+        });
+      });
+      
+      const venueIds = userVenues.map(v => v.id);
+      if (venueIds.length > 0) {
+        // Build the session filter with venue filtering
+        if (where.session) {
+          // If session filter already exists (from activityId), combine it
+          where.session = {
+            ...where.session,
+            activity: {
+              ...where.session.activity,
+              venueId: { in: venueIds }
+            }
+          };
+        } else {
+          // Create new session filter
+          where.session = {
+            activity: {
+              venueId: { in: venueIds }
+            }
+          };
+        }
+      } else {
+        // User has no venues, return empty result
+        return res.json({
+          success: true,
+          data: [],
+          pagination: {
+            page: parseInt(page as string),
+            limit: parseInt(limit as string),
+            total: 0,
+            totalPages: 0
+          }
+        });
+      }
+    }
+
+    logger.info('Fetching registers', {
+      userRole,
+      whereClause: JSON.stringify(where),
+      skip,
+      take
+    });
+
     const [registers, total] = await Promise.all([
       safePrismaQuery(async (client) => {
         return await client.register.findMany({
@@ -49,13 +121,10 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
             session: {
               include: {
                 activity: {
-                  select: {
-                    title: true,
-                    description: true,
-                    capacity: true,
-                    price: true,
+                  include: {
                     venue: {
                       select: {
+                        id: true,
                         name: true,
                         address: true
                       }
@@ -70,13 +139,41 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
                   select: {
                     id: true,
                     firstName: true,
-                    lastName: true
+                    lastName: true,
+                    ...(includeBasicInfo && {
+                      dateOfBirth: true,
+                      yearGroup: true,
+                      school: true,
+                      class: true
+                    }),
+                    ...(includeMedicalInfo && {
+                      allergies: true,
+                      medicalInfo: true
+                    }),
+                    ...(includePermissions && {
+                      permissions: {
+                        select: {
+                          consentToWalkHome: true,
+                          consentToPhotography: true,
+                          consentToFirstAid: true,
+                          consentToEmergencyContact: true
+                        }
+                      }
+                    })
                   }
                 },
                 booking: {
                   select: {
+                    id: true,
+                    ...(includeBookingOptions && {
+                      hasEarlyDropoff: true,
+                      earlyDropoffAmount: true,
+                      hasLatePickup: true,
+                      latePickupAmount: true
+                    }),
                     parent: {
                       select: {
+                        id: true,
                         firstName: true,
                         lastName: true,
                         email: true,
@@ -97,7 +194,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     ]);
 
     // Transform the data to match the expected frontend format
-    const transformedRegisters = registers.map((register: any) => ({
+    const transformedRegisters = await Promise.all(registers.map(async (register: any) => ({
       id: register.id,
       date: register.date,
       status: register.status,
@@ -105,6 +202,13 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       capacity: register.session?.activity?.capacity || 0,
       presentCount: register.attendance?.filter((a: any) => a.present).length || 0,
       totalCount: register.attendance?.length || 0,
+      activity_id: register.session?.activity?.id,
+      activity_title: register.session?.activity?.title,
+      venue_name: register.session?.activity?.venue?.name || 'No venue',
+      start_time: register.session?.startTime,
+      end_time: register.session?.endTime,
+      created_at: register.createdAt,
+      updated_at: register.updatedAt,
       session: {
         id: register.session?.id,
         startTime: register.session?.startTime,
@@ -113,32 +217,74 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           title: register.session?.activity?.title,
           type: register.session?.activity?.type || 'Other',
           venue: {
-            name: register.session?.activity?.venue?.name,
-            address: register.session?.activity?.venue?.address
+            name: register.session?.activity?.venue?.name || 'No venue',
+            address: register.session?.activity?.venue?.address || ''
           }
         }
       },
-      attendance: register.attendance?.map((att: any) => ({
-        id: att.id,
-        present: att.present,
-        checkInTime: att.checkInTime,
-        checkOutTime: att.checkOutTime,
-        notes: att.notes,
-        child: {
-          id: att.child?.id,
-          firstName: att.child?.firstName,
-          lastName: att.child?.lastName
-        },
-        booking: {
-          parent: {
-            firstName: att.booking?.parent?.firstName,
-            lastName: att.booking?.parent?.lastName,
-            email: att.booking?.parent?.email,
-            phone: att.booking?.parent?.phone
-          }
+      attendance: await Promise.all(register.attendance?.map(async (att: any) => {
+        // Check GDPR compliance for sensitive data
+        const userId = req.user!.id;
+        const venueId = register.session?.activity?.venueId;
+        const hasAdminAccess = await GDPRComplianceService.hasAdminAccess(userId, venueId);
+        
+        // Filter child data based on consent and admin access
+        let filteredChildData = { ...att.child };
+        if (!hasAdminAccess) {
+          filteredChildData = await GDPRComplianceService.filterChildDataByConsent(
+            att.child,
+            'register_view'
+          );
         }
-      })) || []
-    }));
+
+        return {
+          id: att.id,
+          present: att.present,
+          checkInTime: att.checkInTime,
+          checkOutTime: att.checkOutTime,
+          notes: att.notes,
+          child: {
+            id: filteredChildData?.id,
+            firstName: filteredChildData?.firstName,
+            lastName: filteredChildData?.lastName,
+            ...(includeBasicInfo && {
+              dateOfBirth: filteredChildData?.dateOfBirth,
+              yearGroup: filteredChildData?.yearGroup,
+              school: filteredChildData?.school,
+              class: filteredChildData?.class
+            }),
+            ...(includeMedicalInfo && {
+              allergies: filteredChildData?.allergies,
+              medicalInfo: filteredChildData?.medicalInfo
+            }),
+            ...(includePermissions && {
+              permissions: filteredChildData?.permissions ? {
+                consentToWalkHome: filteredChildData.permissions.consentToWalkHome,
+                consentToPhotography: filteredChildData.permissions.consentToPhotography,
+                consentToFirstAid: filteredChildData.permissions.consentToFirstAid,
+                consentToEmergencyContact: filteredChildData.permissions.consentToEmergencyContact
+              } : null
+            })
+          },
+          booking: {
+            id: att.booking?.id,
+            ...(includeBookingOptions && {
+              hasEarlyDropoff: att.booking?.hasEarlyDropoff,
+              earlyDropoffAmount: att.booking?.earlyDropoffAmount,
+              hasLatePickup: att.booking?.hasLatePickup,
+              latePickupAmount: att.booking?.latePickupAmount
+            }),
+            parent: {
+              id: att.booking?.parent?.id,
+              firstName: att.booking?.parent?.firstName,
+              lastName: att.booking?.parent?.lastName,
+              email: att.booking?.parent?.email,
+              phone: att.booking?.parent?.phone
+            }
+          }
+        };
+      }) || [])
+    })));
 
     res.json({
       success: true,
@@ -291,15 +437,71 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   try {
     const { id } = req.params;
     
-    const register = await registerService.getRegister(id as string);
+    if (!id) {
+      throw new AppError('Register ID is required', 400, 'MISSING_REGISTER_ID');
+    }
+    
+    const register = await prisma.register.findUnique({
+      where: { id: id as string },
+      include: {
+        session: {
+          include: {
+            activity: {
+              include: {
+                venue: true
+              }
+            }
+          }
+        },
+        attendance: {
+          include: {
+            child: true,
+            booking: true
+          }
+        }
+      }
+    });
     
     if (!register) {
       throw new AppError('Register not found', 404, 'REGISTER_NOT_FOUND');
     }
 
+    // Transform the data to match frontend expectations
+    const transformedRegister = {
+      id: register.id,
+      date: register.date,
+      status: register.status,
+      notes: register.notes,
+      activity_id: (register as any).session?.activity?.id,
+      activity_title: (register as any).session?.activity?.title,
+      venue_name: (register as any).session?.activity?.venue?.name || 'No venue',
+      start_time: (register as any).session?.startTime,
+      end_time: (register as any).session?.endTime,
+      created_at: register.createdAt,
+      updated_at: register.updatedAt,
+      attendance: (register as any).attendance?.map((att: any) => ({
+        id: att.id,
+        child_id: att.childId,
+        first_name: att.child?.firstName,
+        last_name: att.child?.lastName,
+        date_of_birth: att.child?.dateOfBirth,
+        year_group: att.child?.yearGroup,
+        school: att.child?.school,
+        class: att.child?.class,
+        allergies: att.child?.allergies,
+        medical_info: att.child?.medicalInfo,
+        status: att.present ? 'present' : 'absent',
+        notes: att.notes,
+        checkInTime: att.checkInTime,
+        checkOutTime: att.checkOutTime,
+        permissions: att.child?.permissions,
+        booking: att.booking
+      })) || []
+    };
+
     res.json({
       success: true,
-      data: register
+      data: transformedRegister
     });
   } catch (error) {
     logger.error('Error fetching register:', error);
@@ -508,6 +710,602 @@ router.get('/session/:sessionId', authenticateToken, asyncHandler(async (req: Re
   } catch (error) {
     logger.error('Error fetching registers by session:', error);
     throw new AppError('Failed to fetch registers', 500, 'REGISTERS_FETCH_ERROR');
+  }
+}));
+
+// Export register data
+router.get('/export/:registerId', authenticateToken, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { registerId } = req.params;
+    const { format = 'csv', fields = 'all' } = req.query;
+
+    if (!['csv', 'pdf'].includes(format as string)) {
+      throw new AppError('Export format must be csv or pdf', 400, 'INVALID_FORMAT');
+    }
+
+    // Parse fields parameter
+    const requestedFields = fields === 'all' ? ['all'] : (fields as string).split(',');
+    const includeMedicalInfo = requestedFields.includes('all') || requestedFields.includes('medical');
+    const includePermissions = requestedFields.includes('all') || requestedFields.includes('permissions');
+    const includeBookingOptions = requestedFields.includes('all') || requestedFields.includes('booking_options');
+    const includeBasicInfo = requestedFields.includes('all') || requestedFields.includes('basic');
+
+    // Get register with all data
+    const register = await safePrismaQuery(async (client) => {
+      return await client.register.findUnique({
+        where: { id: registerId as string },
+        include: {
+          session: {
+            include: {
+              activity: {
+                select: {
+                  title: true,
+                  description: true,
+                  venue: {
+                    select: {
+                      name: true,
+                      address: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          attendance: {
+            include: {
+              child: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  ...(includeBasicInfo && {
+                    dateOfBirth: true,
+                    yearGroup: true,
+                    school: true,
+                    class: true
+                  }),
+                  ...(includeMedicalInfo && {
+                    allergies: true,
+                    medicalInfo: true
+                  }),
+                  ...(includePermissions && {
+                    permissions: {
+                      select: {
+                        consentToWalkHome: true,
+                        consentToPhotography: true,
+                        consentToFirstAid: true,
+                        consentToEmergencyContact: true
+                      }
+                    }
+                  })
+                }
+              },
+              booking: {
+                select: {
+                  id: true,
+                  ...(includeBookingOptions && {
+                    hasEarlyDropoff: true,
+                    earlyDropoffAmount: true,
+                    hasLatePickup: true,
+                    latePickupAmount: true
+                  }),
+                  parent: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                      phone: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+    });
+
+    if (!register) {
+      throw new AppError('Register not found', 404, 'REGISTER_NOT_FOUND');
+    }
+
+    if (format === 'csv') {
+      // Generate CSV
+      const csvHeaders = [
+        'Child Name',
+        'Parent Name',
+        'Parent Email',
+        'Parent Phone',
+        'Present',
+        'Check In Time',
+        'Check Out Time',
+        'Notes'
+      ];
+
+      // Add conditional headers based on requested fields
+      if (includeBasicInfo) {
+        csvHeaders.push('Date of Birth', 'Year Group', 'School', 'Class');
+      }
+      if (includeMedicalInfo) {
+        csvHeaders.push('Allergies', 'Medical Info');
+      }
+      if (includePermissions) {
+        csvHeaders.push('Walk Home Alone', 'Photo Permission', 'First Aid Consent', 'Emergency Contact Consent');
+      }
+      if (includeBookingOptions) {
+        csvHeaders.push('Early Drop-off', 'Early Drop-off Amount', 'Late Pick-up', 'Late Pick-up Amount');
+      }
+
+      const csvData = register.attendance.map((att: any) => {
+        const row = [
+          `${att.child.firstName} ${att.child.lastName}`,
+          `${att.booking.parent.firstName} ${att.booking.parent.lastName}`,
+          att.booking.parent.email,
+          att.booking.parent.phone,
+          att.present ? 'Yes' : 'No',
+          att.checkInTime ? new Date(att.checkInTime).toLocaleString() : '',
+          att.checkOutTime ? new Date(att.checkOutTime).toLocaleString() : '',
+          att.notes || ''
+        ];
+
+        // Add conditional data
+        if (includeBasicInfo) {
+          row.push(
+            att.child.dateOfBirth ? new Date(att.child.dateOfBirth).toLocaleDateString() : '',
+            att.child.yearGroup || '',
+            att.child.school || '',
+            att.child.class || ''
+          );
+        }
+        if (includeMedicalInfo) {
+          row.push(
+            att.child.allergies || '',
+            att.child.medicalInfo || ''
+          );
+        }
+        if (includePermissions) {
+          row.push(
+            att.child.permissions?.consentToWalkHome ? 'Yes' : 'No',
+            att.child.permissions?.consentToPhotography ? 'Yes' : 'No',
+            att.child.permissions?.consentToFirstAid ? 'Yes' : 'No',
+            att.child.permissions?.consentToEmergencyContact ? 'Yes' : 'No'
+          );
+        }
+        if (includeBookingOptions) {
+          row.push(
+            att.booking.hasEarlyDropoff ? 'Yes' : 'No',
+            att.booking.earlyDropoffAmount ? `£${att.booking.earlyDropoffAmount}` : '',
+            att.booking.hasLatePickup ? 'Yes' : 'No',
+            att.booking.latePickupAmount ? `£${att.booking.latePickupAmount}` : ''
+          );
+        }
+
+        return row;
+      });
+
+      const csvContent = [csvHeaders, ...csvData]
+        .map((row: any) => {
+          return row.map((field: any) => {
+            return `"${field}"`;
+          }).join(',');
+        })
+        .join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="register_${registerId}_${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+    } else {
+      // Generate PDF
+      const doc = new PDFDocument({ margin: 50 });
+      
+      // Set response headers for PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="register_${registerId}_${new Date().toISOString().split('T')[0]}.pdf"`);
+      
+      // Pipe PDF to response
+      doc.pipe(res);
+      
+      // Header
+      doc.fontSize(20).text('Attendance Register', { align: 'center' });
+      doc.moveDown();
+      
+      // Register Information
+      doc.fontSize(14).text('Register Information', { underline: true });
+      doc.moveDown(0.5);
+      
+      doc.fontSize(12)
+        .text(`Activity: ${register.session?.activity?.title || 'Unknown'}`, { indent: 20 })
+        .text(`Venue: ${register.session?.activity?.venue?.name || 'No venue'}`, { indent: 20 })
+        .text(`Date: ${new Date(register.date).toLocaleDateString('en-GB')}`, { indent: 20 })
+        .text(`Time: ${register.session?.startTime || 'Not specified'}`, { indent: 20 });
+      
+      if (register.session?.activity?.venue?.address) {
+        doc.text(`Address: ${register.session.activity.venue.address}`, { indent: 20 });
+      }
+      
+      doc.moveDown();
+      
+      // Attendance Summary
+      const totalChildren = register.attendance.length;
+      const presentCount = register.attendance.filter((att: any) => att.present).length;
+      const absentCount = totalChildren - presentCount;
+      
+      doc.fontSize(14).text('Attendance Summary', { underline: true });
+      doc.moveDown(0.5);
+      
+      doc.fontSize(12)
+        .text(`Total Children: ${totalChildren}`, { indent: 20 })
+        .text(`Present: ${presentCount}`, { indent: 20 })
+        .text(`Absent: ${absentCount}`, { indent: 20 });
+      
+      doc.moveDown();
+      
+      // Children Details
+      doc.fontSize(14).text('Children Details', { underline: true });
+      doc.moveDown(0.5);
+      
+      register.attendance.forEach((att: any, index: number) => {
+        const child = att.child;
+        const booking = att.booking;
+        
+        // Child name and basic info
+        doc.fontSize(12).text(`${index + 1}. ${child.firstName} ${child.lastName}`, { indent: 20 });
+        
+        // Attendance status
+        const statusColor = att.present ? '#22c55e' : '#ef4444';
+        doc.fillColor(statusColor)
+          .text(`Status: ${att.present ? 'Present' : 'Absent'}`, { indent: 40 })
+          .fillColor('black');
+        
+        // Parent information
+        doc.text(`Parent: ${booking.parent.firstName} ${booking.parent.lastName}`, { indent: 40 });
+        doc.text(`Email: ${booking.parent.email}`, { indent: 40 });
+        doc.text(`Phone: ${booking.parent.phone}`, { indent: 40 });
+        
+        // Check-in/out times
+        if (att.checkInTime) {
+          doc.text(`Check-in: ${new Date(att.checkInTime).toLocaleString()}`, { indent: 40 });
+        }
+        if (att.checkOutTime) {
+          doc.text(`Check-out: ${new Date(att.checkOutTime).toLocaleString()}`, { indent: 40 });
+        }
+        
+        // Basic information
+        if (includeBasicInfo) {
+          if (child.dateOfBirth) {
+            doc.text(`Date of Birth: ${new Date(child.dateOfBirth).toLocaleDateString()}`, { indent: 40 });
+          }
+          if (child.yearGroup) {
+            doc.text(`Year Group: ${child.yearGroup}`, { indent: 40 });
+          }
+          if (child.school) {
+            doc.text(`School: ${child.school}`, { indent: 40 });
+          }
+          if (child.class) {
+            doc.text(`Class: ${child.class}`, { indent: 40 });
+          }
+        }
+        
+        // Medical information
+        if (includeMedicalInfo) {
+          if (child.allergies) {
+            doc.text(`Allergies: ${child.allergies}`, { indent: 40 });
+          }
+          if (child.medicalInfo) {
+            doc.text(`Medical Info: ${child.medicalInfo}`, { indent: 40 });
+          }
+        }
+        
+        // Permissions
+        if (includePermissions && child.permissions) {
+          doc.text('Permissions:', { indent: 40 });
+          doc.text(`  • Walk Home Alone: ${child.permissions.consentToWalkHome ? 'Yes' : 'No'}`, { indent: 60 });
+          doc.text(`  • Photo Permission: ${child.permissions.consentToPhotography ? 'Yes' : 'No'}`, { indent: 60 });
+          doc.text(`  • First Aid Consent: ${child.permissions.consentToFirstAid ? 'Yes' : 'No'}`, { indent: 60 });
+          doc.text(`  • Emergency Contact Consent: ${child.permissions.consentToEmergencyContact ? 'Yes' : 'No'}`, { indent: 60 });
+        }
+        
+        // Booking options
+        if (includeBookingOptions) {
+          if (booking.hasEarlyDropoff) {
+            doc.text(`Early Drop-off: Yes (${booking.earlyDropoffAmount ? `£${booking.earlyDropoffAmount}` : 'Amount not specified'})`, { indent: 40 });
+          }
+          if (booking.hasLatePickup) {
+            doc.text(`Late Pick-up: Yes (${booking.latePickupAmount ? `£${booking.latePickupAmount}` : 'Amount not specified'})`, { indent: 40 });
+          }
+        }
+        
+        // Notes
+        if (att.notes) {
+          doc.text(`Notes: ${att.notes}`, { indent: 40 });
+        }
+        
+        doc.moveDown(0.5);
+        
+        // Add page break if needed
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+      });
+      
+      // Footer
+      doc.moveDown(2);
+      doc.fontSize(10)
+        .text(`Generated on ${new Date().toLocaleString()}`, { align: 'center' })
+        .text('BookOn System - Attendance Register', { align: 'center' });
+      
+      // Finalize PDF
+      doc.end();
+      
+      // PDF is streamed directly to response, no need to return
+    }
+
+  } catch (error) {
+    logger.error('Error exporting register:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to export register', 500, 'EXPORT_ERROR');
+  }
+}));
+
+// Export all registers for a course (all dates)
+router.get('/export-course/:activityId', authenticateToken, asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { activityId } = req.params;
+    const { format = 'csv' } = req.query;
+
+    if (!['csv', 'excel', 'pdf'].includes(format as string)) {
+      throw new AppError('Export format must be csv, excel, or pdf', 400, 'INVALID_FORMAT');
+    }
+
+    // Get all registers for this activity/course
+    const registers = await safePrismaQuery(async (client) => {
+      return await client.register.findMany({
+        where: {
+          session: {
+            activityId: activityId as string
+          }
+        },
+        include: {
+          session: {
+            include: {
+              activity: {
+                select: {
+                  title: true,
+                  description: true,
+                  venue: {
+                    select: {
+                      name: true,
+                      address: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          attendance: {
+            include: {
+              child: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  dateOfBirth: true,
+                  yearGroup: true,
+                  school: true,
+                  class: true,
+                  allergies: true,
+                  medicalInfo: true
+                }
+              },
+              booking: {
+                select: {
+                  id: true,
+                  parent: {
+                    select: {
+                      firstName: true,
+                      lastName: true,
+                      email: true,
+                      phone: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      });
+    });
+
+    if (registers.length === 0) {
+      throw new AppError('No registers found for this activity', 404, 'NO_REGISTERS_FOUND');
+    }
+
+    const activity = registers[0].session.activity;
+
+    if (format === 'csv') {
+      // Generate CSV with all dates
+      const csvHeaders = [
+        'Date',
+        'Session Time',
+        'Child Name',
+        'Parent Name',
+        'Parent Email',
+        'Parent Phone',
+        'Present',
+        'Check In Time',
+        'Check Out Time',
+        'Date of Birth',
+        'Year Group',
+        'School',
+        'Class',
+        'Allergies',
+        'Medical Info',
+        'Notes'
+      ];
+
+      const csvData: any[] = [];
+      
+      registers.forEach(register => {
+        const sessionTime = register.session.startTime || '';
+        register.attendance.forEach((att: any) => {
+          csvData.push([
+            new Date(register.createdAt).toLocaleDateString(),
+            sessionTime,
+            `${att.child.firstName} ${att.child.lastName}`,
+            `${att.booking.parent.firstName} ${att.booking.parent.lastName}`,
+            att.booking.parent.email,
+            att.booking.parent.phone || '',
+            att.present ? 'Yes' : 'No',
+            att.checkInTime ? new Date(att.checkInTime).toLocaleString() : '',
+            att.checkOutTime ? new Date(att.checkOutTime).toLocaleString() : '',
+            att.child.dateOfBirth ? new Date(att.child.dateOfBirth).toLocaleDateString() : '',
+            att.child.yearGroup || '',
+            att.child.school || '',
+            att.child.class || '',
+            att.child.allergies || '',
+            att.child.medicalInfo || '',
+            att.notes || ''
+          ]);
+        });
+      });
+
+      const csvContent = [csvHeaders, ...csvData]
+        .map((row: any) => {
+          return row.map((field: any) => `"${String(field)}"`).join(',');
+        })
+        .join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="course_registers_${activityId}_${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+
+    } else if (format === 'excel') {
+      // For Excel format, we'll generate a CSV-like format that Excel can open
+      // In production, you'd use a library like 'xlsx' to generate actual Excel files
+      const csvHeaders = [
+        'Date',
+        'Session Time',
+        'Child Name',
+        'Parent Name',
+        'Parent Email',
+        'Parent Phone',
+        'Present',
+        'Check In Time',
+        'Check Out Time',
+        'Date of Birth',
+        'Year Group',
+        'School',
+        'Class',
+        'Allergies',
+        'Medical Info',
+        'Notes'
+      ];
+
+      const csvData: any[] = [];
+      
+      registers.forEach(register => {
+        const sessionTime = register.session.startTime || '';
+        register.attendance.forEach((att: any) => {
+          csvData.push([
+            new Date(register.createdAt).toLocaleDateString(),
+            sessionTime,
+            `${att.child.firstName} ${att.child.lastName}`,
+            `${att.booking.parent.firstName} ${att.booking.parent.lastName}`,
+            att.booking.parent.email,
+            att.booking.parent.phone || '',
+            att.present ? 'Yes' : 'No',
+            att.checkInTime ? new Date(att.checkInTime).toLocaleString() : '',
+            att.checkOutTime ? new Date(att.checkOutTime).toLocaleString() : '',
+            att.child.dateOfBirth ? new Date(att.child.dateOfBirth).toLocaleDateString() : '',
+            att.child.yearGroup || '',
+            att.child.school || '',
+            att.child.class || '',
+            att.child.allergies || '',
+            att.child.medicalInfo || '',
+            att.notes || ''
+          ]);
+        });
+      });
+
+      const csvContent = [csvHeaders, ...csvData]
+        .map((row: any) => {
+          return row.map((field: any) => `"${String(field)}"`).join(',');
+        })
+        .join('\n');
+
+      res.setHeader('Content-Type', 'application/vnd.ms-excel');
+      res.setHeader('Content-Disposition', `attachment; filename="course_registers_${activityId}_${new Date().toISOString().split('T')[0]}.xls"`);
+      res.send(csvContent);
+
+    } else {
+      // PDF format - basic implementation
+      // In production, you'd use a library like 'pdfkit' for better formatting
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 50 });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="course_registers_${activityId}_${new Date().toISOString().split('T')[0]}.pdf"`);
+
+      doc.pipe(res);
+
+      // Add title
+      doc.fontSize(18).text(`Course Attendance Register: ${activity.title}`, { align: 'center' });
+      doc.moveDown(2);
+
+      // Add course information
+      doc.fontSize(12).text(`Activity: ${activity.title}`);
+      doc.text(`Venue: ${activity.venue.name}`);
+      doc.text(`Address: ${activity.venue.address || 'N/A'}`);
+      doc.moveDown(2);
+
+      // Add registers for each date
+      registers.forEach((register, index) => {
+        if (index > 0) doc.addPage();
+        
+        doc.fontSize(14).text(`Date: ${new Date(register.createdAt).toLocaleDateString()}`);
+        doc.fontSize(10).text(`Session Time: ${register.session.startTime || 'N/A'}`);
+        doc.moveDown();
+
+        // Table header
+        const tableTop = doc.y;
+        doc.fontSize(10);
+        doc.text('Child Name', 50, doc.y);
+        doc.text('Parent Contact', 150, doc.y);
+        doc.text('Present', 350, doc.y);
+        doc.text('Check In', 420, doc.y);
+        
+        // Horizontal line
+        doc.moveTo(50, doc.y + 5)
+           .lineTo(550, doc.y + 5)
+           .stroke();
+
+        doc.y += 10;
+
+        // Add attendance records
+        register.attendance.forEach((att: any) => {
+          doc.text(`${att.child.firstName} ${att.child.lastName}`, 50, doc.y);
+          doc.text(`${att.booking.parent.email}`, 150, doc.y);
+          doc.text(att.present ? 'Yes' : 'No', 350, doc.y);
+          doc.text(att.checkInTime ? new Date(att.checkInTime).toLocaleTimeString() : '-', 420, doc.y);
+          
+          doc.y += 20;
+          
+          if (doc.y > 700) {
+            doc.addPage();
+          }
+        });
+      });
+
+      doc.end();
+    }
+
+  } catch (error) {
+    logger.error('Error exporting course registers:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to export course registers', 500, 'COURSE_EXPORT_ERROR');
   }
 }));
 

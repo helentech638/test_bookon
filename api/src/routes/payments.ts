@@ -22,6 +22,11 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      logger.error('Payment intent validation failed:', {
+        errors: errors.array(),
+        body: req.body,
+        userId: req.user?.id
+      });
       throw new AppError('Validation failed', 400, 'VALIDATION_ERROR');
     }
 
@@ -77,7 +82,7 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
       bookingId,
       amount,
       currency,
-      venueId: venueId || booking.activity.venue.stripeAccountId,
+      venueId: venueId || booking.activity.venue?.stripeAccountId,
     });
 
     // Create payment record in database
@@ -90,7 +95,7 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
         currency: currency,
         status: 'pending',
         paymentMethod: 'stripe',
-        stripeAccountId: venueId || booking.activity.venue.stripeAccountId,
+        stripeAccountId: venueId || booking.activity.venue?.stripeAccountId,
         isActive: true
       }
     });
@@ -100,7 +105,7 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
       bookingId,
       userId,
       stripeIntentId: paymentIntent.id,
-      venueId: venueId || booking.activity.venue.stripeAccountId
+      venueId: venueId || booking.activity.venue?.stripeAccountId
     });
 
     res.json({
@@ -113,7 +118,7 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
         booking: {
           id: booking.id,
           activityTitle: booking.activity.title,
-          venueName: booking.activity.venue.name,
+          venueName: booking.activity.venue?.name,
           startDate: booking.activity.startDate,
           startTime: booking.activity.startTime,
         }

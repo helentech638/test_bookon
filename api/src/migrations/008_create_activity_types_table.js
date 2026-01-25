@@ -51,3 +51,4 @@ exports.down = async function(knex) {
   // Drop activity_types table
   await knex.schema.dropTable('activity_types');
 };
+

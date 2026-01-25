@@ -99,8 +99,9 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       id: notification.id,
       type: notification.type as 'booking' | 'cancellation' | 'waitlist' | 'refund',
       title: notification.title,
-      created_at: notification.createdAt.toISOString(),
-      action_url: notification.data ? (notification.data as any).action_url : null,
+      message: notification.message,
+      createdAt: notification.createdAt.toISOString(),
+      actionUrl: notification.data ? (notification.data as any).action_url : null,
       read: notification.read
     }));
 

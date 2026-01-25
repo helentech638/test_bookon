@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 // Contexts
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { BasketProvider } from './contexts/CartContext';
 
 // Components
 import { AuthErrorBoundary } from './components/AuthErrorBoundary';
@@ -24,8 +25,15 @@ import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
 import DashboardPage from './pages/Dashboard/DashboardPage';
 import BusinessDashboard from './pages/Business/BusinessDashboard';
+import BusinessOnboardingPage from './pages/Business/BusinessOnboardingPage';
+import BusinessProfilePage from './pages/Business/BusinessProfilePage';
+import BusinessBookingsPage from './pages/Business/BookingsPage';
+import BusinessPaymentManagementPage from './pages/Business/PaymentManagementPage';
 import BusinessActivitiesPage from './pages/Business/ActivitiesPage';
 import BusinessCreateActivityPage from './pages/Business/CreateActivityPage';
+import ActivityDetailsPage from './pages/Business/ActivityDetailsPage';
+import EditActivityPage from './pages/Business/EditActivityPage';
+import ActivityRegisterPage from './pages/Business/ActivityRegisterPage';
 import BusinessFinancePage from './pages/Business/FinancePage';
 import BusinessTemplatesPage from './pages/Business/TemplatesPage';
 import BusinessVenuesPage from './pages/Business/VenuesPage';
@@ -34,21 +42,31 @@ import BusinessCommunicationsAutomatedPage from './pages/Business/Communications
 import BusinessCommunicationsBroadcastsPage from './pages/Business/CommunicationsBroadcastsPage';
 import BusinessCommunicationsLogsPage from './pages/Business/CommunicationsLogsPage';
 import BusinessRegistersPage from './pages/Business/RegistersPage';
+import RegisterDetailPage from './pages/Business/RegisterDetailPage';
+import RegisterEditPage from './pages/Business/RegisterEditPage';
 import BusinessRegisterSetupPage from './pages/Business/RegisterSetupPage';
 import BusinessVenueSetupPage from './pages/Business/VenueSetupPage';
 import BusinessWidgetManagementPage from './pages/Business/WidgetManagementPage';
 import BusinessNotificationsPage from './pages/Business/NotificationsPage';
 import BusinessUsersPage from './pages/Business/UsersPage';
 import BusinessSettingsPage from './pages/Business/SettingsPage';
+import SessionManagementPage from './pages/Business/SessionManagementPage';
 import DashboardRouter from './components/DashboardRouter';
 import ActivitiesPage from './pages/Activities/ActivitiesPage';
+import CartPage from './pages/Cart/CartPage';
+import CheckoutPage from './pages/Checkout/CheckoutPage';
+import CartPaymentPage from './pages/Checkout/CartPaymentPage';
+import CartCheckoutSuccessPage from './pages/Checkout/CartCheckoutSuccessPage';
 import BookingsPage from './pages/Bookings/BookingsPage';
 import BookingDetailPage from './pages/Bookings/BookingDetailPage';
 import BookingEditPage from './pages/Bookings/BookingEditPage';
 import ParentBookingFlow from './pages/Bookings/ParentBookingFlow';
 import ChildrenPage from './pages/Parent/ChildrenPage';
+import PermissionsPage from './pages/Permissions/PermissionsPage';
+import ReportsPage from './pages/Reports/ReportsPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import AdminDashboard from './pages/Admin/AdminDashboard';
+import AdminDiscountsPage from './pages/Admin/AdminDiscountsPage';
 import TemplatesPage from './pages/Admin/TemplatesPage';
 import CoursesPage from './pages/Admin/CoursesPage';
 import VenueSetupPage from './pages/Admin/VenueSetupPage';
@@ -65,6 +83,7 @@ import NotificationCenter from './pages/Admin/NotificationCenter';
 import NotificationsPage from './pages/Notifications/NotificationsPage';
 import CommunicationsPage from './pages/Admin/CommunicationsPage';
 import FinancePage from './pages/Admin/FinancePage';
+import MasterReports from './pages/Admin/MasterReports';
 import AdminCreateActivityPage from './pages/Admin/CreateActivityPage';
 import ActivityTypesPage from './pages/Admin/ActivityTypesPage';
 import RegisterManagementPage from './pages/Admin/RegisterManagementPage';
@@ -87,11 +106,22 @@ import WalletPage from './pages/Parent/WalletPage';
 import NotFoundPage from './pages/NotFoundPage';
 import WidgetPage from './pages/WidgetPage';
 import ActivityConfirmationPage from './pages/Activities/ActivityConfirmationPage';
-import CheckoutPage from './pages/Checkout/CheckoutPage';
 import ChildPermissionsPage from './pages/Children/ChildPermissionsPage';
 import AddChildPage from './pages/Children/AddChildPage';
+import SingleChildPermissionsPage from './pages/Children/SingleChildPermissionsPage';
+import WraparoundCareBookingPage from './pages/Bookings/WraparoundCareBookingPage';
+import WraparoundCheckoutPage from './pages/Checkout/WraparoundCheckoutPage';
+import HolidayClubBookingPage from './pages/Bookings/HolidayClubBookingPage';
+import ActivityBookingPage from './pages/Activities/ActivityBookingPage';
+import ActivityCheckoutPage from './pages/Checkout/ActivityCheckoutPage';
+import CourseBookingPage from './pages/Activities/CourseBookingPage';
+import WaitingListPage from './pages/Activities/WaitingListPage';
+import CourseCheckoutPage from './pages/Checkout/CourseCheckoutPage';
+import HolidayClubCheckoutPage from './pages/Checkout/HolidayClubCheckoutPage';
+import HolidayClubConfirmationPage from './pages/Bookings/HolidayClubConfirmationPage';
 import PaymentSuccessPage from './pages/Payment/PaymentSuccessPage';
 import PaymentPage from './pages/Payment/PaymentPage';
+import ActivityLogPage from './pages/ActivityLogPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -108,7 +138,7 @@ function AppRoutes() {
   const { user, logout } = useAuth();
 
   return (
-    <Layout user={user} onLogout={logout}>
+    <Layout key="main-layout" user={user} onLogout={logout}>
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<HomePage />} />
@@ -126,10 +156,42 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/activity-log"
+          element={
+            <ProtectedRoute>
+              <ActivityLogPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/business/dashboard"
           element={
             <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessDashboard />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/onboarding"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessOnboardingPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/profile"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessProfilePage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/bookings"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessBookingsPage />
             </RoleBasedProtectedRoute>
           }
         />
@@ -146,6 +208,38 @@ function AppRoutes() {
           element={
             <RoleBasedProtectedRoute allowedRoles={['business']}>
               <BusinessCreateActivityPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/activities/:activityId"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <ActivityDetailsPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/activities/:activityId/edit"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <EditActivityPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/activities/:activityId/register"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <ActivityRegisterPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/payments"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <BusinessPaymentManagementPage />
             </RoleBasedProtectedRoute>
           }
         />
@@ -254,6 +348,22 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/business/registers/:registerId"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <RegisterDetailPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/business/registers/:registerId/edit"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <RegisterEditPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
           path="/business/register-setup"
           element={
             <RoleBasedProtectedRoute allowedRoles={['business', 'admin']}>
@@ -350,6 +460,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/business/sessions"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['business']}>
+              <SessionManagementPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
           path="/parent/dashboard"
           element={
             <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
@@ -366,10 +484,66 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/basket"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
+              <CartPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
+              <CheckoutPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout/payment"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
+              <CartPaymentPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout/success"
+          element={
+            <RoleBasedProtectedRoute allowedRoles={['parent', 'staff', 'admin']}>
+              <CartCheckoutSuccessPage />
+            </RoleBasedProtectedRoute>
+          }
+        />
+        <Route
           path="/activities/:activityId/confirm"
           element={
             <ProtectedRoute>
               <ActivityConfirmationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout/wraparound"
+          element={
+            <ProtectedRoute>
+              <WraparoundCheckoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout/activity"
+          element={
+            <ProtectedRoute>
+              <ActivityCheckoutPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout/course"
+          element={
+            <ProtectedRoute>
+              <CourseCheckoutPage />
             </ProtectedRoute>
           }
         />
@@ -454,6 +628,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <ReportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/children/new"
           element={
             <ProtectedRoute>
@@ -465,7 +647,55 @@ function AppRoutes() {
           path="/children/:childId/permissions"
           element={
             <ProtectedRoute>
-              <ChildPermissionsPage />
+              <SingleChildPermissionsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activities/:activityId/wraparound-booking"
+          element={
+            <ProtectedRoute>
+              <WraparoundCareBookingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activities/:activityId/activity-booking"
+          element={
+            <ProtectedRoute>
+              <ActivityBookingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activities/:activityId/holiday-club-booking"
+          element={
+            <ProtectedRoute>
+              <HolidayClubBookingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activities/:activityId/course-booking"
+          element={
+            <ProtectedRoute>
+              <CourseBookingPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/activities/:activityId/waiting-list"
+          element={
+            <ProtectedRoute>
+              <WaitingListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/permissions"
+          element={
+            <ProtectedRoute>
+              <PermissionsPage />
             </ProtectedRoute>
           }
         />
@@ -592,6 +822,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/discounts"
+          element={
+            <ProtectedRoute>
+              <AdminDiscountsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/activities/new"
           element={
             <ProtectedRoute>
@@ -624,6 +862,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/admin/master-reports"
+          element={
+            <ProtectedRoute>
+              <MasterReports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/admin/create-activity"
           element={
             <ProtectedRoute>
@@ -652,14 +898,6 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <TFCPendingQueuePage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/pending-payment/:bookingId"
-          element={
-            <ProtectedRoute>
-              <PendingPaymentPage />
             </ProtectedRoute>
           }
         />
@@ -879,7 +1117,8 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <NotificationProvider>
-          <AuthErrorBoundary>
+          <BasketProvider>
+            <AuthErrorBoundary>
             <Router>
               <div className="App">
                 <AppRoutes />
@@ -912,6 +1151,7 @@ function App() {
               </div>
             </Router>
           </AuthErrorBoundary>
+          </BasketProvider>
         </NotificationProvider>
       </AuthProvider>
     </QueryClientProvider>

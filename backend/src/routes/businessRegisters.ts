@@ -72,7 +72,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     const skip = (Number(page) - 1) * Number(limit);
     
     const [registers, totalCount] = await safePrismaQuery(async (client) => {
-      return await Promise.all([
+      const result = await Promise.all([
         client.register.findMany({
           where,
           skip,
@@ -98,6 +98,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
                     id: true,
                     title: true,
                     type: true,
+                    capacity: true,
                     venue: {
                       select: {
                         id: true,
@@ -106,6 +107,12 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
                     }
                   }
                 }
+              }
+            },
+            attendance: {
+              select: {
+                id: true,
+                present: true
               }
             },
             _count: {
@@ -117,6 +124,16 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
         }),
         client.register.count({ where })
       ]);
+      
+      logger.info(`Business registers query result: ${result[0].length} registers found for user ${userId}`, {
+        userId,
+        venueIds,
+        whereClause: where,
+        registersFound: result[0].length,
+        totalCount: result[1]
+      });
+      
+      return result;
     });
 
     // Get summary statistics
@@ -152,10 +169,19 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       return { totalRegisters, upcoming, inProgress, completed, cancelled };
     });
 
+    // Transform registers to include capacity and attendance count
+    const transformedRegisters = registers.map(reg => ({
+      ...reg,
+      attendees: reg.attendance || [],
+      totalCapacity: reg.session?.capacity || reg.session?.activity?.capacity || 0,
+      registeredCount: reg.attendance?.length || 0,
+      presentCount: reg.attendance?.filter((att: any) => att.present)?.length || 0
+    }));
+
     res.json({
       success: true,
       data: {
-        registers,
+        registers: transformedRegisters,
         stats,
         pagination: {
           page: Number(page),
@@ -500,6 +526,98 @@ router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   }
 }));
 
+// Save register attendance
+router.post('/:id/save', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { id } = req.params;
+  const { attendance } = req.body;
+  
+  try {
+    // Check if user has business access
+    const userInfo = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { role: true, businessName: true, isActive: true }
+      });
+    });
+
+    if (!userInfo || (!userInfo.businessName && userInfo.role !== 'business' && userInfo.role !== 'admin')) {
+      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
+    }
+
+    // Get user's venues
+    const venues = await safePrismaQuery(async (client) => {
+      return await client.venue.findMany({
+        where: { ownerId: userId },
+        select: { id: true }
+      });
+    });
+
+    const venueIds = venues.map(v => v.id);
+
+    // Check if register exists and belongs to user's venue
+    const existingRegister = await safePrismaQuery(async (client) => {
+      return await client.register.findFirst({
+        where: { 
+          id,
+          session: {
+            activity: {
+              venueId: { in: venueIds }
+            }
+          }
+        }
+      });
+    });
+
+    if (!existingRegister) {
+      throw new AppError('Register not found', 404, 'REGISTER_NOT_FOUND');
+    }
+
+    // Update attendance records
+    if (attendance && Array.isArray(attendance)) {
+      for (const att of attendance) {
+        await safePrismaQuery(async (client) => {
+          return await client.attendance.updateMany({
+            where: {
+              id: att.id,
+              registerId: id
+            },
+            data: {
+              present: att.present,
+              updatedAt: new Date()
+            }
+          });
+        });
+      }
+    }
+
+    // Update register timestamp
+    await safePrismaQuery(async (client) => {
+      return await client.register.update({
+        where: { id },
+        data: {
+          updatedAt: new Date()
+        }
+      });
+    });
+
+    logger.info(`Register ${id} attendance saved by user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Register saved successfully',
+      data: {
+        registerId: id,
+        savedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error saving register:', error);
+    throw new AppError('Failed to save register', 500, 'REGISTER_SAVE_ERROR');
+  }
+}));
+
 // Delete register
 router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
@@ -572,6 +690,236 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
   } catch (error) {
     logger.error('Error deleting register:', error);
     throw new AppError('Failed to delete register', 500, 'REGISTER_DELETE_ERROR');
+  }
+}));
+
+// Utility endpoint to fix existing course bookings without registers for business users
+router.post('/fix-existing-registers', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  
+  try {
+    // Check if user has business access
+    const userInfo = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { role: true, businessName: true, isActive: true }
+      });
+    });
+
+    if (!userInfo || (!userInfo.businessName && userInfo.role !== 'business' && userInfo.role !== 'admin')) {
+      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
+    }
+
+    // Get user's venues
+    const venues = await safePrismaQuery(async (client) => {
+      return await client.venue.findMany({
+        where: { ownerId: userId },
+        select: { id: true }
+      });
+    });
+
+    const venueIds = venues.map(v => v.id);
+
+    logger.info(`Starting business register fix for user: ${userId} with venues: ${venueIds.join(', ')}`);
+    
+    // Find all course bookings for activities owned by this business
+    const courseBookings = await safePrismaQuery(async (client) => {
+      return await client.booking.findMany({
+        where: {
+          notes: {
+            contains: 'COURSE_BOOKING'
+          },
+          status: {
+            in: ['confirmed', 'pending']
+          },
+          activity: {
+            venueId: { in: venueIds }
+          }
+        },
+        include: {
+          activity: {
+            select: {
+              id: true,
+              title: true,
+              startDate: true,
+              endDate: true,
+              regularDay: true,
+              regularTime: true,
+              durationWeeks: true,
+              capacity: true,
+              venueId: true
+            }
+          },
+          child: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
+    });
+
+    if (courseBookings.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No course bookings found to fix',
+        data: { fixed: 0 }
+      });
+    }
+
+    let fixedCount = 0;
+    const processedActivities = new Set();
+
+    for (const booking of courseBookings) {
+      const activity = booking.activity;
+      
+      // Skip if we've already processed this activity
+      if (processedActivities.has(activity.id)) {
+        continue;
+      }
+      
+      // Check if registers already exist for this activity
+      const existingRegisters = await safePrismaQuery(async (client) => {
+        return await client.register.findMany({
+          where: {
+            session: {
+              activityId: activity.id
+            }
+          }
+        });
+      });
+
+      if (existingRegisters.length > 0) {
+        logger.info(`Registers already exist for activity ${activity.id}, skipping`);
+        processedActivities.add(activity.id);
+        continue;
+      }
+
+      // Create registers for this course activity
+      if (activity.regularDay && activity.regularTime && activity.durationWeeks) {
+        const startDate = new Date(activity.startDate);
+        const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(activity.regularDay);
+        
+        if (dayOfWeek === -1) {
+          logger.warn(`Invalid day of week: ${activity.regularDay} for activity ${activity.id}`);
+          continue;
+        }
+
+        // Get all children booked for this course
+        const courseChildren = courseBookings
+          .filter(b => b.activityId === activity.id)
+          .map(b => ({
+            id: b.childId,
+            name: `${b.child.firstName} ${b.child.lastName}`
+          }));
+
+        for (let week = 0; week < activity.durationWeeks; week++) {
+          const sessionDate = new Date(startDate);
+          
+          // Calculate the correct date for this week's session
+          const daysToAdd = (week * 7) + (dayOfWeek - sessionDate.getDay());
+          sessionDate.setDate(sessionDate.getDate() + daysToAdd);
+          
+          // Skip if this date is in the past
+          if (sessionDate < new Date()) {
+            continue;
+          }
+
+          // Check if session already exists
+          let session = await safePrismaQuery(async (client) => {
+            return await client.session.findFirst({
+              where: {
+                activityId: activity.id,
+                date: sessionDate
+              }
+            });
+          });
+
+          if (!session) {
+            // Create session
+            session = await safePrismaQuery(async (client) => {
+              return await client.session.create({
+                data: {
+                  activityId: activity.id,
+                  date: sessionDate,
+                  startTime: activity.regularTime,
+                  endTime: activity.regularTime,
+                  capacity: activity.capacity || 20,
+                  status: 'scheduled'
+                }
+              });
+            });
+            logger.info(`Created session ${session.id} for activity ${activity.id} on ${sessionDate.toISOString().split('T')[0]}`);
+          }
+
+          // Check if register already exists for this session
+          let register = await safePrismaQuery(async (client) => {
+            return await client.register.findFirst({
+              where: {
+                sessionId: session.id
+              }
+            });
+          });
+
+          if (!register) {
+            // Create register
+            register = await safePrismaQuery(async (client) => {
+              return await client.register.create({
+                data: {
+                  sessionId: session.id,
+                  date: sessionDate,
+                  status: 'upcoming',
+                  notes: `Course session ${week + 1}/${activity.durationWeeks} - ${courseChildren.map(child => child.name).join(', ')}`
+                }
+              });
+            });
+            logger.info(`Created register ${register.id} for session ${session.id} on ${sessionDate.toISOString().split('T')[0]}`);
+            fixedCount++;
+
+            // Create attendance records for each child
+            for (const child of courseChildren) {
+              const childBooking = courseBookings.find(b => 
+                b.activityId === activity.id && b.childId === child.id
+              );
+              
+              if (childBooking) {
+                await safePrismaQuery(async (client) => {
+                  return await client.attendance.create({
+                    data: {
+                      registerId: register.id,
+                      childId: child.id,
+                      bookingId: childBooking.id,
+                      present: true,
+                      notes: `Auto-enrolled in course session ${week + 1}/${activity.durationWeeks} (${child.name})`
+                    }
+                  });
+                });
+              }
+            }
+          }
+        }
+      }
+      
+      processedActivities.add(activity.id);
+    }
+
+    logger.info(`Business register fix completed: ${fixedCount} registers created for user: ${userId}`);
+
+    res.json({
+      success: true,
+      message: `Successfully created ${fixedCount} registers for existing course bookings`,
+      data: { 
+        fixed: fixedCount,
+        processedActivities: processedActivities.size,
+        totalBookings: courseBookings.length
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error fixing business course registers:', error);
+    throw new AppError('Failed to fix course registers', 500, 'REGISTER_FIX_ERROR');
   }
 }));
 

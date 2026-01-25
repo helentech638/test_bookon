@@ -7,7 +7,7 @@ import FranchiseFeeService from '../services/franchiseFeeService';
 
 const router = Router();
 
-// Get all business accounts
+// Get all business accounts (using User entities with role: business)
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
@@ -17,8 +17,11 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       userId 
     });
 
-    const businessAccounts = await safePrismaQuery(async (client) => {
-      return await client.businessAccount.findMany({
+    const businessUsers = await safePrismaQuery(async (client) => {
+      return await client.user.findMany({
+        where: {
+          role: 'business'
+        },
         include: {
           venues: {
             select: {
@@ -40,6 +43,24 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       });
     });
 
+    // Transform to match expected BusinessAccount interface
+    const businessAccounts = businessUsers.map(user => ({
+      id: user.id,
+      name: user.businessName || `${user.firstName} ${user.lastName}`,
+      status: user.isActive ? 'active' : 'inactive',
+      stripeAccountId: user.stripeAccountId || '',
+      stripeAccountType: 'express',
+      franchiseFeeType: user.franchiseFeeType || 'percent',
+      franchiseFeeValue: user.franchiseFeeValue ? Number(user.franchiseFeeValue) : 0,
+      vatMode: user.vatMode || 'inclusive',
+      adminFeeAmount: user.adminFeeAmount ? Number(user.adminFeeAmount) : 0,
+      isActive: user.isActive,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+      venues: user.venues,
+      _count: user._count
+    }));
+
     logger.info('Business accounts retrieved', { 
       count: businessAccounts.length 
     });
@@ -54,7 +75,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
   }
 }));
 
-// Get single business account
+// Get single business account (using User entity with role: business)
 router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -66,9 +87,12 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       userId 
     });
 
-    const businessAccount = await safePrismaQuery(async (client) => {
-      return await client.businessAccount.findFirst({
-        where: { id: id },
+    const businessUser = await safePrismaQuery(async (client) => {
+      return await client.user.findFirst({
+        where: { 
+          id: id,
+          role: 'business'
+        },
         include: {
           venues: {
             select: {
@@ -85,9 +109,26 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       });
     });
 
-    if (!businessAccount) {
+    if (!businessUser) {
       throw new AppError('Business account not found', 404, 'BUSINESS_ACCOUNT_NOT_FOUND');
     }
+
+    // Transform to match expected BusinessAccount interface
+    const businessAccount = {
+      id: businessUser.id,
+      name: businessUser.businessName || `${businessUser.firstName} ${businessUser.lastName}`,
+      status: businessUser.isActive ? 'active' : 'inactive',
+      stripeAccountId: businessUser.stripeAccountId || '',
+      stripeAccountType: 'express',
+      franchiseFeeType: businessUser.franchiseFeeType || 'percent',
+      franchiseFeeValue: businessUser.franchiseFeeValue ? Number(businessUser.franchiseFeeValue) : 0,
+      vatMode: businessUser.vatMode || 'inclusive',
+      adminFeeAmount: businessUser.adminFeeAmount ? Number(businessUser.adminFeeAmount) : 0,
+      isActive: businessUser.isActive,
+      createdAt: businessUser.createdAt.toISOString(),
+      updatedAt: businessUser.updatedAt.toISOString(),
+      venues: businessUser.venues
+    };
 
     logger.info('Business account retrieved', { 
       businessAccountId: id 

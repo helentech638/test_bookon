@@ -23,7 +23,7 @@ interface Template {
   years: string;
   description?: string;
   whatToBring?: string;
-  defaultPrice?: number;
+  defaultPrice?: number | string;
   defaultCapacity?: number;
   flags?: {
     photo_consent_required: boolean;
@@ -40,7 +40,7 @@ interface Template {
     lastName: string;
   };
   _count: {
-    activities: number;
+    courses: number;
   };
 }
 
@@ -76,6 +76,9 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({
     endTime: '',
     price: '',
     capacity: '',
+    weekday: '',
+    time: '',
+    extras: '',
     requiresPhotoConsent: false,
     requiresMedicalReminder: false
   });
@@ -94,6 +97,9 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({
           endTime: '',
           price: template.defaultPrice?.toString() || '0',
           capacity: template.defaultCapacity?.toString() || '0',
+          weekday: '',
+          time: '',
+          extras: '',
           requiresPhotoConsent: template.flags?.photo_consent_required || false,
           requiresMedicalReminder: template.flags?.medical_reminder || false
         });
@@ -131,13 +137,26 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({
       const token = authService.getToken();
       if (!token) return;
 
-      const response = await fetch(buildApiUrl(`/templates/${template.id}/create-activity`), {
+      const response = await fetch(buildApiUrl('/courses'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          templateId: template.id,
+          venueIds: formData.venueIds,
+          name: formData.name || template.name,
+          type: template.type,
+          years: template.years,
+          price: formData.price || template.defaultPrice,
+          capacity: formData.capacity || template.defaultCapacity,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          weekday: formData.weekday || null,
+          time: formData.time || null,
+          extras: formData.extras || null
+        })
       });
 
       if (response.ok) {
@@ -325,6 +344,52 @@ const CreateCourseModal: React.FC<CreateCourseModalProps> = ({
                     onChange={(e) => setFormData(prev => ({ ...prev, capacity: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Weekday
+                  </label>
+                  <select
+                    value={formData.weekday}
+                    onChange={(e) => setFormData(prev => ({ ...prev, weekday: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  >
+                    <option value="">Select weekday</option>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                    <option value="Saturday">Saturday</option>
+                    <option value="Sunday">Sunday</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Time
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., 15:30-16:30"
+                    value={formData.time}
+                    onChange={(e) => setFormData(prev => ({ ...prev, time: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Extras
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Additional information"
+                    value={formData.extras}
+                    onChange={(e) => setFormData(prev => ({ ...prev, extras: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
                 </div>
               </div>

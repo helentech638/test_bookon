@@ -2,8 +2,8 @@ import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
 export interface NotificationData {
-  userId?: string;
-  venueId?: string;
+  userId: string;
+  venueId?: string | undefined;
   type: 'booking_confirmation' | 'payment_success' | 'payment_failed' | 'booking_cancelled' | 'activity_reminder' | 'system_alert';
   title: string;
   message: string;
@@ -13,6 +13,42 @@ export interface NotificationData {
 }
 
 export class NotificationService {
+  // Send notification to all admin users
+  static async notifyAdmins(notificationData: Omit<NotificationData, 'userId'>) {
+    try {
+      // Get all admin users
+      const adminUsers = await prisma.user.findMany({
+        where: { role: 'admin' },
+        select: { id: true }
+      });
+
+      if (adminUsers.length === 0) {
+        logger.info('No admin users found to notify');
+        return;
+      }
+
+      // Create notifications for each admin
+      const notifications = await Promise.all(
+        adminUsers.map(admin => 
+          this.createNotification({
+            ...notificationData,
+            userId: admin.id
+          })
+        )
+      );
+
+      logger.info(`Sent admin notifications to ${adminUsers.length} admin users`, {
+        notificationType: notificationData.type,
+        adminCount: adminUsers.length
+      });
+
+      return notifications;
+    } catch (error) {
+      logger.error('Error sending admin notifications:', error);
+      throw error;
+    }
+  }
+
   // Create a new notification
   static async createNotification(notificationData: NotificationData) {
     try {

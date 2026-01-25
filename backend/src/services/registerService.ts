@@ -102,6 +102,49 @@ class RegisterService {
                 }
               }
             },
+            attendance: {
+              include: {
+                child: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    dateOfBirth: true,
+                    yearGroup: true,
+                    school: true,
+                    class: true,
+                    allergies: true,
+                    medicalInfo: true,
+                    permissions: {
+                      select: {
+                        consentToWalkHome: true,
+                        consentToPhotography: true,
+                        consentToFirstAid: true,
+                        consentToEmergencyContact: true
+                      }
+                    }
+                  }
+                },
+                booking: {
+                  select: {
+                    id: true,
+                    hasEarlyDropoff: true,
+                    earlyDropoffAmount: true,
+                    hasLatePickup: true,
+                    latePickupAmount: true,
+                    parent: {
+                      select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        email: true,
+                        phone: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         });
       });

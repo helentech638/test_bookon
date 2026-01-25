@@ -20,6 +20,7 @@ const validateProviderSettings = [
   body('defaultRefundMethod').isIn(['credit', 'cash', 'parent_choice']).withMessage('Invalid refund method'),
   body('adminFeeAmount').isDecimal().withMessage('Admin fee must be a valid decimal'),
   body('creditExpiryMonths').isInt({ min: 1, max: 24 }).withMessage('Credit expiry must be between 1 and 24 months'),
+  body('requirePaymentAtBooking').optional().isBoolean().withMessage('Require payment at booking must be a boolean'),
   body('cancellationPolicy').optional().isObject().withMessage('Cancellation policy must be an object')
 ];
 
@@ -58,6 +59,7 @@ router.get('/:providerId', authenticateToken, validateProviderId, asyncHandler(a
           defaultRefundMethod: 'credit',
           adminFeeAmount: 2.00,
           creditExpiryMonths: 12,
+          requirePaymentAtBooking: false,
           cancellationPolicy: {
             parentCancellation: {
               before24Hours: {
@@ -118,6 +120,7 @@ router.put('/:providerId', authenticateToken, validateProviderId, validateProvid
       defaultRefundMethod,
       adminFeeAmount,
       creditExpiryMonths,
+      requirePaymentAtBooking,
       cancellationPolicy
     } = req.body;
 
@@ -139,6 +142,7 @@ router.put('/:providerId', authenticateToken, validateProviderId, validateProvid
         defaultRefundMethod,
         adminFeeAmount,
         creditExpiryMonths,
+        requirePaymentAtBooking,
         cancellationPolicy,
         updatedAt: new Date()
       },
@@ -154,6 +158,7 @@ router.put('/:providerId', authenticateToken, validateProviderId, validateProvid
         defaultRefundMethod,
         adminFeeAmount,
         creditExpiryMonths,
+        requirePaymentAtBooking: requirePaymentAtBooking || false,
         cancellationPolicy
       }
     });
@@ -248,6 +253,7 @@ router.post('/:providerId/reset', authenticateToken, validateProviderId, asyncHa
       defaultRefundMethod: 'credit' as const,
       adminFeeAmount: 2.00,
       creditExpiryMonths: 12,
+      requirePaymentAtBooking: false,
       cancellationPolicy: {
         parentCancellation: {
           before24Hours: {
@@ -312,37 +318,59 @@ router.get('/admin/summary', authenticateToken, asyncHandler(async (req: Request
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
 
-    const stats = await prisma.providerSettings.groupBy({
-      by: ['tfcEnabled'],
-      _count: {
-        providerId: true
-      }
-    });
+    // Import safePrismaQuery
+    const { safePrismaQuery } = await import('../utils/prisma');
 
-    const totalProviders = await prisma.providerSettings.count();
-    const tfcEnabledCount = stats.find(s => s.tfcEnabled)?._count.providerId || 0;
-    const tfcDisabledCount = totalProviders - tfcEnabledCount;
+    const data = await safePrismaQuery(async (client) => {
+      try {
+        const stats = await client.providerSettings.groupBy({
+          by: ['tfcEnabled'],
+          _count: {
+            providerId: true
+          }
+        });
 
-    const averageSettings = await prisma.providerSettings.aggregate({
-      _avg: {
-        tfcHoldPeriod: true,
-        adminFeeAmount: true,
-        creditExpiryMonths: true
+        const totalProviders = await client.providerSettings.count();
+        const tfcEnabledCount = stats.find(s => s.tfcEnabled)?._count.providerId || 0;
+        const tfcDisabledCount = totalProviders - tfcEnabledCount;
+
+        const averageSettings = await client.providerSettings.aggregate({
+          _avg: {
+            tfcHoldPeriod: true,
+            adminFeeAmount: true,
+            creditExpiryMonths: true
+          }
+        });
+
+        return {
+          totalProviders,
+          tfcEnabled: tfcEnabledCount,
+          tfcDisabled: tfcDisabledCount,
+          averageSettings: {
+            tfcHoldPeriod: averageSettings._avg.tfcHoldPeriod || 5,
+            adminFeeAmount: averageSettings._avg.adminFeeAmount || 2.00,
+            creditExpiryMonths: averageSettings._avg.creditExpiryMonths || 12
+          }
+        };
+      } catch (error) {
+        // Return default data if the query fails
+        logger.warn('Error querying provider settings, returning default data:', error);
+        return {
+          totalProviders: 0,
+          tfcEnabled: 0,
+          tfcDisabled: 0,
+          averageSettings: {
+            tfcHoldPeriod: 5,
+            adminFeeAmount: 2.00,
+            creditExpiryMonths: 12
+          }
+        };
       }
     });
 
     res.json({
       success: true,
-      data: {
-        totalProviders,
-        tfcEnabled: tfcEnabledCount,
-        tfcDisabled: tfcDisabledCount,
-        averageSettings: {
-          tfcHoldPeriod: averageSettings._avg.tfcHoldPeriod || 5,
-          adminFeeAmount: averageSettings._avg.adminFeeAmount || 2.00,
-          creditExpiryMonths: averageSettings._avg.creditExpiryMonths || 12
-        }
-      }
+      data
     });
   } catch (error) {
     logger.error('Error getting provider settings summary:', error);

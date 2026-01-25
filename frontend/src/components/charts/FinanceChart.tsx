@@ -223,3 +223,12 @@ const FinanceChart: React.FC<FinanceChartProps> = ({
 };
 
 export default FinanceChart;
+
+
+
+
+
+
+
+
+

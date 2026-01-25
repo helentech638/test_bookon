@@ -360,7 +360,7 @@ const CreateActivityPage: React.FC = () => {
 
   return (
     <AdminLayout title="Create New Activity">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Create New Activity</h1>
@@ -532,7 +532,7 @@ const CreateActivityPage: React.FC = () => {
             <div className="space-y-6">
               <h3 className="text-lg font-medium text-gray-900">Scheduling</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Start Date *
@@ -541,7 +541,7 @@ const CreateActivityPage: React.FC = () => {
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => handleInputChange('startDate', e.target.value)}
-                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full border rounded-lg px-3 py-3 sm:py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       validationErrors.startDate ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -558,7 +558,7 @@ const CreateActivityPage: React.FC = () => {
                     type="date"
                     value={formData.endDate}
                     onChange={(e) => handleInputChange('endDate', e.target.value)}
-                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full border rounded-lg px-3 py-3 sm:py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       validationErrors.endDate ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -568,7 +568,7 @@ const CreateActivityPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Start Time *
@@ -577,7 +577,7 @@ const CreateActivityPage: React.FC = () => {
                     type="time"
                     value={formData.startTime}
                     onChange={(e) => handleInputChange('startTime', e.target.value)}
-                    className={`w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full border rounded-lg px-3 py-3 sm:py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       validationErrors.startTime ? 'border-red-300' : 'border-gray-300'
                     }`}
                   />
@@ -655,7 +655,7 @@ const CreateActivityPage: React.FC = () => {
             <div className="space-y-6">
               <h3 className="text-lg font-medium text-gray-900">Capacity & Pricing</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Capacity *
@@ -665,7 +665,7 @@ const CreateActivityPage: React.FC = () => {
                     min="1"
                     value={formData.capacity}
                     onChange={(e) => handleInputChange('capacity', parseInt(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-3 sm:py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
@@ -683,7 +683,7 @@ const CreateActivityPage: React.FC = () => {
                       step="0.01"
                       value={formData.price}
                       onChange={(e) => handleInputChange('price', parseFloat(e.target.value))}
-                      className="w-full pl-10 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-10 border border-gray-300 rounded-lg px-3 py-3 sm:py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -753,7 +753,7 @@ const CreateActivityPage: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900">Review & Create</h3>
               
               <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <h4 className="font-medium text-gray-900">Activity Details</h4>
                     <p className="text-sm text-gray-600">{formData.title}</p>
@@ -801,11 +801,11 @@ const CreateActivityPage: React.FC = () => {
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
+          <div className="flex flex-col sm:flex-row justify-between gap-4 mt-8">
             <button
               onClick={handlePrevious}
               disabled={currentStep === 1}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Previous
             </button>
@@ -813,7 +813,7 @@ const CreateActivityPage: React.FC = () => {
             {currentStep < steps.length ? (
               <button
                 onClick={handleNext}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
               </button>
@@ -821,7 +821,7 @@ const CreateActivityPage: React.FC = () => {
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="w-full sm:w-auto px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
               >
                 {loading ? (
                   <>

@@ -37,6 +37,7 @@ interface Activity {
     address: string;
     city: string;
   };
+  proRataBooking?: boolean;
 }
 
 interface Child {
@@ -258,7 +259,7 @@ const MobileBookingFlow: React.FC<MobileBookingFlowProps> = ({
                     <div className="flex items-center">
                       <CurrencyPoundIcon className="h-5 w-5 text-gray-500 mr-2" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">£{activity.price}</p>
+                        <p className="text-sm font-medium text-gray-900">from £{activity.price}</p>
                         <p className="text-xs text-gray-500">per session</p>
                       </div>
                     </div>
@@ -280,6 +281,19 @@ const MobileBookingFlow: React.FC<MobileBookingFlowProps> = ({
                           {activity.start_time} - {activity.end_time}
                         </p>
                         <p className="text-xs text-gray-500">Time</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center">
+                      <div>
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                          activity.proRataBooking 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {activity.proRataBooking ? 'Pro-rata Available' : 'Full Booking Only'}
+                        </span>
+                        <p className="text-xs text-gray-500 mt-1">Booking Type</p>
                       </div>
                     </div>
                   </div>

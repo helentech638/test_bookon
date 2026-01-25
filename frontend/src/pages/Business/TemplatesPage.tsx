@@ -28,7 +28,8 @@ interface ActivityTemplate {
   id: string;
   name: string;
   description: string;
-  type: 'course' | 'workshop' | 'camp' | 'class' | 'event';
+  type: 'activity' | 'holiday_club' | 'wraparound_care';
+  years: string; // Added years field
   ageRange: {
     min: number;
     max: number;
@@ -61,7 +62,8 @@ const TemplatesPage: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    type: 'course' as 'course' | 'workshop' | 'camp' | 'class' | 'event',
+    type: 'activity' as 'activity' | 'holiday_club' | 'wraparound_care',
+    years: 'Reception-Year 6', // Added years field with default value
     ageRange: { min: 5, max: 12 },
     duration: 60,
     capacity: 20,
@@ -75,11 +77,9 @@ const TemplatesPage: React.FC = () => {
   });
 
   const activityTypes = [
-    { value: 'course', label: 'Course' },
-    { value: 'workshop', label: 'Workshop' },
-    { value: 'camp', label: 'Camp' },
-    { value: 'class', label: 'Class' },
-    { value: 'event', label: 'Event' }
+    { value: 'activity', label: 'Activity' },
+    { value: 'holiday_club', label: 'Holiday Club' },
+    { value: 'wraparound_care', label: 'Wraparound Care' }
   ];
 
   const categories = [
@@ -89,7 +89,7 @@ const TemplatesPage: React.FC = () => {
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [searchTerm, typeFilter, categoryFilter, statusFilter]);
 
   const fetchTemplates = async () => {
     try {
@@ -103,7 +103,7 @@ const TemplatesPage: React.FC = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
-      const response = await fetch(buildApiUrl(`/business/templates?search=${searchTerm}&type=${typeFilter}&status=${statusFilter}`), {
+      const response = await fetch(buildApiUrl('/templates'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -118,24 +118,26 @@ const TemplatesPage: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Templates API response:', data); // Debug log
       if (data.success) {
         // Transform API data to match our interface
-        const transformedTemplates: ActivityTemplate[] = data.data.templates.map((template: any) => ({
+        const transformedTemplates: ActivityTemplate[] = data.data.map((template: any) => ({
           id: template.id,
           name: template.name,
           description: template.description || '',
-          type: template.type || 'course',
-          ageRange: template.ageRange || { min: 5, max: 12 },
-          duration: template.duration || 60,
-          capacity: template.capacity || 20,
-          price: template.price || 0,
-          currency: template.currency || 'GBP',
-          category: template.category || '',
+          type: template.type || 'activity',
+          years: template.years || 'All Ages', // Added years field
+          ageRange: { min: 5, max: 12 }, // Default since backend doesn't have this
+          duration: 60, // Default since backend doesn't have this
+          capacity: template.defaultCapacity || 20,
+          price: template.defaultPrice || 0,
+          currency: 'GBP', // Default since backend doesn't have this
+          category: '', // Default since backend doesn't have this
           tags: template.tags || [],
           imageUrl: template.imageUrl || '',
-          requirements: template.requirements || [],
-          objectives: template.objectives || [],
-          isActive: template.isActive !== false,
+          requirements: [], // Default since backend doesn't have this
+          objectives: [], // Default since backend doesn't have this
+          isActive: template.status === 'active',
           createdAt: template.createdAt,
           updatedAt: template.updatedAt
         }));
@@ -165,6 +167,18 @@ const TemplatesPage: React.FC = () => {
                          (statusFilter === 'active' && template.isActive) ||
                          (statusFilter === 'inactive' && !template.isActive);
     
+    console.log('Template filtering:', {
+      templateName: template.name,
+      matchesSearch,
+      matchesType,
+      matchesCategory,
+      matchesStatus,
+      isActive: template.isActive,
+      statusFilter,
+      typeFilter,
+      categoryFilter
+    }); // Debug log
+    
     return matchesSearch && matchesType && matchesCategory && matchesStatus;
   });
 
@@ -177,7 +191,7 @@ const TemplatesPage: React.FC = () => {
           return;
         }
 
-        const response = await fetch(buildApiUrl(`/business/templates/${templateId}`), {
+        const response = await fetch(buildApiUrl(`/templates/${templateId}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -215,8 +229,8 @@ const TemplatesPage: React.FC = () => {
       }
 
       const url = editingTemplate 
-        ? buildApiUrl(`/business/templates/${editingTemplate.id}`)
-        : buildApiUrl('/business/templates');
+        ? buildApiUrl(`/templates/${editingTemplate.id}`)
+        : buildApiUrl('/templates/business');
       
       const method = editingTemplate ? 'PUT' : 'POST';
 
@@ -226,7 +240,15 @@ const TemplatesPage: React.FC = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          image: formData.imageUrl,
+          defaultPrice: formData.price,
+          defaultCapacity: formData.capacity,
+          requiresPhotoConsent: false,
+          requiresMedicalReminder: false,
+          tags: formData.tags
+        })
       });
 
       if (!response.ok) {
@@ -235,6 +257,7 @@ const TemplatesPage: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Template creation response:', data); // Debug log
       if (data.success) {
         toast.success(editingTemplate ? 'Template updated successfully!' : 'Template created successfully!');
         setShowCreateModal(false);
@@ -256,6 +279,7 @@ const TemplatesPage: React.FC = () => {
       name: template.name,
       description: template.description,
       type: template.type,
+      years: template.years, // Added years field
       ageRange: template.ageRange,
       duration: template.duration,
       capacity: template.capacity,
@@ -279,7 +303,7 @@ const TemplatesPage: React.FC = () => {
           return;
         }
 
-        const response = await fetch(buildApiUrl(`/business/templates/${templateId}`), {
+        const response = await fetch(buildApiUrl(`/templates/${templateId}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -314,7 +338,7 @@ const TemplatesPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(buildApiUrl(`/business/templates/${templateId}/toggle`), {
+      const response = await fetch(buildApiUrl(`/templates/${templateId}/toggle`), {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -345,7 +369,8 @@ const TemplatesPage: React.FC = () => {
     setFormData({
       name: '',
       description: '',
-      type: 'course',
+      type: 'activity',
+      years: 'Reception-Year 6', // Added years field with default value
       ageRange: { min: 5, max: 12 },
       duration: 60,
       capacity: 20,
@@ -429,6 +454,16 @@ const TemplatesPage: React.FC = () => {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year Groups *</label>
+                <Input
+                  type="text"
+                  value={formData.years}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, years: e.target.value }))}
+                  placeholder="e.g., Reception-Year 6, Year 7-11, EYFS"
+                  required
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
                 <textarea
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -438,6 +473,34 @@ const TemplatesPage: React.FC = () => {
                   placeholder="Describe what this activity is about..."
                   required
                 />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Template Photo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (event) => {
+                        setFormData(prev => ({ ...prev, imageUrl: event.target?.result as string }));
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+                {formData.imageUrl && (
+                  <div className="mt-2">
+                    <img 
+                      src={formData.imageUrl} 
+                      alt="Template preview" 
+                      className="w-32 h-32 object-cover rounded-lg border"
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
                 <Button
@@ -558,11 +621,9 @@ const TemplatesPage: React.FC = () => {
                   <div>
                     <h3 className="font-semibold text-gray-900">{template.name}</h3>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      template.type === 'course' ? 'bg-blue-100 text-blue-800' :
-                      template.type === 'workshop' ? 'bg-green-100 text-green-800' :
-                      template.type === 'camp' ? 'bg-purple-100 text-purple-800' :
-                      template.type === 'class' ? 'bg-orange-100 text-orange-800' :
-                      'bg-pink-100 text-pink-800'
+                      template.type === 'activity' ? 'bg-blue-100 text-blue-800' :
+                      template.type === 'holiday_club' ? 'bg-green-100 text-green-800' :
+                      'bg-purple-100 text-purple-800'
                     }`}>
                       {template.type.toUpperCase()}
                     </span>

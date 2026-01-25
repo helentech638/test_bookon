@@ -43,7 +43,6 @@ const ChildrenPage: React.FC = () => {
   const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
@@ -78,32 +77,6 @@ const ChildrenPage: React.FC = () => {
     }
   };
 
-  const handleAddChild = async (childData: Omit<Child, 'id' | 'createdAt' | 'updatedAt'>) => {
-    try {
-      const token = authService.getToken();
-      
-      const response = await fetch('/api/v1/children', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(childData)
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setChildren(prev => [...prev, data.data]);
-        setShowAddModal(false);
-        toast.success('Child added successfully');
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.error?.message || 'Failed to add child');
-      }
-    } catch (error) {
-      toast.error('Error adding child');
-    }
-  };
 
   const handleEditChild = async (childData: Omit<Child, 'id' | 'createdAt' | 'updatedAt'>) => {
     if (!selectedChild) return;
@@ -356,18 +329,6 @@ const ChildrenPage: React.FC = () => {
           ))}
         </div>
       )}
-
-      {/* Add Child Modal */}
-      <Modal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Add New Child"
-      >
-        <ChildForm
-          onSubmit={handleAddChild}
-          onCancel={() => setShowAddModal(false)}
-        />
-      </Modal>
 
       {/* Edit Child Modal */}
       <Modal

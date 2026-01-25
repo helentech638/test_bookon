@@ -1,9 +1,33 @@
+export interface HolidayTimeSlot {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  price: number;
+  capacity: number;
+  bookingsCount: number;
+  isActive: boolean;
+}
+
+export interface SessionBlock {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  price: number;
+  capacity: number;
+  bookingsCount: number;
+  isActive: boolean;
+}
+
 export interface Activity {
   id: string;
   name: string;
   description?: string;
   category: string;
+  type?: string;
   venue_id: string;
+  excludeDates?: string[];
   max_capacity: number;
   current_capacity: number;
   price: number;
@@ -17,11 +41,32 @@ export interface Activity {
   schedule?: any;
   images?: string[];
   tags?: string[];
+  rating?: number;
+  reviewCount?: number;
   is_active: boolean;
   start_date?: string;
   end_date?: string;
   start_time?: string;
   end_time?: string;
+  startDate?: string;
+  endDate?: string;
+  // Holiday Club specific fields
+  holidayTimeSlots?: HolidayTimeSlot[];
+  // Wraparound Care specific fields
+  sessionBlocks?: SessionBlock[];
+  isWraparoundCare?: boolean;
+  yearGroups?: string[];
+  // Course/Program specific fields
+  regular_day?: string;
+  regular_time?: string;
+  duration_weeks?: number;
+  regularDay?: string;
+  regularTime?: string;
+  durationWeeks?: number;
+  // General activity scheduling fields
+  daysOfWeek?: string[];
+  proRataBooking?: boolean;
+  holidaySessions?: boolean;
   created_at: string;
   updated_at: string;
 }

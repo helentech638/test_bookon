@@ -12,7 +12,8 @@ import {
   MapPinIcon,
   UserGroupIcon,
   CurrencyPoundIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -30,19 +31,18 @@ const BookingDetailPage: React.FC = () => {
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Helper function to get child name
+  const getChildName = () => {
+    return booking?.childName || booking?.child_name || '';
+  };
+
   useEffect(() => {
     if (id) {
-      const bookingId = parseInt(id);
-      if (isNaN(bookingId)) {
-        setError('Invalid booking ID');
-        setLoading(false);
-        return;
-      }
-      loadBooking(bookingId);
+      loadBooking(id);
     }
   }, [id]);
 
-  const loadBooking = async (bookingId: number) => {
+  const loadBooking = async (bookingId: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -59,20 +59,48 @@ const BookingDetailPage: React.FC = () => {
   const handleConfirmBooking = async () => {
     if (!booking) return;
     try {
-      await bookingService.confirmBooking(booking.id);
+      const response = await bookingService.confirmBooking(booking.id);
+      
+      // Check if TFC admin confirmation is required
+      if (response && typeof response === 'object' && 'requiresAdminConfirmation' in response) {
+        // TFC booking - show instruction message
+        setError('This is a Tax-Free Childcare booking. Please wait for admin to confirm payment. Check your email for payment instructions.');
+        return;
+      }
+      
+      // Check if payment is required
+      if (response && typeof response === 'object' && 'requiresPayment' in response) {
+        // Payment is required - redirect to payment page
+        setError('Payment required to confirm booking. Redirecting to payment...');
+        setTimeout(() => {
+          window.location.href = `/payment/${booking.id}`;
+        }, 2000);
+        return;
+      }
+      
       await loadBooking(booking.id);
       setSuccessMessage('Booking confirmed successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
-    } catch (err) {
-      setError('Failed to confirm booking');
-      console.error('Error confirming booking:', err);
+    } catch (err: any) {
+      // Check if the error indicates TFC admin confirmation is required
+      if (err?.response?.data?.data?.requiresAdminConfirmation) {
+        setError('This is a Tax-Free Childcare booking. Please wait for admin to confirm payment. Check your email for payment instructions.');
+      } else if (err?.response?.data?.data?.requiresPayment) {
+        setError('Payment required to confirm booking. Redirecting to payment...');
+        setTimeout(() => {
+          window.location.href = `/payment/${booking.id}`;
+        }, 2000);
+      } else {
+        setError('Failed to confirm booking');
+        console.error('Error confirming booking:', err);
+      }
     }
   };
 
   const handleCancelBooking = async () => {
     if (!booking) return;
     try {
-      await bookingService.cancelBooking(booking.id);
+      await bookingService.cancelBooking(booking.id, 'Cancelled by user');
       await loadBooking(booking.id);
       setSuccessMessage('Booking cancelled successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
@@ -95,6 +123,20 @@ const BookingDetailPage: React.FC = () => {
     } catch (err) {
       setError('Failed to delete booking');
       console.error('Error deleting booking:', err);
+    }
+  };
+
+  const handleExportToCalendar = () => {
+    if (!booking) return;
+    
+    try {
+      const link = document.createElement('a');
+      link.href = `/api/v1/calendar/booking/${booking.id}/calendar`;
+      link.download = `booking-${booking.id}.ics`;
+      link.click();
+    } catch (err) {
+      setError('Failed to export to calendar');
+      console.error('Error exporting to calendar:', err);
     }
   };
 
@@ -204,6 +246,14 @@ const BookingDetailPage: React.FC = () => {
               </div>
             </div>
             <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleExportToCalendar}
+                className="inline-flex items-center"
+              >
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                Add to Calendar
+              </Button>
               {(booking.status || 'pending') === 'pending' && (
                 <>
                   <Button
@@ -268,12 +318,12 @@ const BookingDetailPage: React.FC = () => {
               <div className="flex items-center mb-4">
                 <div className="w-12 h-12 bg-[#00806a] rounded-full flex items-center justify-center">
                   <span className="text-white text-lg font-medium">
-                    {booking.childName ? booking.childName.split(' ').map(n => n[0]).join('') : '?'}
+                    {getChildName() ? getChildName().split(' ').map(n => n[0]).join('') : '?'}
                   </span>
                 </div>
                 <div className="ml-4">
                   <h3 className="text-lg font-medium text-gray-900">Child</h3>
-                  <p className="text-gray-600">{booking.childName || 'Loading...'}</p>
+                  <p className="text-gray-600">{getChildName() || 'Loading...'}</p>
                 </div>
               </div>
             </Card>
@@ -285,14 +335,18 @@ const BookingDetailPage: React.FC = () => {
                 <div className="flex items-center">
                   <UserGroupIcon className="w-5 h-5 text-gray-400 mr-3" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{booking.activity || 'Loading...'}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {typeof booking.activity === 'string' ? booking.activity : booking.activity?.title || booking.activity_name || 'Loading...'}
+                    </p>
                     <p className="text-sm text-gray-500">Activity</p>
                   </div>
                 </div>
                 <div className="flex items-center">
                   <MapPinIcon className="w-5 h-5 text-gray-400 mr-3" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{booking.venue || 'Loading...'}</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {typeof booking.venue === 'string' ? booking.venue : booking.venue?.name || booking.venue_name || 'Loading...'}
+                    </p>
                     <p className="text-sm text-gray-500">Venue</p>
                   </div>
                 </div>
@@ -306,14 +360,14 @@ const BookingDetailPage: React.FC = () => {
                 <div className="flex items-center">
                   <CalendarDaysIcon className="w-5 h-5 text-gray-400 mr-3" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{booking.date ? formatDate(booking.date) : 'Loading...'}</p>
+                    <p className="text-sm font-medium text-gray-900">{booking.date ? formatDate(booking.date) : booking.start_date ? formatDate(booking.start_date) : 'Loading...'}</p>
                     <p className="text-sm text-gray-500">Date</p>
                   </div>
                 </div>
                 <div className="flex items-center">
                   <ClockIcon className="w-5 h-5 text-gray-400 mr-3" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{booking.time ? formatTime(booking.time) : 'Loading...'}</p>
+                    <p className="text-sm font-medium text-gray-900">{booking.time ? formatTime(booking.time) : booking.start_time ? formatTime(booking.start_time) : 'Loading...'}</p>
                     <p className="text-sm text-gray-500">Time</p>
                   </div>
                 </div>
@@ -336,13 +390,13 @@ const BookingDetailPage: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-2">Payment Status</p>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.paymentStatus || 'pending')}`}>
-                    {(booking.paymentStatus || 'pending').charAt(0).toUpperCase() + (booking.paymentStatus || 'pending').slice(1)}
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.paymentStatus || booking.payment_status || 'pending')}`}>
+                    {(booking.paymentStatus || booking.payment_status || 'pending').charAt(0).toUpperCase() + (booking.paymentStatus || booking.payment_status || 'pending').slice(1)}
                   </span>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-2">Amount</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatPrice(booking.amount || 0)}</p>
+                  <p className="text-2xl font-bold text-gray-900">{formatPrice(booking.amount || booking.total_amount || 0)}</p>
                 </div>
               </div>
             </Card>
@@ -353,11 +407,11 @@ const BookingDetailPage: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-2">Booking Number</p>
-                  <p className="text-sm font-medium text-gray-900">{booking.bookingNumber || 'Loading...'}</p>
+                  <p className="text-sm font-medium text-gray-900">{booking.bookingNumber || booking.id || 'Loading...'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-500 mb-2">Booked On</p>
-                  <p className="text-sm text-gray-900">{booking.createdAt ? formatDate(booking.createdAt) : 'Loading...'}</p>
+                  <p className="text-sm text-gray-900">{booking.createdAt ? formatDate(booking.createdAt) : booking.created_at ? formatDate(booking.created_at) : 'Loading...'}</p>
                 </div>
                 {booking.notes && (
                   <div>
@@ -385,7 +439,7 @@ const BookingDetailPage: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900 mt-4">Delete Booking</h3>
               <div className="mt-2 px-7 py-3">
                 <p className="text-sm text-gray-500">
-                  Are you sure you want to delete the booking for <strong>{booking.childName || 'this child'}</strong>?
+                  Are you sure you want to delete the booking for <strong>{getChildName() || 'this child'}</strong>?
                   This action cannot be undone.
                 </p>
               </div>
@@ -416,8 +470,8 @@ const BookingDetailPage: React.FC = () => {
           onConfirm={handleCancelBooking}
           bookingId={booking.id.toString()}
           bookingDetails={{
-            activityName: booking.activity || 'Unknown Activity',
-            venueName: booking.venue || 'Unknown Venue',
+            activityName: typeof booking.activity === 'string' ? booking.activity : booking.activity?.title || 'Unknown Activity',
+            venueName: typeof booking.venue === 'string' ? booking.venue : booking.venue?.name || 'Unknown Venue',
             childName: booking.childName || 'Unknown Child',
             bookingDate: booking.date || new Date().toISOString(),
             bookingTime: booking.time || 'Unknown Time',

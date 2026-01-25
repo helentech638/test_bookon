@@ -374,7 +374,7 @@ const ActivitySelectionStep: React.FC<{
                   </div>
                   <div className="text-right ml-4">
                     <div className="text-lg font-bold text-green-600">
-                      £{activity.price}
+                      £{Number(activity.price).toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-500">
                       {activity.current_capacity < activity.max_capacity ? 'Available' : 'Full'}
@@ -551,7 +551,7 @@ const PaymentStep: React.FC<{
             <div className="border-t pt-3">
               <div className="flex justify-between text-lg font-bold">
                 <span>Total:</span>
-                <span className="text-green-600">£{activity.price}</span>
+                <span className="text-green-600">£{Number(activity.price).toFixed(2)}</span>
               </div>
             </div>
           </div>

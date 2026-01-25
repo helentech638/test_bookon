@@ -299,3 +299,4 @@ const CancellationPreviewModal: React.FC<CancellationPreviewModalProps> = ({
 };
 
 export default CancellationPreviewModal;
+

@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import BusinessLayout from '../../components/layout/BusinessLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import BroadcastModal from '../../components/Communications/BroadcastModal';
 import { 
   MegaphoneIcon, 
   PlusIcon, 
@@ -178,6 +179,41 @@ const CommunicationsBroadcastsPage: React.FC = () => {
     } catch (error) {
       console.error('Error updating broadcast:', error);
       toast.error('Failed to update broadcast');
+    }
+  };
+
+  const handleSaveBroadcast = async (broadcastData: any) => {
+    try {
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Please log in to create broadcast');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl('/business/communications/broadcasts'), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(broadcastData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create broadcast');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Broadcast created successfully!');
+        fetchBroadcasts(); // Refresh the list
+      } else {
+        throw new Error(data.message || 'Failed to create broadcast');
+      }
+    } catch (error) {
+      console.error('Error creating broadcast:', error);
+      toast.error('Failed to create broadcast');
     }
   };
 
@@ -426,106 +462,11 @@ const CommunicationsBroadcastsPage: React.FC = () => {
         )}
 
         {/* Create Broadcast Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Create New Broadcast</h2>
-                  <button
-                    onClick={() => setShowCreateModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <XCircleIcon className="h-6 w-6" />
-                  </button>
-                </div>
-
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  toast.success('Broadcast created successfully!');
-                  setShowCreateModal(false);
-                }}>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Broadcast Name
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter broadcast name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Type
-                      </label>
-                      <select
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="email">Email</option>
-                        <option value="sms">SMS</option>
-                        <option value="push">Push Notification</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Subject (for Email)
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter email subject"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Content
-                      </label>
-                      <textarea
-                        required
-                        rows={6}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your message content"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Recipients
-                      </label>
-                      <input
-                        type="number"
-                        required
-                        min="1"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Number of recipients"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 mt-6">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowCreateModal(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit">
-                      Create Broadcast
-                    </Button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
-        )}
+        <BroadcastModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onSave={handleSaveBroadcast}
+        />
       </div>
     </BusinessLayout>
   );

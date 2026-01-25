@@ -74,92 +74,15 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
     // Limit connection attempts to prevent infinite loops
     if (connectionAttempts >= 3) {
       console.warn('Max WebSocket connection attempts reached, giving up');
+      setIsPollingDisabled(false); // Enable polling as fallback
       return;
     }
 
-    setConnectionAttempts(prev => prev + 1);
-    
-    const newSocket = io(import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || window.location.origin, {
-      auth: {
-        token,
-        userId: user.id
-      },
-      transports: ['websocket', 'polling'],
-      timeout: 10000,
-      forceNew: true,
-      reconnection: false, // Disable automatic reconnection
-      reconnectionAttempts: 0,
-      reconnectionDelay: 0
-    });
-
-    newSocket.on('connect', () => {
-      console.log('WebSocket connected');
-      setIsConnected(true);
-      
-      // Authenticate with the server
-      newSocket.emit('authenticate', {
-        userId: user.id,
-        token: token
-      });
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log('WebSocket disconnected');
-      setIsConnected(false);
-    });
-
-    newSocket.on('connect_error', (error) => {
-      console.warn('WebSocket connection error:', error.message);
-      setIsConnected(false);
-      // Don't attempt reconnection - let it fail gracefully
-    });
-
-    newSocket.on('authenticated', (data) => {
-      console.log('WebSocket authenticated:', data);
-    });
-
-    newSocket.on('authentication_failed', (error) => {
-      console.error('WebSocket authentication failed:', error);
-      disconnect();
-    });
-
-    newSocket.on('notification', (notification: Notification) => {
-      console.log('New notification received:', notification);
-      setNotifications(prev => [notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
-    });
-
-    newSocket.on('booking_update', (data) => {
-      console.log('Booking update received:', data);
-      // Handle booking updates
-    });
-
-    newSocket.on('payment_update', (data) => {
-      console.log('Payment update received:', data);
-      // Handle payment updates
-    });
-
-    newSocket.on('capacity_updated', (data) => {
-      console.log('Capacity update received:', data);
-      // Handle capacity updates
-    });
-
-    newSocket.on('system_alert', (data) => {
-      console.log('System alert received:', data);
-      // Handle system alerts
-    });
-
-    newSocket.on('maintenance_notification', (data) => {
-      console.log('Maintenance notification received:', data);
-      // Handle maintenance notifications
-    });
-
-    newSocket.on('server_restart', (data) => {
-      console.log('Server restart notification received:', data);
-      // Handle server restart notifications
-    });
-
-    setSocket(newSocket);
+    // Skip WebSocket connection if backend doesn't support it
+    console.log('Skipping WebSocket connection - backend not configured');
+    setIsConnected(false);
+    setIsPollingDisabled(false); // Enable HTTP polling instead
+    return;
   };
 
   // Disconnect from WebSocket
@@ -302,22 +225,29 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({ chil
         const newErrorCount = pollingErrors + 1;
         setPollingErrors(newErrorCount);
         
-        // If we get too many consecutive errors, disable polling
-        if (newErrorCount >= 5) {
-          console.warn('Too many notification polling errors, disabling polling');
+        // If we get too many consecutive errors, disable polling temporarily
+        if (newErrorCount >= 10) {
+          console.warn('Too many notification polling errors, disabling polling temporarily');
           setIsPollingDisabled(true);
+          
+          // Re-enable polling after 5 minutes
+          setTimeout(() => {
+            console.log('Re-enabling notification polling');
+            setIsPollingDisabled(false);
+            setPollingErrors(0);
+          }, 300000); // 5 minutes
           return;
         }
         
-        // Only log every 5th error to reduce console spam
-        if (newErrorCount % 5 === 0) {
-          console.warn(`Notification polling error ${newErrorCount}/5 (non-critical):`, error);
+        // Only log every 10th error to reduce console spam
+        if (newErrorCount % 10 === 0) {
+          console.warn(`Notification polling error ${newErrorCount}/10 (non-critical):`, error);
         }
       }
     };
 
-    // Poll every 5 minutes on Vercel (reduced frequency to prevent database overload)
-    const interval = setInterval(pollNotifications, 300000);
+    // Poll every 2 minutes on Vercel (reduced frequency to prevent database overload)
+    const interval = setInterval(pollNotifications, 120000);
     
     // Initial poll
     pollNotifications();

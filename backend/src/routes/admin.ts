@@ -525,6 +525,7 @@ router.get('/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(asy
         bookings: bookings.map((booking: any) => ({
           id: booking.id,
           status: booking.status,
+          paymentStatus: booking.paymentStatus || 'pending',
           totalAmount: booking.amount,
           bookingDate: booking.activityDate,
           createdAt: booking.createdAt,

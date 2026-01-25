@@ -31,6 +31,10 @@ interface Activity {
   nextSession: string;
   description?: string;
   price?: number;
+  // Course/Program specific fields
+  durationWeeks?: number;
+  regularDay?: string;
+  regularTime?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,6 +106,16 @@ const ActivitiesPage: React.FC = () => {
 
       const data = await response.json();
       
+      // Debug logging for Course/Program activities
+      console.log('Business activities API response:', data);
+      console.log('Course/Program activities from business API:', data.data?.activities?.filter((a: any) => a.type === 'course/program').map((a: any) => ({
+        title: a.name,
+        type: a.type,
+        durationWeeks: a.durationWeeks,
+        regularDay: a.regularDay,
+        regularTime: a.regularTime
+      })));
+      
       if (data.success) {
         setActivities(data.data.activities || []);
         setVenues(data.data.venues || []);
@@ -121,6 +135,16 @@ const ActivitiesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewActivity = (activityId: string) => {
+    // Navigate to activity details page
+    navigate(`/business/activities/${activityId}`);
+  };
+
+  const handleEditActivity = (activityId: string) => {
+    // Navigate to edit activity page
+    navigate(`/business/activities/${activityId}/edit`);
   };
 
   const handleDeleteActivity = async (activityId: string) => {
@@ -246,71 +270,90 @@ const ActivitiesPage: React.FC = () => {
         {/* Activities Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activities.map((activity) => (
-            <Card key={activity.id} className="bg-white p-6 hover:shadow-lg transition-shadow">
+            <Card key={activity.id} className="bg-gradient-to-br from-white to-teal-50 border border-teal-200 p-6 hover:shadow-xl hover:shadow-teal-100 transition-all duration-300 hover:scale-105">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{activity.name}</h3>
-                  <p className="text-sm text-gray-600">{activity.type}</p>
+                  <p className="text-sm text-teal-600 font-medium">{activity.type}</p>
                 </div>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(activity.status)}`}>
+                <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(activity.status)}`}>
                   {activity.status}
                 </span>
               </div>
 
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center text-sm text-gray-600">
-                  <MapPinIcon className="w-4 h-4 mr-2" />
-                  {activity.venue}
+              <div className="space-y-3 mb-4">
+                <div className="flex items-center text-sm text-gray-700">
+                  <MapPinIcon className="w-4 h-4 mr-2 text-teal-600" />
+                  <span className="font-medium">{activity.venue}</span>
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <ClockIcon className="w-4 h-4 mr-2" />
-                  {activity.time}
+                <div className="flex items-center text-sm text-gray-700">
+                  <ClockIcon className="w-4 h-4 mr-2 text-teal-600" />
+                  <span className="font-medium">{activity.time}</span>
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <UserGroupIcon className="w-4 h-4 mr-2" />
-                  {activity.booked}/{activity.capacity} children
+                <div className="flex items-center text-sm text-gray-700">
+                  <UserGroupIcon className="w-4 h-4 mr-2 text-teal-600" />
+                  <span className="font-medium">{activity.booked}/{activity.capacity} children</span>
                 </div>
+                
+                {/* Total Sessions for Course/Program */}
+                {activity.type === 'course/program' && activity.durationWeeks && (
+                  <div className="flex items-center text-sm text-gray-700">
+                    <CalendarDaysIcon className="w-4 h-4 mr-2 text-teal-600" />
+                    <span className="font-medium">{activity.durationWeeks} total sessions</span>
+                  </div>
+                )}
               </div>
 
               {/* Capacity Bar */}
-              <div className="mb-4">
-                <div className="flex justify-between text-sm text-gray-600 mb-1">
-                  <span>Capacity</span>
-                  <span>{Math.round((activity.booked / activity.capacity) * 100)}%</span>
+              <div className="mb-6">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Capacity</span>
+                  <span className={`font-medium ${activity.booked > activity.capacity ? 'text-red-600' : 'text-teal-600'}`}>
+                    {Math.round((activity.booked / activity.capacity) * 100)}%
+                    {activity.booked > activity.capacity && ' (Overbooked)'}
+                  </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
                   <div 
-                    className={`h-2 rounded-full ${
-                      activity.booked / activity.capacity > 0.8 
-                        ? 'bg-red-500' 
+                    className={`h-3 rounded-full transition-all duration-500 ease-out ${
+                      activity.booked > activity.capacity
+                        ? 'bg-gradient-to-r from-red-500 to-red-600' 
+                        : activity.booked / activity.capacity > 0.8 
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
                         : activity.booked / activity.capacity > 0.6 
-                        ? 'bg-yellow-500' 
-                        : 'bg-green-500'
+                        ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' 
+                        : 'bg-gradient-to-r from-teal-500 to-teal-600'
                     }`}
-                    style={{ width: `${(activity.booked / activity.capacity) * 100}%` }}
+                    style={{ 
+                      width: `${Math.min((activity.booked / activity.capacity) * 100, 100)}%` 
+                    }}
                   ></div>
+                  {/* Overcapacity indicator */}
+                  {activity.booked > activity.capacity && (
+                    <div className="absolute top-0 right-0 h-3 w-1 bg-red-800 rounded-r-full"></div>
+                  )}
                 </div>
               </div>
 
               {/* Actions */}
               <div className="flex space-x-2">
                 <Button
-                  onClick={() => {/* View activity */}}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm"
+                  onClick={() => handleViewActivity(activity.id)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium transition-all duration-200"
                 >
                   <EyeIcon className="w-4 h-4 mr-1" />
                   View
                 </Button>
                 <Button
-                  onClick={() => {/* Edit activity */}}
-                  className="flex-1 bg-[#00806a] hover:bg-[#006d5a] text-white text-sm"
+                  onClick={() => handleEditActivity(activity.id)}
+                  className="flex-1 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white text-sm font-medium transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   <PencilIcon className="w-4 h-4 mr-1" />
                   Edit
                 </Button>
                 <Button
                   onClick={() => handleDeleteActivity(activity.id)}
-                  className="bg-red-100 hover:bg-red-200 text-red-700 text-sm px-3"
+                  className="bg-red-100 hover:bg-red-200 text-red-700 text-sm px-3 font-medium transition-all duration-200"
                 >
                   <TrashIcon className="w-4 h-4" />
                 </Button>

@@ -32,11 +32,9 @@ interface VenueSetup {
   postcode: string;
   phone: string;
   email: string;
-  capacity: number;
+  capacity: number | null;
   facilities: string[];
   operatingHours: OperatingHours;
-  pricing: PricingSettings;
-  bookingRules: BookingRules;
   businessAccountId?: string;
   businessAccount?: {
     id: string;
@@ -64,12 +62,6 @@ interface OperatingHours {
   sunday: { open: string; close: string; closed: boolean };
 }
 
-interface PricingSettings {
-  basePrice: number;
-  currency: string;
-  pricingType: 'fixed' | 'hourly' | 'per_person';
-  discounts: DiscountRule[];
-}
 
 interface DiscountRule {
   id: string;
@@ -79,14 +71,6 @@ interface DiscountRule {
   conditions: string[];
 }
 
-interface BookingRules {
-  advanceBookingDays: number;
-  cancellationHours: number;
-  minimumBookingDuration: number;
-  maximumBookingDuration: number;
-  requireApproval: boolean;
-  allowRecurring: boolean;
-}
 
 const VenueSetupPage: React.FC = () => {
   const { user } = useAuth();
@@ -96,7 +80,7 @@ const VenueSetupPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [currentView, setCurrentView] = useState<'list' | 'create' | 'edit'>('list');
   const [editingSetup, setEditingSetup] = useState<VenueSetup | null>(null);
 
   const [formData, setFormData] = useState({
@@ -106,7 +90,7 @@ const VenueSetupPage: React.FC = () => {
     postcode: '',
     phone: '',
     email: '',
-    capacity: 50,
+    capacity: null as number | null,
     facilities: [] as string[],
     operatingHours: {
       monday: { open: '09:00', close: '17:00', closed: false },
@@ -116,20 +100,6 @@ const VenueSetupPage: React.FC = () => {
       friday: { open: '09:00', close: '17:00', closed: false },
       saturday: { open: '10:00', close: '16:00', closed: false },
       sunday: { open: '10:00', close: '16:00', closed: true }
-    },
-    pricing: {
-      basePrice: 0,
-      currency: 'GBP',
-      pricingType: 'fixed' as 'fixed' | 'hourly' | 'per_person',
-      discounts: [] as DiscountRule[]
-    },
-    bookingRules: {
-      advanceBookingDays: 30,
-      cancellationHours: 24,
-      minimumBookingDuration: 1,
-      maximumBookingDuration: 8,
-      requireApproval: false,
-      allowRecurring: true
     },
     businessAccountId: '',
     inheritFranchiseFee: true,
@@ -192,20 +162,6 @@ const VenueSetupPage: React.FC = () => {
             friday: { open: '09:00', close: '17:00', closed: false },
             saturday: { open: '10:00', close: '16:00', closed: false },
             sunday: { open: '10:00', close: '16:00', closed: true }
-          },
-          pricing: setup.pricing || {
-            basePrice: 0,
-            currency: 'GBP',
-            pricingType: 'fixed' as 'fixed' | 'hourly' | 'per_person',
-            discounts: [] as DiscountRule[]
-          },
-          bookingRules: setup.bookingRules || {
-            advanceBookingDays: 30,
-            cancellationHours: 24,
-            minimumBookingDuration: 1,
-            maximumBookingDuration: 8,
-            requireApproval: false,
-            allowRecurring: true
           },
           businessAccountId: setup.businessAccountId || '',
           businessAccount: setup.businessAccount || null,
@@ -290,7 +246,7 @@ const VenueSetupPage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         toast.success(editingSetup ? 'Venue setup updated successfully!' : 'Venue setup created successfully!');
-        setShowCreateModal(false);
+        setCurrentView('list');
         setEditingSetup(null);
         resetForm();
         fetchVenueSetups();
@@ -315,8 +271,6 @@ const VenueSetupPage: React.FC = () => {
       capacity: setup.capacity,
       facilities: setup.facilities,
       operatingHours: setup.operatingHours,
-      pricing: setup.pricing,
-      bookingRules: setup.bookingRules,
       businessAccountId: setup.businessAccountId || '',
       inheritFranchiseFee: setup.inheritFranchiseFee,
       franchiseFeeType: setup.franchiseFeeType || 'percent',
@@ -325,7 +279,7 @@ const VenueSetupPage: React.FC = () => {
       tfcHoldPeriod: setup.tfcHoldPeriod,
       tfcInstructions: setup.tfcInstructions || ''
     });
-    setShowCreateModal(true);
+    setCurrentView('edit');
   };
 
   const handleDelete = async (setupId: string) => {
@@ -372,7 +326,7 @@ const VenueSetupPage: React.FC = () => {
       postcode: '',
       phone: '',
       email: '',
-      capacity: 50,
+      capacity: null as number | null,
       facilities: [],
       operatingHours: {
         monday: { open: '09:00', close: '17:00', closed: false },
@@ -382,20 +336,6 @@ const VenueSetupPage: React.FC = () => {
         friday: { open: '09:00', close: '17:00', closed: false },
         saturday: { open: '10:00', close: '16:00', closed: false },
         sunday: { open: '10:00', close: '16:00', closed: true }
-      },
-      pricing: {
-        basePrice: 0,
-        currency: 'GBP',
-        pricingType: 'fixed' as 'fixed' | 'hourly' | 'per_person',
-        discounts: [] as DiscountRule[]
-      },
-      bookingRules: {
-        advanceBookingDays: 30,
-        cancellationHours: 24,
-        minimumBookingDuration: 1,
-        maximumBookingDuration: 8,
-        requireApproval: false,
-        allowRecurring: true
       },
       businessAccountId: '',
       inheritFranchiseFee: true,
@@ -410,7 +350,7 @@ const VenueSetupPage: React.FC = () => {
   const handleCreateNew = () => {
     resetForm();
     setEditingSetup(null);
-    setShowCreateModal(true);
+    setCurrentView('create');
   };
 
   const filteredSetups = venueSetups.filter(setup => {
@@ -441,10 +381,58 @@ const VenueSetupPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
           <h1 className="text-3xl font-bold text-gray-900">Venue Setup</h1>
           <p className="text-gray-600 mt-1">Configure your venues and their settings</p>
+            </div>
+            {currentView !== 'list' && (
+              <Button
+                onClick={() => {
+                  setCurrentView('list');
+                  setEditingSetup(null);
+                  resetForm();
+                }}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                ← Back to List
+              </Button>
+            )}
+          </div>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
+              <button
+                onClick={() => setCurrentView('list')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  currentView === 'list'
+                    ? 'border-[#00806a] text-[#00806a]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Venue List
+              </button>
+              <button
+                onClick={() => setCurrentView('create')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  currentView === 'create'
+                    ? 'border-[#00806a] text-[#00806a]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Create New Venue
+              </button>
+            </nav>
+          </div>
+        </div>
+
+        {/* Content based on current view */}
+        {currentView === 'list' && (
+          <>
         {/* Actions */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
@@ -459,53 +447,57 @@ const VenueSetupPage: React.FC = () => {
               <BuildingOfficeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             </div>
           </div>
-          <Select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full sm:w-48"
-          >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </Select>
-          <Button
-            onClick={handleCreateNew}
-            className="flex items-center gap-2"
-          >
-            <PlusIcon className="h-4 w-4" />
-            New Venue Setup
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full sm:w-48"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Select>
+            <Button
+              onClick={handleCreateNew}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto"
+            >
+              <PlusIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">New Venue Setup</span>
+              <span className="sm:hidden">New Venue</span>
+            </Button>
+          </div>
         </div>
 
         {/* Venue Setups Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredSetups.map((setup) => (
-            <Card key={setup.id} className="bg-white p-6 hover:shadow-lg transition-shadow">
+            <Card key={setup.id} className="bg-white p-4 sm:p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-[#00806a] rounded-lg">
-                    <BuildingOfficeIcon className="h-6 w-6 text-white" />
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="p-2 bg-[#00806a] rounded-lg flex-shrink-0">
+                    <BuildingOfficeIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">{setup.name}</h3>
-                    <p className="text-sm text-gray-500">{setup.city}</p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-gray-900 truncate">{setup.name}</h3>
+                    <p className="text-sm text-gray-500 truncate">{setup.city}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleEdit(setup)}
+                    className="p-1 sm:p-2"
                   >
-                    <PencilIcon className="h-4 w-4" />
+                    <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleDelete(setup.id)}
-                    className="text-red-600 hover:text-red-700"
+                    className="text-red-600 hover:text-red-700 p-1 sm:p-2"
                   >
-                    <TrashIcon className="h-4 w-4" />
+                    <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
               </div>
@@ -529,7 +521,7 @@ const VenueSetupPage: React.FC = () => {
                 )}
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <CheckCircleIcon className="h-4 w-4" />
-                  <span>Capacity: {setup.capacity} people</span>
+                  <span>Capacity: {setup.capacity ? `${setup.capacity} people` : 'Set per activity'}</span>
                 </div>
               </div>
 
@@ -566,33 +558,25 @@ const VenueSetupPage: React.FC = () => {
             )}
           </div>
         )}
+          </>
+        )}
 
-        {/* Create/Edit Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    {editingSetup ? 'Edit Venue Setup' : 'Create Venue Setup'}
+        {/* Create/Edit Form View */}
+        {(currentView === 'create' || currentView === 'edit') && (
+          <div className="max-w-4xl mx-auto">
+            <Card className="bg-white p-6">
+              <div className="mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  {editingSetup ? 'Edit Venue Setup' : 'Create New Venue Setup'}
                   </h2>
-                  <button
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setEditingSetup(null);
-                      resetForm();
-                    }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                <p className="text-gray-600">
+                  {editingSetup ? 'Update your venue configuration' : 'Set up a new venue with all necessary details'}
+                </p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Basic Information */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Venue Name *
@@ -606,19 +590,19 @@ const VenueSetupPage: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Capacity *
+                        Capacity
                       </label>
                       <Input
                         type="number"
-                        value={formData.capacity}
-                        onChange={(e) => setFormData(prev => ({ ...prev, capacity: parseInt(e.target.value) }))}
-                        required
+                        value={formData.capacity || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, capacity: e.target.value ? parseInt(e.target.value) : null }))}
                         min="1"
+                        placeholder="Optional - set per activity"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Address *
@@ -643,7 +627,7 @@ const VenueSetupPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Postcode *
@@ -678,97 +662,7 @@ const VenueSetupPage: React.FC = () => {
                     />
                   </div>
 
-                  {/* Pricing */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Pricing Settings</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Base Price *
-                        </label>
-                        <Input
-                          type="number"
-                          value={formData.pricing.basePrice}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            pricing: { ...prev.pricing, basePrice: parseFloat(e.target.value) }
-                          }))}
-                          required
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Currency
-                        </label>
-                        <Select
-                          value={formData.pricing.currency}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            pricing: { ...prev.pricing, currency: e.target.value }
-                          }))}
-                        >
-                          <option value="GBP">GBP (£)</option>
-                          <option value="USD">USD ($)</option>
-                          <option value="EUR">EUR (€)</option>
-                        </Select>
-                      </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Pricing Type
-                        </label>
-                        <Select
-                          value={formData.pricing.pricingType}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            pricing: { ...prev.pricing, pricingType: e.target.value as 'fixed' | 'hourly' | 'per_person' }
-                          }))}
-                        >
-                          <option value="fixed">Fixed Price</option>
-                          <option value="hourly">Per Hour</option>
-                          <option value="per_person">Per Person</option>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Booking Rules */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Booking Rules</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Advance Booking (days)
-                        </label>
-                        <Input
-                          type="number"
-                          value={formData.bookingRules.advanceBookingDays}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            bookingRules: { ...prev.bookingRules, advanceBookingDays: parseInt(e.target.value) }
-                          }))}
-                          min="1"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Cancellation Notice (hours)
-                        </label>
-                        <Input
-                          type="number"
-                          value={formData.bookingRules.cancellationHours}
-                          onChange={(e) => setFormData(prev => ({
-                            ...prev,
-                            bookingRules: { ...prev.bookingRules, cancellationHours: parseInt(e.target.value) }
-                          }))}
-                          min="1"
-                        />
-                      </div>
-                    </div>
-                  </div>
 
                   {/* Business Account & Payment Routing */}
                   <div className="border-t pt-6">
@@ -920,25 +814,25 @@ const VenueSetupPage: React.FC = () => {
                   </div>
 
                   {/* Form Actions */}
-                  <div className="flex justify-end space-x-3 pt-6 border-t">
+                  <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => {
-                        setShowCreateModal(false);
+                        setCurrentView('list');
                         setEditingSetup(null);
                         resetForm();
                       }}
+                      className="w-full sm:w-auto"
                     >
                       Cancel
                     </Button>
-                    <Button type="submit">
+                    <Button type="submit" className="w-full sm:w-auto">
                       {editingSetup ? 'Update Venue Setup' : 'Create Venue Setup'}
                     </Button>
                   </div>
                 </form>
-              </div>
-            </div>
+            </Card>
           </div>
         )}
       </div>

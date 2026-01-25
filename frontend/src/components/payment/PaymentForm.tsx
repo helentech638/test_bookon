@@ -13,8 +13,14 @@ interface PaymentFormProps {
   bookingId: string;
   childId?: string;
   venueId?: string;
+  activityId?: string;
   activityName?: string;
   venueName?: string;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  childName?: string;
   onSuccess: (paymentIntentId: string) => void;
   onCancel: () => void;
 }
@@ -30,11 +36,12 @@ interface WalletBalance {
 
 interface TFCConfig {
   enabled: boolean;
-  holdPeriod: number;
-  instructions: string;
-  payeeDetails: {
-    name: string;
-    reference: string;
+  providerName: string;
+  providerNumber: string;
+  holdPeriodDays: number;
+  instructionText: string;
+  bankDetails: {
+    accountName: string;
     sortCode: string;
     accountNumber: string;
   };
@@ -46,8 +53,14 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   bookingId,
   childId,
   venueId,
+  activityId,
   activityName,
   venueName,
+  startDate,
+  endDate,
+  startTime,
+  endTime,
+  childName,
   onSuccess,
   onCancel,
 }) => {
@@ -67,10 +80,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const fetchPaymentOptions = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('accessToken');
+      const token = localStorage.getItem('bookon_token');
       
       // Fetch wallet balance
-      const walletResponse = await fetch('/api/v1/wallet/balance', {
+      const walletResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/wallet/balance`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -84,7 +97,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 
       // Fetch TFC configuration if venue is provided
       if (venueId) {
-        const tfcResponse = await fetch(`/api/v1/tfc/config/${venueId}`, {
+        const tfcResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/config/${venueId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -129,8 +142,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       setTfcData(data);
       
       // Create TFC booking
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch('/api/v1/tfc/create-booking', {
+      const token = localStorage.getItem('bookon_token');
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/create-booking`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -181,6 +194,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         currency={currency}
         bookingId={bookingId}
         venueId={venueId}
+        activityId={activityId}
+        childId={childId}
         onSuccess={handlePaymentSuccess}
         onError={handlePaymentError}
         onCancel={handleCancel}
@@ -207,6 +222,44 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Venue:</span>
               <span className="text-gray-900">{venueName}</span>
+            </div>
+          )}
+          {childName && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Child:</span>
+              <span className="text-gray-900">{childName}</span>
+            </div>
+          )}
+          {(startDate || endDate) && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Date:</span>
+              <span className="text-gray-900">
+                {startDate && endDate ? (
+                  startDate === endDate ? (
+                    new Date(startDate).toLocaleDateString('en-GB', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short'
+                    })
+                  ) : (
+                    `${new Date(startDate).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short'
+                    })} - ${new Date(endDate).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short'
+                    })}`
+                  )
+                ) : (
+                  startDate ? new Date(startDate).toLocaleDateString('en-GB') : 'TBD'
+                )}
+              </span>
+            </div>
+          )}
+          {startTime && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Time:</span>
+              <span className="text-gray-900">{startTime}</span>
             </div>
           )}
           <div className="flex justify-between text-sm font-medium mt-2 pt-2 border-t border-gray-200">
@@ -327,46 +380,68 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           </div>
         </div>
 
+        {/* Stripe Payment Form */}
+        {selectedPaymentMethod === 'card' && showStripePayment && (
+          <StripePayment
+            amount={finalAmount}
+            currency={currency}
+            bookingId={bookingId}
+            venueId={venueId}
+            activityId={activityId}
+            childId={childId}
+            onSuccess={onSuccess}
+            onError={(error) => {
+              toast.error(error);
+            }}
+            onCancel={() => {
+              setShowStripePayment(false);
+              setSelectedPaymentMethod('');
+            }}
+          />
+        )}
+
         {/* Action Buttons */}
-        <div className="flex space-x-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          {selectedPaymentMethod === 'card' && (
+        {!showStripePayment && (
+          <div className="flex space-x-3">
             <Button
               type="button"
-              onClick={() => handlePaymentMethodSelect('card')}
+              variant="outline"
+              onClick={onCancel}
               className="flex-1"
-              disabled={loading}
             >
-              {loading ? 'Loading...' : `Pay ${formatPrice(finalAmount)}`}
+              Cancel
             </Button>
-          )}
-          {selectedPaymentMethod === 'tfc' && (
-            <Button
-              type="button"
-              onClick={() => handlePaymentMethodSelect('tfc')}
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              disabled={loading}
-            >
-              {loading ? 'Creating TFC Booking...' : `Create TFC Booking (${formatPrice(finalAmount)})`}
-            </Button>
-          )}
-          {!selectedPaymentMethod && (
-            <Button
-              type="button"
-              disabled
-              className="flex-1 opacity-50"
-            >
-              Select Payment Method
-            </Button>
-          )}
-        </div>
+            {selectedPaymentMethod === 'card' && (
+              <Button
+                type="button"
+                onClick={() => setShowStripePayment(true)}
+                className="flex-1"
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : `Pay ${formatPrice(finalAmount)}`}
+              </Button>
+            )}
+            {selectedPaymentMethod === 'tfc' && (
+              <Button
+                type="button"
+                onClick={() => handlePaymentMethodSelect('tfc')}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={loading}
+              >
+                {loading ? 'Creating TFC Booking...' : `Create TFC Booking (${formatPrice(finalAmount)})`}
+              </Button>
+            )}
+            {!selectedPaymentMethod && (
+              <Button
+                type="button"
+                disabled
+                className="flex-1 opacity-50"
+              >
+                Select Payment Method
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

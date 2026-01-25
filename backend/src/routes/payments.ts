@@ -6,6 +6,8 @@ import { logger } from '../utils/logger';
 import { body, validationResult } from 'express-validator';
 import stripeService from '../services/stripe';
 import Stripe from 'stripe';
+import PDFDocument from 'pdfkit';
+import { emailService } from '../services/emailService';
 
 const router = Router();
 
@@ -43,6 +45,13 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
       currency, 
       venueId,
       body: req.body 
+    });
+
+    // Convert amount to pence for Stripe (if not already in pence)
+    const amountInPence = Math.round(amount * 100);
+    logger.info('Amount conversion', { 
+      originalAmount: amount,
+      amountInPence: amountInPence
     });
 
     // Handle both single booking and multiple bookings
@@ -148,7 +157,7 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
       data: {
         clientSecret: paymentIntent.client_secret,
         paymentIntentId: paymentIntent.id,
-        amount: amount,
+        amount: paymentIntent.amount,
         currency: currency,
         booking: {
           id: bookings[0]?.id ?? '',
@@ -187,15 +196,36 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
       where: {
         stripePaymentIntentId: paymentIntentId,
         isActive: true
+      },
+      include: {
+        booking: {
+          include: {
+            activity: true,
+            child: true,
+            parent: true
+          }
+        }
       }
     });
 
     if (!payment) {
+      logger.error('Payment not found in database', { paymentIntentId });
       throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
     }
 
+    logger.info('Payment found in database', { 
+      paymentId: payment.id, 
+      bookingId: payment.bookingId,
+      currentStatus: payment.status 
+    });
+
     // Confirm payment intent with Stripe
     const paymentIntent = await stripeService.confirmPayment(paymentIntentId);
+
+    logger.info('Stripe payment intent status', { 
+      paymentIntentId, 
+      status: paymentIntent.status 
+    });
 
     if (paymentIntent.status === 'succeeded') {
       // Update payment status
@@ -215,6 +245,32 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
           updatedAt: new Date(),
         }
       });
+
+      // Create notification for business owner about payment
+      try {
+        const { NotificationService } = await import('../services/notificationService');
+        if (payment.booking.activity?.ownerId) {
+          await NotificationService.createNotification({
+            userId: payment.booking.activity.ownerId,
+            venueId: payment.booking.activity.venueId || undefined,
+            type: 'payment_success',
+            title: 'Payment Received',
+            message: `Payment of £${Number(payment.amount.toString()).toFixed(2)} received from ${payment.booking.parent?.firstName || 'Parent'} for ${payment.booking.activity?.title || 'Activity'}`,
+            data: {
+              paymentId: payment.id,
+              bookingId: payment.bookingId,
+              amount: payment.amount,
+              childName: `${payment.booking.child?.firstName || ''} ${payment.booking.child?.lastName || ''}`,
+              activityId: payment.booking.activity?.id
+            },
+            priority: 'high',
+            channels: ['in_app', 'email']
+          });
+          logger.info(`Created payment notification for business owner`);
+        }
+      } catch (notificationError) {
+        logger.error('Failed to create payment notification:', notificationError);
+      }
 
       logger.info('Payment confirmed successfully', { paymentIntentId, bookingId: payment.bookingId });
 
@@ -568,12 +624,21 @@ router.post('/webhook', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Helper functions for webhook handling
-async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
+export async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
   try {
     const payment = await prisma.payment.findFirst({
       where: {
         stripePaymentIntentId: paymentIntent.id,
         isActive: true
+      },
+      include: {
+        booking: {
+          include: {
+            activity: true,
+            child: true,
+            parent: true
+          }
+        }
       }
     });
 
@@ -594,6 +659,35 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
           updatedAt: new Date(),
         }
       });
+
+      // Create register and attendance for the booking
+      await createRegisterForBooking(payment.booking);
+
+      // Create notification for business owner about payment
+      try {
+        const { NotificationService } = await import('../services/notificationService');
+        if (payment.booking.activity?.ownerId) {
+          await NotificationService.createNotification({
+            userId: payment.booking.activity.ownerId,
+            venueId: payment.booking.activity.venueId || undefined,
+            type: 'payment_success',
+            title: 'Payment Received',
+            message: `Payment of £${Number(payment.amount.toString()).toFixed(2)} received from ${payment.booking.parent?.firstName || 'Parent'} for ${payment.booking.activity?.title || 'Activity'}`,
+            data: {
+              paymentId: payment.id,
+              bookingId: payment.bookingId,
+              amount: payment.amount,
+              childName: `${payment.booking.child?.firstName || ''} ${payment.booking.child?.lastName || ''}`,
+              activityId: payment.booking.activity?.id
+            },
+            priority: 'high',
+            channels: ['in_app', 'email']
+          });
+          logger.info(`Created payment notification for business owner`);
+        }
+      } catch (notificationError) {
+        logger.error('Failed to create payment notification:', notificationError);
+      }
 
       logger.info('Payment completed via webhook', { 
         paymentId: payment.id, 
@@ -802,5 +896,294 @@ router.get('/:paymentId/refunds', authenticateToken, asyncHandler(async (req: Re
     throw error;
   }
 }));
+
+// Generate and download PDF receipt
+router.post('/download-receipt', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const { paymentIntentId, bookingData, amount, currency } = req.body;
+
+  if (!paymentIntentId || !bookingData) {
+    throw new AppError('Missing required data for receipt generation', 400);
+  }
+
+  try {
+    // Create PDF document
+    const doc = new PDFDocument({ margin: 50 });
+    
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${paymentIntentId.slice(-8)}.pdf"`);
+
+    // Pipe PDF to response
+    doc.pipe(res);
+
+    // Add header
+    doc.fontSize(20)
+       .fillColor('#00806a')
+       .text('BookOn', 50, 50)
+       .fontSize(12)
+       .fillColor('#666')
+       .text('Activity Booking Receipt', 50, 80);
+
+    // Add receipt details
+    doc.fontSize(14)
+       .fillColor('#000')
+       .text('Receipt Details', 50, 120)
+       .fontSize(10)
+       .fillColor('#666')
+       .text(`Booking Reference: ${req.body.bookingData?.courseBookings?.[0]?.id ? `BK-${req.body.bookingData.courseBookings[0].id.slice(-8).toUpperCase()}` : `#${paymentIntentId.slice(-8)}`}`, 50, 150)
+       .text(`Payment ID: ${paymentIntentId.slice(-8)}`, 50, 170)
+       .text(`Date: ${new Date().toLocaleDateString('en-GB')}`, 50, 190)
+       .text(`Time: ${new Date().toLocaleTimeString('en-GB')}`, 50, 210);
+
+    // Add booking information
+    doc.fontSize(12)
+       .fillColor('#000')
+       .text('Booking Information', 50, 240)
+       .fontSize(10)
+       .fillColor('#666');
+
+    let yPosition = 270;
+    
+    if (bookingData.courseBookings && bookingData.courseBookings.length > 0) {
+      const courseBooking = bookingData.courseBookings[0];
+      doc.text(`Activity: ${bookingData.activity?.title || 'Course Activity'}`, 50, yPosition);
+      yPosition += 20;
+      doc.text(`Child: ${courseBooking.childName || 'N/A'}`, 50, yPosition);
+      yPosition += 20;
+      doc.text(`Venue: ${bookingData.venue?.name || 'N/A'}`, 50, yPosition);
+      yPosition += 20;
+      doc.text(`Schedule: ${bookingData.courseSchedule || 'Course Schedule'}`, 50, yPosition);
+      yPosition += 20;
+      
+      // Add activity dates if available
+      if (bookingData.activity?.startDate || bookingData.activity?.start_date) {
+        const startDate = new Date(bookingData.activity.startDate || bookingData.activity.start_date);
+        doc.text(`Start Date: ${startDate.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 50, yPosition);
+        yPosition += 20;
+      }
+      
+      if (bookingData.activity?.endDate || bookingData.activity?.end_date) {
+        const endDate = new Date(bookingData.activity.endDate || bookingData.activity.end_date);
+        doc.text(`End Date: ${endDate.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, 50, yPosition);
+        yPosition += 20;
+      }
+    }
+
+    // Add payment information
+    doc.fontSize(12)
+       .fillColor('#000')
+       .text('Payment Information', 50, yPosition + 20)
+       .fontSize(10)
+       .fillColor('#666')
+       .text(`Amount: ${new Intl.NumberFormat('en-GB', {
+         style: 'currency',
+         currency: currency.toUpperCase(),
+       }).format(amount)}`, 50, yPosition + 50)
+       .text(`Payment Method: Card Payment`, 50, yPosition + 70)
+       .text(`Payment Status: Completed`, 50, yPosition + 90);
+
+    // Add footer
+    doc.fontSize(8)
+       .fillColor('#999')
+       .text('Thank you for choosing BookOn!', 50, doc.page.height - 100)
+       .text('For support, contact us at support@bookon.app', 50, doc.page.height - 80)
+       .text('This is an automated receipt. Please keep this for your records.', 50, doc.page.height - 60);
+
+    // Finalize PDF
+    doc.end();
+
+    logger.info(`PDF receipt generated for payment ${paymentIntentId}`);
+  } catch (error) {
+    logger.error('Error generating PDF receipt:', error);
+    throw new AppError('Failed to generate receipt', 500);
+  }
+}));
+
+// Send confirmation email
+router.post('/send-confirmation', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const { paymentIntentId, bookingData, amount, currency } = req.body;
+
+  if (!paymentIntentId || !bookingData) {
+    throw new AppError('Missing required data for email confirmation', 400);
+  }
+
+  try {
+    // Get user information
+    const userId = req.user!.id;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true
+      }
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    // Prepare email data
+    const emailData = {
+      to: user.email,
+      parentName: `${user.firstName} ${user.lastName}`,
+      childName: bookingData.courseBookings?.[0]?.childName || 'Your child',
+      activityName: bookingData.activity?.title || 'Course Activity',
+      venueName: bookingData.venue?.name || 'Venue',
+      amount: amount,
+      currency: currency,
+      paymentIntentId: paymentIntentId,
+      bookingDate: new Date().toLocaleDateString('en-GB'),
+      courseSchedule: bookingData.courseSchedule || 'Course Schedule',
+      venuePhone: bookingData.venue?.phone || 'N/A',
+      venueEmail: bookingData.venue?.email || 'N/A',
+      bookingReference: bookingData.courseBookings?.[0]?.id ? `BK-${bookingData.courseBookings[0].id.slice(-8).toUpperCase()}` : `BK-${paymentIntentId.slice(-8).toUpperCase()}`,
+      activityStartDate: bookingData.activity?.startDate || bookingData.activity?.start_date,
+      activityEndDate: bookingData.activity?.endDate || bookingData.activity?.end_date,
+      sessionDates: bookingData.sessionDates || []
+    };
+
+    // Send payment confirmation email
+    await emailService.sendPaymentReceipt(emailData);
+
+    logger.info(`Payment confirmation email sent to ${user.email} for payment ${paymentIntentId}`);
+
+    res.json({
+      success: true,
+      message: 'Confirmation email sent successfully'
+    });
+  } catch (error) {
+    logger.error('Error sending confirmation email:', error);
+    throw new AppError('Failed to send confirmation email', 500);
+  }
+}));
+
+// Utility endpoint to fix existing bookings without registers
+router.post('/fix-missing-registers', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    
+    // Get all confirmed bookings without registers
+    const bookings = await prisma.booking.findMany({
+      where: {
+        parentId: userId,
+        status: 'confirmed',
+        paymentStatus: 'paid'
+      },
+      include: {
+        activity: true,
+        child: true
+      }
+    });
+
+    let fixedCount = 0;
+    
+    for (const booking of bookings) {
+      try {
+        await createRegisterForBooking(booking);
+        fixedCount++;
+        logger.info(`Fixed register for booking ${booking.id}`);
+      } catch (error) {
+        logger.error(`Failed to fix register for booking ${booking.id}:`, error);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully created registers for ${fixedCount} bookings`,
+      data: { fixed: fixedCount }
+    });
+
+  } catch (error) {
+    logger.error('Error fixing missing registers:', error);
+    throw new AppError('Failed to fix missing registers', 500, 'REGISTER_FIX_ERROR');
+  }
+}));
+
+/**
+ * Create register and attendance for a booking after payment success
+ */
+export async function createRegisterForBooking(booking: any) {
+  try {
+    logger.info(`Creating register for booking ${booking.id}`, {
+      activityId: booking.activityId,
+      activityDate: booking.activityDate,
+      activityTime: booking.activityTime
+    });
+
+    // Find or create a session for this booking
+    let session = await prisma.session.findFirst({
+      where: {
+        activityId: booking.activityId,
+        date: booking.activityDate
+      }
+    });
+
+    if (!session) {
+      // Create session for this booking
+      session = await prisma.session.create({
+        data: {
+          activityId: booking.activityId,
+          date: booking.activityDate,
+          startTime: booking.activityTime,
+          endTime: booking.activityTime, // Using same time for end time
+          status: 'active',
+          capacity: 20, // Default capacity
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+      logger.info(`Created session ${session.id} for booking ${booking.id}`);
+    }
+
+    // Find or create register for this session
+    let register = await prisma.register.findFirst({
+      where: { sessionId: session.id }
+    });
+
+    if (!register) {
+      register = await prisma.register.create({
+        data: {
+          sessionId: session.id,
+          date: booking.activityDate,
+          status: 'upcoming',
+          notes: `Auto-created for booking ${booking.id}`,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+      logger.info(`Created register ${register.id} for session ${session.id}`);
+    }
+
+    // Create attendance record for this child
+    const existingAttendance = await prisma.attendance.findFirst({
+      where: {
+        registerId: register.id,
+        childId: booking.childId,
+        bookingId: booking.id
+      }
+    });
+
+    if (!existingAttendance) {
+      await prisma.attendance.create({
+        data: {
+          registerId: register.id,
+          childId: booking.childId,
+          bookingId: booking.id,
+          present: false, // Default to absent, admin marks present
+          notes: `Auto-enrolled for ${booking.activity?.title || 'Activity'}`,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      });
+      logger.info(`Created attendance record for booking ${booking.id} in register ${register.id}`);
+    }
+
+  } catch (error) {
+    logger.error('Failed to create register for booking:', error);
+    // Don't throw - this shouldn't fail the payment process
+  }
+}
 
 export default router;

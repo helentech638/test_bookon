@@ -61,7 +61,7 @@ export class HolidayService {
     const dateString = date.toISOString().split('T')[0];
     
     // Check if manually excluded
-    if (manuallyExcludedDates.includes(dateString)) {
+    if (dateString && manuallyExcludedDates.includes(dateString)) {
       return true;
     }
 

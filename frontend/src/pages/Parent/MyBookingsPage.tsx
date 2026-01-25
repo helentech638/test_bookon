@@ -20,6 +20,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Modal } from '../../components/ui/Modal';
+import { CalendarWidget } from '../../components/CalendarWidget';
 import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
 
@@ -36,6 +37,11 @@ interface Booking {
   created_at: string;
   payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   notes?: string;
+  // Early drop-off and late pick-up options
+  hasEarlyDropoff?: boolean;
+  earlyDropoffAmount?: number;
+  hasLatePickup?: boolean;
+  latePickupAmount?: number;
   activity: {
     id: string;
     title: string;
@@ -43,6 +49,15 @@ interface Booking {
     price: number;
     max_capacity: number;
     current_capacity: number;
+    // Early drop-off and late pick-up availability
+    earlyDropoff?: boolean;
+    earlyDropoffPrice?: number;
+    earlyDropoffStartTime?: string;
+    earlyDropoffEndTime?: string;
+    latePickup?: boolean;
+    latePickupPrice?: number;
+    latePickupStartTime?: string;
+    latePickupEndTime?: string;
   };
   venue: {
     id: string;
@@ -75,6 +90,10 @@ const MyBookingsPage: React.FC = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
+  const [editingBookingOptions, setEditingBookingOptions] = useState<Booking | null>(null);
+  const [tempEarlyDropoff, setTempEarlyDropoff] = useState(false);
+  const [tempLatePickup, setTempLatePickup] = useState(false);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date');
@@ -211,6 +230,93 @@ const MyBookingsPage: React.FC = () => {
     }
   };
 
+  const handleExportAllBookingsToCalendar = () => {
+    try {
+      const token = authService.getToken();
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const link = document.createElement('a');
+      link.href = `/api/v1/calendar/parent/${authService.getUser()?.id}/calendar`;
+      link.download = 'my-bookings.ics';
+      link.click();
+      toast.success('Calendar file downloaded');
+    } catch (err) {
+      toast.error('Failed to export bookings to calendar');
+      console.error('Error exporting bookings to calendar:', err);
+    }
+  };
+
+  const handleExportSingleBookingToCalendar = (bookingId: string) => {
+    try {
+      const link = document.createElement('a');
+      link.href = `/api/v1/calendar/booking/${bookingId}/calendar`;
+      link.download = `booking-${bookingId}.ics`;
+      link.click();
+      toast.success('Calendar file downloaded');
+    } catch (err) {
+      toast.error('Failed to export booking to calendar');
+      console.error('Error exporting booking to calendar:', err);
+    }
+  };
+
+  const handleUpdateBookingOptions = async (bookingId: string, hasEarlyDropoff: boolean, hasLatePickup: boolean) => {
+    try {
+      const token = authService.getToken();
+      
+      if (!token) {
+        toast.error('Authentication required');
+        return;
+      }
+
+      const response = await fetch(buildApiUrl(`/bookings/${bookingId}/options`), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          hasEarlyDropoff,
+          hasLatePickup
+        }),
+      });
+
+      if (response.ok) {
+        toast.success('Booking options updated successfully');
+        fetchBookings();
+        fetchBookingStats();
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error?.message || 'Failed to update booking options');
+      }
+    } catch (error) {
+      toast.error('Error updating booking options');
+      console.error('Error updating booking options:', error);
+    }
+  };
+
+  const handleOpenOptionsModal = (booking: Booking) => {
+    setEditingBookingOptions(booking);
+    setTempEarlyDropoff(booking.hasEarlyDropoff || false);
+    setTempLatePickup(booking.hasLatePickup || false);
+    setShowOptionsModal(true);
+  };
+
+  const handleSaveBookingOptions = async () => {
+    if (!editingBookingOptions) return;
+
+    await handleUpdateBookingOptions(
+      editingBookingOptions.id,
+      tempEarlyDropoff,
+      tempLatePickup
+    );
+
+    setShowOptionsModal(false);
+    setEditingBookingOptions(null);
+  };
+
   const getStatusBadge = (status: string) => {
     const statusClasses = {
       confirmed: 'bg-green-100 text-green-800',
@@ -280,10 +386,19 @@ const MyBookingsPage: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">My Bookings</h1>
           <p className="text-gray-600 mt-2">Manage your activity bookings and view booking history</p>
         </div>
-        <Button onClick={() => window.location.href = '/activities'}>
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Book New Activity
-        </Button>
+        <div className="flex space-x-3">
+          <Button 
+            variant="outline"
+            onClick={handleExportAllBookingsToCalendar}
+          >
+            <CalendarIcon className="h-4 w-4 mr-2" />
+            Export All to Calendar
+          </Button>
+          <Button onClick={() => window.location.href = '/activities'}>
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Book New Activity
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -347,8 +462,11 @@ const MyBookingsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Filters and Search */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+      {/* Calendar Widget */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="lg:col-span-2">
+          {/* Filters and Search */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
@@ -491,6 +609,15 @@ const MyBookingsPage: React.FC = () => {
                       View
                     </Button>
                     
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleExportSingleBookingToCalendar(booking.id)}
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-1" />
+                      Calendar
+                    </Button>
+                    
                     {booking.status === 'confirmed' && (
                       <Button
                         size="sm"
@@ -502,6 +629,20 @@ const MyBookingsPage: React.FC = () => {
                       >
                         <PencilIcon className="h-4 w-4 mr-1" />
                         Reschedule
+                      </Button>
+                    )}
+                    
+                    {/* Edit Options Button - Show if activity supports early drop-off or late pick-up */}
+                    {(booking.status === 'pending' || booking.status === 'confirmed') && 
+                     (booking.activity.earlyDropoff || booking.activity.latePickup) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-teal-600 hover:text-teal-700"
+                        onClick={() => handleOpenOptionsModal(booking)}
+                      >
+                        <PlusIcon className="h-4 w-4 mr-1" />
+                        Edit Options
                       </Button>
                     )}
                     
@@ -526,6 +667,27 @@ const MyBookingsPage: React.FC = () => {
           ))}
         </div>
       )}
+        </div>
+        
+        {/* Calendar Widget */}
+        <div className="lg:col-span-1">
+          <CalendarWidget 
+            events={bookings.map(booking => ({
+              id: booking.id,
+              title: booking.activity_name,
+              description: booking.activity?.description || '',
+              startDate: booking.start_date,
+              endDate: booking.start_date, // Assuming single day events
+              startTime: booking.start_time,
+              endTime: booking.end_time,
+              location: booking.venue_name,
+              price: booking.total_amount,
+              type: 'booking' as const
+            }))}
+            showAddButton={true}
+          />
+        </div>
+      </div>
 
       {/* Booking Detail Modal */}
       <Modal
@@ -637,6 +799,115 @@ const MyBookingsPage: React.FC = () => {
             onSubmit={handleRescheduleBooking}
             onCancel={() => setShowRescheduleModal(false)}
           />
+        )}
+      </Modal>
+
+      {/* Booking Options Modal */}
+      <Modal
+        isOpen={showOptionsModal}
+        onClose={() => setShowOptionsModal(false)}
+        title="Edit Booking Options"
+      >
+        {editingBookingOptions && (
+          <div className="space-y-6">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-900 mb-2">{editingBookingOptions.activity_name}</h3>
+              <p className="text-sm text-gray-600">
+                {editingBookingOptions.child_name} • {new Date(editingBookingOptions.start_date).toLocaleDateString()} • {editingBookingOptions.start_time}
+              </p>
+            </div>
+
+            {/* Early Drop-off Option */}
+            {editingBookingOptions.activity.earlyDropoff && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">Early Drop-off</h4>
+                    <p className="text-sm text-gray-600">
+                      {editingBookingOptions.activity.earlyDropoffStartTime} - {editingBookingOptions.activity.earlyDropoffEndTime}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium text-gray-900">
+                      £{editingBookingOptions.activity.earlyDropoffPrice?.toFixed(2) || '0.00'}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tempEarlyDropoff}
+                        onChange={(e) => setTempEarlyDropoff(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Late Pick-up Option */}
+            {editingBookingOptions.activity.latePickup && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">Late Pick-up</h4>
+                    <p className="text-sm text-gray-600">
+                      {editingBookingOptions.activity.latePickupStartTime} - {editingBookingOptions.activity.latePickupEndTime}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm font-medium text-gray-900">
+                      £{editingBookingOptions.activity.latePickupPrice?.toFixed(2) || '0.00'}
+                    </span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={tempLatePickup}
+                        onChange={(e) => setTempLatePickup(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Total Cost Display */}
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-900">Total Cost:</span>
+                <span className="text-lg font-semibold text-gray-900">
+                  £{(() => {
+                    let total = editingBookingOptions.total_amount;
+                    if (tempEarlyDropoff && editingBookingOptions.activity.earlyDropoffPrice) {
+                      total += editingBookingOptions.activity.earlyDropoffPrice;
+                    }
+                    if (tempLatePickup && editingBookingOptions.activity.latePickupPrice) {
+                      total += editingBookingOptions.activity.latePickupPrice;
+                    }
+                    return total.toFixed(2);
+                  })()}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setShowOptionsModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="bg-teal-600 hover:bg-teal-700"
+                onClick={handleSaveBookingOptions}
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
         )}
       </Modal>
     </div>

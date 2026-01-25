@@ -257,7 +257,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
 // Create new activity
 router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  const { name, title, type, venueId, startDate, endDate, startTime, endTime, capacity, price, description, imageUrls, sessionBlocks, yearGroups, ageRange, whatToBring, earlyDropoff, earlyDropoffPrice, earlyDropoffStartTime, earlyDropoffEndTime, latePickup, latePickupPrice, latePickupStartTime, latePickupEndTime, excludeDates, siblingDiscount, bulkDiscount, weeklyDiscount, customTimeSlots, daysOfWeek, durationWeeks, regularDay, regularTime, courseExcludeDates } = req.body;
+  const { name, title, type, venueId, startDate, endDate, startTime, endTime, capacity, price, description, imageUrls, sessionBlocks, yearGroups, ageRange, whatToBring, earlyDropoff, earlyDropoffPrice, earlyDropoffStartTime, earlyDropoffEndTime, latePickup, latePickupPrice, latePickupStartTime, latePickupEndTime, excludeDates, siblingDiscount, bulkDiscount, weeklyDiscount, customTimeSlots, daysOfWeek, durationWeeks, regularDay, regularTime, courseExcludeDates, proRataBooking } = req.body;
   
   logger.info('Creating business activity', {
     userId,
@@ -363,7 +363,9 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           durationWeeks: durationWeeks || null,
           regularDay: regularDay || null,
           regularTime: regularTime || null,
-          courseExcludeDates: courseExcludeDates || []
+          courseExcludeDates: courseExcludeDates || [],
+          // Pro rata billing
+          proRataBooking: proRataBooking || false
         },
         include: {
           venue: {

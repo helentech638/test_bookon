@@ -16,7 +16,8 @@ import {
   ChevronDownIcon,
   XMarkIcon,
   PlayIcon,
-  PauseIcon
+  PauseIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -25,6 +26,7 @@ import { authService } from '../../services/authService';
 import { buildApiUrl } from '../../config/api';
 import AdminLayout from '../../components/layout/AdminLayout';
 import { formatPrice, formatInteger } from '../../utils/formatting';
+import { calendarService } from '../../services/calendarService';
 
 interface Course {
   id: string;
@@ -59,9 +61,6 @@ interface Course {
   creator: {
     firstName: string;
     lastName: string;
-  };
-  _count: {
-    sessions: number;
   };
 }
 
@@ -235,6 +234,35 @@ const CoursesPage: React.FC = () => {
     }
   };
 
+  const handleExportCourseToCalendar = (course: Course) => {
+    try {
+      const event = {
+        id: course.id,
+        title: course.name,
+        description: '',
+        startDate: new Date(course.startDate),
+        endDate: new Date(course.endDate),
+        location: course.venue?.name || '',
+        url: window.location.origin
+      };
+      
+      // Use the calendar service to download the iCal file
+      const iCalContent = calendarService.generateICalContent(event);
+      const blob = new Blob([iCalContent], { type: 'text/calendar' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${course.name.toLowerCase().replace(/\s+/g, '-')}-schedule.ics`;
+      link.click();
+      URL.revokeObjectURL(url);
+      
+      toast.success('Course schedule exported to calendar');
+    } catch (err) {
+      toast.error('Failed to export course to calendar');
+      console.error('Error exporting course to calendar:', err);
+    }
+  };
+
   const getTypeLabel = (type: string) => {
     switch (type) {
       case 'after_school': return 'After-School';
@@ -297,7 +325,7 @@ const CoursesPage: React.FC = () => {
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="flex items-center text-sm text-gray-600">
             <CurrencyPoundIcon className="h-4 w-4 mr-2 text-gray-400" />
-            <span>£{formatPrice(course.price)} per session</span>
+            <span>{formatPrice(course.price)} per session</span>
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <UserGroupIcon className="h-4 w-4 mr-2 text-gray-400" />
@@ -312,7 +340,7 @@ const CoursesPage: React.FC = () => {
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <CalendarDaysIcon className="h-4 w-4 mr-2 text-gray-400" />
-            <span>{course._count.sessions} sessions</span>
+            <span>{new Date(course.startDate).toLocaleDateString('en-GB')} - {new Date(course.endDate).toLocaleDateString('en-GB')}</span>
           </div>
         </div>
 
@@ -330,57 +358,70 @@ const CoursesPage: React.FC = () => {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
-          <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelectedCourse(course);
-                setShowSessionsModal(true);
-              }}
-            >
-              <EyeIcon className="h-4 w-4 mr-1" />
-              Sessions
-            </Button>
-            {course.status === 'draft' && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex flex-wrap gap-2 justify-between items-center">
+            <div className="flex flex-wrap gap-2">
               <Button
+                variant="outline"
                 size="sm"
-                onClick={() => handlePublishCourse(course.id)}
+                onClick={() => {
+                  setSelectedCourse(course);
+                  setShowSessionsModal(true);
+                }}
               >
-                <PlayIcon className="h-4 w-4 mr-1" />
-                Publish
+                <EyeIcon className="h-4 w-4 mr-1" />
+                Sessions
               </Button>
-            )}
-          </div>
-          <div className="flex space-x-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSelectedCourse(course);
-                setShowEditModal(true);
-              }}
-            >
-              <PencilIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleArchiveCourse(course.id)}
-            >
-              <ArchiveBoxIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setCourseToDelete(course);
-                setShowDeleteConfirm(true);
-              }}
-            >
-              <TrashIcon className="h-4 w-4" />
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExportCourseToCalendar(course)}
+              >
+                <CalendarIcon className="h-4 w-4 mr-1" />
+                Calendar
+              </Button>
+              {course.status === 'draft' && (
+                <Button
+                  size="sm"
+                  onClick={() => handlePublishCourse(course.id)}
+                >
+                  <PlayIcon className="h-4 w-4 mr-1" />
+                  Publish
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSelectedCourse(course);
+                  setShowEditModal(true);
+                }}
+                className="px-2"
+              >
+                <PencilIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleArchiveCourse(course.id)}
+                className="px-2"
+              >
+                <ArchiveBoxIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCourseToDelete(course);
+                  setShowDeleteConfirm(true);
+                }}
+                className="px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </CardContent>
