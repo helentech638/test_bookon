@@ -6,8 +6,7 @@ const createDirectPrismaClient = () => {
     log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
       db: {
-        // Use direct URL for migrations, seeding, and admin operations
-        url: process.env['DATABASE_DIRECT_URL'] || process.env['DATABASE_URL'] || '',
+        url: process.env['DATABASE_URL'] || '',
       },
     },
     errorFormat: 'minimal',

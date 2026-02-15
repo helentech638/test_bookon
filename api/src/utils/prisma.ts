@@ -11,8 +11,6 @@ const createPrismaClient = () => {
     log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
       db: {
-        // Use pooled connection URL for regular operations
-        // DATABASE_URL should be the pooled URL, DATABASE_DIRECT_URL is for migrations only
         url: process.env['DATABASE_URL'] || '',
       },
     },
@@ -56,7 +54,7 @@ export const checkDatabaseConnection = async (): Promise<boolean> => {
 export const getDatabaseInfo = () => {
   const dbUrl = process.env['DATABASE_URL'];
   const directUrl = process.env['DATABASE_DIRECT_URL'];
-  
+
   return {
     hasPooledUrl: !!dbUrl,
     hasDirectUrl: !!directUrl,
@@ -76,10 +74,10 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
     // Check if it's a prepared statement error
     if (error.message && error.message.includes('prepared statement') && error.message.includes('does not exist')) {
       console.warn('Prepared statement error detected, retrying with fresh connection...');
-      
+
       // Create a fresh Prisma client instance
       const freshClient = createPrismaClient();
-      
+
       try {
         const result = await queryFn(freshClient);
         // Close the fresh client
@@ -90,7 +88,7 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
         throw retryError;
       }
     }
-    
+
     throw error;
   }
 };

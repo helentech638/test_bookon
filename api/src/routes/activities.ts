@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { authenticateToken, requireRole } from '../middleware/auth';
+import { authenticateToken, requireRole, optionalAuth } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { activityService } from '../services/activityService';

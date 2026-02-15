@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
+import {
   UserCircleIcon,
   EnvelopeIcon,
   PhoneIcon,
@@ -53,7 +53,7 @@ const ProfilePage: React.FC = () => {
       const token = authService.getToken();
       if (!token) return;
 
-      const response = await fetch(`${process.env.VITE_API_BASE_URL || 'https://bookon-api.vercel.app/api/v1'}/children`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://bookon-api.vercel.app/api/v1'}/children`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -146,9 +146,9 @@ const ProfilePage: React.FC = () => {
 
   const handleSave = async () => {
     if (!user) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       // Update profile using authService
       const updatedUser = await authService.updateProfile(formData);
@@ -280,11 +280,10 @@ const ProfilePage: React.FC = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${
-                      activeTab === tab.id
+                    className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeTab === tab.id
                         ? 'bg-[#00806a] text-white'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <tab.icon className="w-4 h-4 mr-3" />
                     {tab.name}
@@ -380,11 +379,10 @@ const ProfilePage: React.FC = () => {
                         value={formData.firstName}
                         onChange={handleInputChange}
                         disabled={!isEditing}
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          isEditing
+                        className={`w-full px-3 py-2 border rounded-md ${isEditing
                             ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
                             : 'border-gray-200 bg-gray-50 text-gray-500'
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -398,11 +396,10 @@ const ProfilePage: React.FC = () => {
                         value={formData.lastName}
                         onChange={handleInputChange}
                         disabled={!isEditing}
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          isEditing
+                        className={`w-full px-3 py-2 border rounded-md ${isEditing
                             ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
                             : 'border-gray-200 bg-gray-50 text-gray-500'
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -426,11 +423,10 @@ const ProfilePage: React.FC = () => {
                         value={formData.phone}
                         onChange={handleInputChange}
                         disabled={!isEditing}
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          isEditing
+                        className={`w-full px-3 py-2 border rounded-md ${isEditing
                             ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
                             : 'border-gray-200 bg-gray-50 text-gray-500'
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -454,11 +450,10 @@ const ProfilePage: React.FC = () => {
                         value={formData.address}
                         onChange={handleInputChange}
                         disabled={!isEditing}
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          isEditing
+                        className={`w-full px-3 py-2 border rounded-md ${isEditing
                             ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
                             : 'border-gray-200 bg-gray-50 text-gray-500'
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -472,11 +467,10 @@ const ProfilePage: React.FC = () => {
                         value={formData.city}
                         onChange={handleInputChange}
                         disabled={!isEditing}
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          isEditing
+                        className={`w-full px-3 py-2 border rounded-md ${isEditing
                             ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
                             : 'border-gray-200 bg-gray-50 text-gray-500'
-                        }`}
+                          }`}
                       />
                     </div>
 
@@ -490,11 +484,10 @@ const ProfilePage: React.FC = () => {
                         value={formData.postcode}
                         onChange={handleInputChange}
                         disabled={!isEditing}
-                        className={`w-full px-3 py-2 border rounded-md ${
-                          isEditing
+                        className={`w-full px-3 py-2 border rounded-md ${isEditing
                             ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
                             : 'border-gray-200 bg-gray-50 text-gray-500'
-                        }`}
+                          }`}
                       />
                     </div>
                   </div>
@@ -582,7 +575,7 @@ const ProfilePage: React.FC = () => {
               <Card>
                 <div className="p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-6">Notification Preferences</h3>
-                  
+
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <div>
@@ -663,7 +656,7 @@ const ProfilePage: React.FC = () => {
               <Card>
                 <div className="p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-6">Security Settings</h3>
-                  
+
                   <div className="space-y-6">
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div>
@@ -704,7 +697,7 @@ const ProfilePage: React.FC = () => {
               <Card>
                 <div className="p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-6">Billing Information</h3>
-                  
+
                   <div className="space-y-6">
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div>
@@ -726,7 +719,7 @@ const ProfilePage: React.FC = () => {
                         <div className="ml-3">
                           <h4 className="text-sm font-medium text-blue-800">Payment Information</h4>
                           <p className="text-sm text-blue-700 mt-1">
-                            Payment methods and billing details are managed during the booking process. 
+                            Payment methods and billing details are managed during the booking process.
                             All payment information is securely handled by Stripe.
                           </p>
                         </div>

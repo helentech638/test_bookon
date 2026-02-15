@@ -42,12 +42,12 @@ const TFCPaymentOption: React.FC<TFCPaymentOptionProps> = ({
 
   const handleTFCSelect = async () => {
     if (disabled) return;
-    
+
     setLoading(true);
     try {
       // Fetch TFC configuration for this venue
       const token = localStorage.getItem('bookon_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/config/${venueId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/config/${venueId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -74,7 +74,7 @@ const TFCPaymentOption: React.FC<TFCPaymentOptionProps> = ({
 
     // Generate payment reference
     const paymentReference = `TFC-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-    
+
     // Calculate deadline
     const deadline = new Date();
     deadline.setDate(deadline.getDate() + tfcConfig.holdPeriodDays);
@@ -119,11 +119,10 @@ const TFCPaymentOption: React.FC<TFCPaymentOptionProps> = ({
       type="button"
       onClick={handleTFCSelect}
       disabled={disabled || loading}
-      className={`w-full p-4 border rounded-md text-left transition-colors ${
-        selected
+      className={`w-full p-4 border rounded-md text-left transition-colors ${selected
           ? 'border-blue-500 bg-blue-50'
           : 'border-gray-300 hover:border-gray-400'
-      } ${disabled || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+        } ${disabled || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       <div className="flex items-center">
         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
@@ -149,7 +148,7 @@ const TFCPaymentOption: React.FC<TFCPaymentOptionProps> = ({
           </div>
         </div>
       </div>
-      
+
       {/* TFC Benefits */}
       <div className="mt-3 pt-3 border-t border-gray-200">
         <div className="flex items-center space-x-4 text-xs text-gray-600">

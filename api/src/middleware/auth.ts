@@ -45,19 +45,19 @@ export const authenticateToken = async (
     let decoded;
     try {
       decoded = jwt.verify(token, jwtSecret) as any;
-      console.log('JWT verification successful:', { 
-        userId: decoded.userId, 
-        email: decoded.email, 
-        role: decoded.role 
+      console.log('JWT verification successful:', {
+        userId: decoded.userId,
+        email: decoded.email,
+        role: decoded.role
       });
     } catch (jwtError) {
-      console.log('JWT verification failed:', { 
-        error: jwtError, 
+      console.log('JWT verification failed:', {
+        error: jwtError,
         tokenLength: token.length,
         tokenStart: token.substring(0, 20) + '...'
       });
       logger.error('JWT verification failed:', { error: jwtError, tokenLength: token.length });
-      
+
       // If token is expired, try to refresh it automatically
       if ((jwtError as any).name === 'TokenExpiredError') {
         // Check if there's a refresh token in the request
@@ -67,7 +67,7 @@ export const authenticateToken = async (
             // Verify refresh token
             const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'] || 'fallback-refresh-secret-for-development';
             const decoded = jwt.verify(refreshToken, jwtRefreshSecret) as any;
-            
+
             // Check if refresh token exists in Redis
             const storedToken = await redis.get(`refresh_token:${decoded.userId}`);
             if (storedToken && storedToken === refreshToken) {
@@ -83,10 +83,10 @@ export const authenticateToken = async (
                 jwtSecret,
                 { expiresIn: process.env['JWT_EXPIRES_IN'] || '24h' } as any
               );
-              
+
               // Add new token to response headers
               res.setHeader('X-New-Access-Token', newAccessToken);
-              
+
               // Continue with the request using the decoded user info
               req.user = {
                 id: decoded.userId,
@@ -94,7 +94,7 @@ export const authenticateToken = async (
                 role: decoded.role,
                 isActive: true
               };
-              
+
               logger.info('Token automatically refreshed', { userId: decoded.userId });
               return next();
             }
@@ -103,10 +103,10 @@ export const authenticateToken = async (
           }
         }
       }
-      
+
       throw new AppError('Invalid or expired token', 401, 'INVALID_TOKEN');
     }
-    
+
     // Check if user still exists and is active
     let user;
     try {
@@ -237,7 +237,7 @@ export const requireRole = (roles: string | string[]) => {
     }
 
     const allowedRoles = Array.isArray(roles) ? roles : [roles];
-    
+
     if (!allowedRoles.includes(req.user.role)) {
       logSecurity('Unauthorized access attempt', {
         userId: req.user.id,
@@ -288,23 +288,26 @@ export const authRateLimit = async (
   try {
     const ip = req.ip || req.connection.remoteAddress;
     const key = `auth_attempts:${ip}`;
-    
+
     const attempts = await redis.incr(key);
-    
+
     if (attempts === 1) {
       await redis.expire(key, 900); // 15 minutes
     }
-    
-    if (attempts > 5) {
+
+    // Relax rate limit for development
+    const maxAttempts = process.env['NODE_ENV'] === 'development' ? 100 : 5;
+
+    if (attempts > maxAttempts) {
       logSecurity('Rate limit exceeded for authentication', {
         ip,
         attempts,
         userAgent: req.get('User-Agent'),
       });
-      
+
       throw new AppError('Too many authentication attempts', 429, 'RATE_LIMIT_EXCEEDED');
     }
-    
+
     next();
   } catch (error) {
     next(error);
@@ -325,7 +328,7 @@ export const validateSession = async (
     // Check if user session is still valid
     const sessionKey = `session:${req.user.id}`;
     const session = await redis.get(sessionKey);
-    
+
     if (!session) {
       throw new AppError('Session expired', 401, 'SESSION_EXPIRED');
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ClockIcon, 
+import {
+  ClockIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   EnvelopeIcon,
@@ -66,8 +66,8 @@ const PendingPaymentPage: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('bookon_token');
-      
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/booking/${bookingId}/status`, {
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/booking/${bookingId}/status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -101,7 +101,7 @@ const PendingPaymentPage: React.FC = () => {
 
     try {
       const token = localStorage.getItem('bookon_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/booking/${booking.id}/resend-instructions`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/booking/${booking.id}/resend-instructions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -135,13 +135,13 @@ const PendingPaymentPage: React.FC = () => {
     const now = new Date();
     const deadlineDate = new Date(deadline);
     const diff = deadlineDate.getTime() - now.getTime();
-    
+
     if (diff <= 0) return 'Expired';
-    
+
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (days > 0) return `${days} day${days > 1 ? 's' : ''} remaining`;
     if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} remaining`;
     return `${minutes} minute${minutes > 1 ? 's' : ''} remaining`;
@@ -205,13 +205,12 @@ const PendingPaymentPage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="space-y-6">
           {/* Status Banner */}
-          <div className={`border rounded-lg p-4 ${
-            isExpired 
-              ? 'bg-red-50 border-red-200' 
+          <div className={`border rounded-lg p-4 ${isExpired
+              ? 'bg-red-50 border-red-200'
               : isUrgent
-              ? 'bg-amber-50 border-amber-200'
-              : 'bg-blue-50 border-blue-200'
-          }`}>
+                ? 'bg-amber-50 border-amber-200'
+                : 'bg-blue-50 border-blue-200'
+            }`}>
             <div className="flex items-center space-x-3">
               {isExpired ? (
                 <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
@@ -221,24 +220,22 @@ const PendingPaymentPage: React.FC = () => {
                 <CheckCircleIcon className="w-6 h-6 text-blue-600" />
               )}
               <div>
-                <h2 className={`font-semibold ${
-                  isExpired 
-                    ? 'text-red-900' 
+                <h2 className={`font-semibold ${isExpired
+                    ? 'text-red-900'
                     : isUrgent
-                    ? 'text-amber-900'
-                    : 'text-blue-900'
-                }`}>
+                      ? 'text-amber-900'
+                      : 'text-blue-900'
+                  }`}>
                   {isExpired ? 'Payment Deadline Expired' : 'Payment Required'}
                 </h2>
-                <p className={`text-sm ${
-                  isExpired 
-                    ? 'text-red-700' 
+                <p className={`text-sm ${isExpired
+                    ? 'text-red-700'
                     : isUrgent
-                    ? 'text-amber-700'
-                    : 'text-blue-700'
-                }`}>
-                  {isExpired 
-                    ? 'This booking will be automatically cancelled' 
+                      ? 'text-amber-700'
+                      : 'text-blue-700'
+                  }`}>
+                  {isExpired
+                    ? 'This booking will be automatically cancelled'
                     : `Please complete payment by ${formatDeadline(booking.deadline)} (${timeRemaining})`
                   }
                 </p>
@@ -296,7 +293,7 @@ const PendingPaymentPage: React.FC = () => {
           {/* Payment Instructions */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Instructions</h3>
-            
+
             <div className="space-y-4">
               <div className="flex items-start space-x-3">
                 <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -305,9 +302,9 @@ const PendingPaymentPage: React.FC = () => {
                 <div>
                   <p className="text-sm text-gray-900">
                     Log into your <strong>Tax-Free Childcare account</strong> at{' '}
-                    <a 
-                      href="https://www.gov.uk/apply-tax-free-childcare" 
-                      target="_blank" 
+                    <a
+                      href="https://www.gov.uk/apply-tax-free-childcare"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 underline"
                     >

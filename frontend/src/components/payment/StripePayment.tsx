@@ -7,10 +7,10 @@ import { toast } from 'react-hot-toast';
 
 
 // Load Stripe outside of component to avoid recreating on every render
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51PECokC72BSUnGiGkjD4pT3lypwmHfdIK8Rwm53A1Que6aCkvgDK9PXnerc3y92TXELG5IN4PDXSItIf5a9hEhZv00N6DU5vVu');
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 'pk_test_51PECokC72BSUnGiGkjD4pT3lypwmHfdIK8Rwm53A1Que6aCkvgDK9PXnerc3y92TXELG5IN4PDXSItIf5a9hEhZv00N6DU5vVu');
 
 // Debug Stripe key (removed for security)
-// console.log('Stripe publishable key:', process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || 'pk_test_51ABC123DEF456GHI789JKL012MNO345PQR678STU901VWX234YZA567BCD890EFG');
+// console.log('Stripe publishable key:', import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 interface StripePaymentFormProps {
   amount: number;
@@ -69,37 +69,37 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
     try {
       setIsProcessing(true);
       const token = localStorage.getItem('bookon_token');
-      
+
       // If bookingId is temporary, create a real booking first
       let actualBookingId = bookingId;
       if (bookingId.startsWith('temp-')) {
-        
+
         // Validate required fields
         if (!activityId || !childId) {
           throw new Error('Missing required fields: activityId or childId');
         }
-        
+
         // First, check if a booking already exists
-        const existingBookingsResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
+        const existingBookingsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
           },
         });
-        
+
         if (existingBookingsResponse.ok) {
           const existingBookings = await existingBookingsResponse.json();
-          const existingBooking = existingBookings.data?.find((booking: any) => 
-            booking.activityId === activityId && 
-            booking.childId === childId && 
+          const existingBooking = existingBookings.data?.find((booking: any) =>
+            booking.activityId === activityId &&
+            booking.childId === childId &&
             booking.status === 'pending'
           );
-          
+
           if (existingBooking) {
             actualBookingId = existingBooking.id;
           } else {
             // Create a new booking
-            const bookingResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
+            const bookingResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -113,19 +113,19 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
                 notes: 'Stripe payment booking'
               }),
             });
-            
+
             if (!bookingResponse.ok) {
               const errorText = await bookingResponse.text();
               console.error('Booking creation failed:', bookingResponse.status, errorText);
               throw new Error(`Failed to create booking: ${bookingResponse.status}`);
             }
-            
+
             const bookingData = await bookingResponse.json();
             actualBookingId = bookingData.data.id;
           }
         } else {
           // If we can't fetch existing bookings, try to create a new one
-          const bookingResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
+          const bookingResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -139,31 +139,31 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
               notes: 'Stripe payment booking'
             }),
           });
-          
+
           if (!bookingResponse.ok) {
             const errorText = await bookingResponse.text();
             console.error('Booking creation failed:', bookingResponse.status, errorText);
             throw new Error(`Failed to create booking: ${bookingResponse.status}`);
           }
-          
+
           const bookingData = await bookingResponse.json();
           actualBookingId = bookingData.data.id;
         }
-        
+
         // Validate that we got a valid UUID
         if (!actualBookingId || typeof actualBookingId !== 'string') {
           throw new Error('Invalid booking ID received from server');
         }
       }
-      
+
       // Use existing payment intent if provided, otherwise create new one
       if (existingPaymentIntent) {
         setClientSecret(existingPaymentIntent.client_secret || existingPaymentIntent.clientSecret);
         return;
       }
-      
-      
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/create-intent`, {
+
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/create-intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,8 +234,8 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
         // Debug: Log the payment intent ID from Stripe
         // Call backend to confirm payment and update database
         const token = localStorage.getItem('bookon_token');
-        
-        const confirmResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/confirm`, {
+
+        const confirmResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/confirm`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -285,7 +285,7 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
   };
 
   if (!showPaymentForm) {
-  return (
+    return (
       <div className="space-y-4">
         {/* Premium Payment Summary Card */}
         <div className="bg-gradient-to-br from-white to-teal-50 border border-teal-200 rounded-xl p-6 shadow-lg">
@@ -311,7 +311,7 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
               <p className="text-xs text-gray-500">Total Amount</p>
             </div>
           </div>
-          
+
           <div className="bg-white/60 rounded-lg p-4 mb-4">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">🔒 SSL Encrypted</span>
@@ -364,18 +364,18 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
             </div>
           </div>
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Card Number, Expiry Date & CVC
-          </label>
+              </label>
               <div className="border-2 border-gray-200 rounded-lg p-4 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-200 transition-all duration-200 bg-white shadow-sm">
-            <CardElement options={cardElementOptions} />
-          </div>
-        </div>
+                <CardElement options={cardElementOptions} />
+              </div>
+            </div>
 
             <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
-          <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
                   <svg className="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -383,29 +383,29 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
                   <span className="text-sm font-medium text-gray-700">Total Amount:</span>
                 </div>
                 <span className="text-xl font-bold text-teal-600">
-              {new Intl.NumberFormat('en-GB', {
-                style: 'currency',
-                currency: currency.toUpperCase(),
-              }).format(amount)}
-            </span>
+                  {new Intl.NumberFormat('en-GB', {
+                    style: 'currency',
+                    currency: currency.toUpperCase(),
+                  }).format(amount)}
+                </span>
               </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="flex space-x-3">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isProcessing}
+        <div className="flex space-x-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isProcessing}
             className="flex-1 border-gray-300 text-gray-600 hover:bg-gray-50"
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={(!stripe && !stripeLoadingTimeout) || isProcessing || !clientSecret}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={(!stripe && !stripeLoadingTimeout) || isProcessing || !clientSecret}
             className="flex-1 bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
             onClick={() => {
               handleSubmit({} as React.FormEvent);
@@ -424,9 +424,9 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
                 <span>Pay Now</span>
               </div>
             )}
-        </Button>
-      </div>
-    </form>
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };

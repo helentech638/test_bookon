@@ -93,6 +93,9 @@ app.use(helmet({
 app.use(cors({
   origin: [
     'http://localhost:3001',
+    'http://localhost:3002',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
     'https://bookon-frontend.vercel.app',
     process.env['FRONTEND_URL'] || 'http://localhost:3001'
   ],
@@ -104,10 +107,10 @@ app.use(cors({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000'), // 15 minutes
-      max: parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100'), // limit each IP to 100 requests per windowMs
+  max: process.env['NODE_ENV'] === 'development' ? 1000 : parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100'), // limit each IP to 1000 requests in development
   message: {
     error: 'Too many requests from this IP, please try again later.',
-          retryAfter: Math.ceil(parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000') / 1000),
+    retryAfter: Math.ceil(parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000') / 1000),
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -175,8 +178,8 @@ app.get('/ping', (_req, res) => {
 
 // Simple API test endpoint
 app.get('/api/test', (_req, res) => {
-  res.status(200).json({ 
-    message: 'Backend API is working!', 
+  res.status(200).json({
+    message: 'Backend API is working!',
     timestamp: new Date().toISOString(),
     environment: process.env['NODE_ENV'] || 'development'
   });
@@ -187,31 +190,31 @@ app.get('/api/verify-token', (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
-    
+
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'No token provided' 
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
       });
     }
-    
+
     // For now, just check if token exists and has reasonable length
     if (token.length > 10) {
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(200).json({
+        success: true,
         message: 'Token format looks valid',
         tokenLength: token.length
       });
     } else {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Invalid token format' 
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token format'
       });
     }
   } catch (error) {
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Token verification error' 
+    return res.status(500).json({
+      success: false,
+      message: 'Token verification error'
     });
   }
 });
@@ -220,13 +223,13 @@ app.get('/api/verify-token', (req, res) => {
 app.get('/api/test-db', async (_req, res) => {
   try {
     const { prisma } = await import('./utils/prisma');
-    
+
     // Test simple database query
     const userCount = await prisma.user.count();
     const venueCount = await prisma.venue.count();
     const activityCount = await prisma.activity.count();
     const bookingCount = await prisma.booking.count();
-    
+
     res.json({
       success: true,
       message: 'Database connection working',
@@ -251,9 +254,9 @@ app.get('/api/test-db', async (_req, res) => {
 app.post('/api/mock-login', (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     console.log('Mock login attempt:', { email, hasPassword: !!password });
-    
+
     if (email === 'test@bookon.com' || email === 'admin@bookon.com') {
       const mockUser = {
         id: 'mock-user-id',
@@ -396,11 +399,11 @@ const startServer = async () => {
     logger.info('🚀 Starting BookOn server...');
     logger.info(`📊 Environment: ${process.env['NODE_ENV'] || 'development'}`);
     logger.info(`🔗 Port: ${PORT}`);
-    
+
     // Check environment variables
     const requiredEnvVars = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
     const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-    
+
     if (missingEnvVars.length > 0) {
       console.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
       logger.error(`❌ Missing required environment variables: ${missingEnvVars.join(', ')}`);
@@ -422,7 +425,7 @@ const startServer = async () => {
     try {
       console.log('🔌 Attempting to connect to database...');
       logger.info('🔌 Attempting to connect to database...');
-      
+
       // Log database URL (without password for security)
       const dbUrl = process.env['DATABASE_URL'];
       if (dbUrl) {
@@ -434,7 +437,7 @@ const startServer = async () => {
       } else {
         logger.warn('⚠️ DATABASE_URL not found in environment variables');
       }
-      
+
       await connectDatabase();
       console.log('✅ Database connected successfully');
       logger.info('✅ Database connected successfully');
@@ -447,7 +450,7 @@ const startServer = async () => {
         env: process.env['NODE_ENV'],
         hasDatabaseUrl: !!process.env['DATABASE_URL']
       });
-      
+
       // Don't let database connection failure prevent server startup
       console.warn('⚠️ Continuing without database connection - will use mock mode');
       logger.warn('⚠️ Continuing without database connection - will use mock mode');

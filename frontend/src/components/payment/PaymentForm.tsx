@@ -81,9 +81,9 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     try {
       setLoading(true);
       const token = localStorage.getItem('bookon_token');
-      
+
       // Fetch wallet balance
-      const walletResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/wallet/balance`, {
+      const walletResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/wallet/balance`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -97,7 +97,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
 
       // Fetch TFC configuration if venue is provided
       if (venueId) {
-        const tfcResponse = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/config/${venueId}`, {
+        const tfcResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/config/${venueId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -140,10 +140,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const handleTFCSelected = async (data: any) => {
     try {
       setTfcData(data);
-      
+
       // Create TFC booking
       const token = localStorage.getItem('bookon_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/create-booking`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/create-booking`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -326,11 +326,10 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             <button
               type="button"
               onClick={() => handlePaymentMethodSelect('card')}
-              className={`w-full p-4 border rounded-md text-left transition-colors ${
-                selectedPaymentMethod === 'card'
+              className={`w-full p-4 border rounded-md text-left transition-colors ${selectedPaymentMethod === 'card'
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-300 hover:border-gray-400'
-              }`}
+                }`}
             >
               <div className="flex items-center">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">

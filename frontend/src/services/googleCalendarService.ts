@@ -103,7 +103,7 @@ export class GoogleCalendarService {
    */
   isSignedIn(): boolean {
     if (!this.isInitialized) return false;
-    
+
     try {
       const authInstance = this.gapi.auth2.getAuthInstance();
       return authInstance.isSignedIn.get();
@@ -276,8 +276,8 @@ export class GoogleCalendarService {
 
 // Default configuration - these should be moved to environment variables
 const defaultConfig: GoogleCalendarConfig = {
-  clientId: process.env.REACT_APP_GOOGLE_CLIENT_ID || '',
-  apiKey: process.env.REACT_APP_GOOGLE_API_KEY || '',
+  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+  apiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
   discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
   scopes: 'https://www.googleapis.com/auth/calendar'
 };

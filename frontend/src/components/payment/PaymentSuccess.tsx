@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { toast } from 'react-hot-toast';
-import { 
-  CheckCircleIcon, 
+import {
+  CheckCircleIcon,
   DocumentArrowDownIcon,
   EnvelopeIcon,
   ClockIcon
@@ -31,7 +31,7 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = ({
   useEffect(() => {
     // Send confirmation email automatically
     sendConfirmationEmail();
-    
+
     // Start countdown timer
     const timer = setInterval(() => {
       setCountdown((prev) => {
@@ -52,7 +52,7 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = ({
   const sendConfirmationEmail = async () => {
     try {
       const token = localStorage.getItem('bookon_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/send-confirmation`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/send-confirmation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -81,7 +81,7 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = ({
     setIsDownloading(true);
     try {
       const token = localStorage.getItem('bookon_token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/download-receipt`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/download-receipt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app/api/v1',
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app/api/v1',
   ENDPOINTS: {
     AUTH: {
       LOGIN: '/auth/login',
@@ -60,16 +60,16 @@ const createApiClient = (): AxiosInstance => {
     (config) => {
       const token = localStorage.getItem('bookon_token');
       const refreshToken = localStorage.getItem('bookon_refresh_token');
-      
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
-      
+
       // Add refresh token to headers for automatic token refresh
       if (refreshToken) {
         config.headers['X-Refresh-Token'] = refreshToken;
       }
-      
+
       return config;
     },
     (error) => {
@@ -82,12 +82,12 @@ const createApiClient = (): AxiosInstance => {
     (response) => response,
     async (error) => {
       const originalRequest = error.config;
-      
+
       if (error.response?.status === 401 && !originalRequest._retry) {
         originalRequest._retry = true;
-        
+
         console.log('401 error detected, attempting token refresh...');
-        
+
         // Try to refresh the token
         const refreshToken = localStorage.getItem('bookon_refresh_token');
         if (refreshToken) {
@@ -99,14 +99,14 @@ const createApiClient = (): AxiosInstance => {
               },
               body: JSON.stringify({ refreshToken }),
             });
-            
+
             if (response.ok) {
               const data = await response.json();
               if (data.success && data.data?.tokens) {
                 console.log('Token refreshed successfully');
                 localStorage.setItem('bookon_token', data.data.tokens.accessToken);
                 localStorage.setItem('bookon_refresh_token', data.data.tokens.refreshToken);
-                
+
                 // Retry the original request with new token
                 originalRequest.headers.Authorization = `Bearer ${data.data.tokens.accessToken}`;
                 return instance(originalRequest);
@@ -116,13 +116,13 @@ const createApiClient = (): AxiosInstance => {
             console.error('Token refresh failed:', refreshError);
           }
         }
-        
+
         // If refresh fails or no refresh token, clear auth and redirect
         console.log('Token refresh failed, redirecting to login...');
         localStorage.removeItem('bookon_token');
         localStorage.removeItem('bookon_refresh_token');
         localStorage.removeItem('bookon_user');
-        
+
         // Show user-friendly message before redirect
         if (window.confirm('Your session has expired. Please log in again.')) {
           window.location.href = '/login';
@@ -130,7 +130,7 @@ const createApiClient = (): AxiosInstance => {
           window.location.href = '/login';
         }
       }
-      
+
       return Promise.reject(error);
     }
   );
