@@ -41,9 +41,9 @@ const validateAmendBooking = [
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    
+
     const bookings = await prisma.booking.findMany({
-      where: { 
+      where: {
         parentId: userId,
         // Note: is_active field doesn't exist in current schema, using status instead
         status: { not: 'cancelled' }
@@ -61,7 +61,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
 
     // Transform the data to match frontend expectations
     const transformedBookings = bookings.map(booking => ({
-        id: booking.id,
+      id: booking.id,
       activity_name: booking.activity.title,
       venue_name: booking.activity.venue.name,
       child_name: `${booking.child.firstName} ${booking.child.lastName}`,
@@ -73,17 +73,17 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       created_at: booking.createdAt,
       payment_status: booking.paymentStatus || 'pending',
       notes: booking.notes,
-        activity: {
-          id: booking.activityId,
+      activity: {
+        id: booking.activityId,
         title: booking.activity.title,
         description: booking.activity.description || booking.activity.title,
         price: booking.activity.price || booking.amount,
-        max_capacity: booking.activity.maxCapacity || 20,
+        max_capacity: booking.activity.capacity || 20,
         current_capacity: 15, // Default value, you might want to add this to activities table
-        },
-        venue: {
+      },
+      venue: {
         id: booking.activity.venue.id,
-          name: booking.activity.venue.name,
+        name: booking.activity.venue.name,
         address: booking.activity.venue.address,
         city: booking.activity.venue.city,
       },
@@ -129,7 +129,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
             address: '123 Main Street',
             city: 'London',
           },
-        child: {
+          child: {
             id: '1',
             firstName: 'John',
             lastName: 'Smith',
@@ -147,15 +147,15 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           status: 'pending',
           created_at: '2024-01-12T14:30:00Z',
           payment_status: 'pending',
-        activity: {
+          activity: {
             id: '2',
             title: 'Art Workshop',
             description: 'Creative art session for children',
             price: 30.00,
             max_capacity: 15,
             current_capacity: 12,
-        },
-        venue: {
+          },
+          venue: {
             id: '2',
             name: 'Art Studio',
             address: '456 Oak Avenue',
@@ -185,7 +185,7 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
 
     // Check if activity exists and has capacity
     const activity = await prisma.activity.findFirst({
-      where: { 
+      where: {
         id: activityId,
         // Note: is_active field doesn't exist in current schema, using status instead
         status: 'active'
@@ -198,7 +198,7 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
 
     // Check if child belongs to user
     const child = await prisma.child.findFirst({
-      where: { 
+      where: {
         id: childId,
         parentId: userId
       }
@@ -210,7 +210,7 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
 
     // Check if user already has a booking for this activity
     const existingBooking = await prisma.booking.findFirst({
-      where: { 
+      where: {
         parentId: userId,
         activityId: activityId,
         childId: childId,
@@ -228,6 +228,7 @@ router.post('/', authenticateToken, validateBooking, asyncHandler(async (req: Re
         parentId: userId,
         activityId: activityId,
         childId: childId,
+        bookingDate: new Date(),
         activityDate: new Date(startDate),
         activityTime: startTime,
         status: 'pending',
@@ -262,12 +263,12 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
     const { id } = req.params;
     const { reason } = req.body;
     const userId = req.user!.id;
-    
+
     console.log('Cancellation request:', { id, reason, userId });
-    
+
     // Check if booking exists and belongs to user
     const booking = await prisma.booking.findFirst({
-      where: { 
+      where: {
         id: id,
         parentId: userId,
         status: { not: 'cancelled' }
@@ -283,11 +284,11 @@ router.put('/:id/cancel', authenticateToken, validateCancelBooking, asyncHandler
       throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
     }
 
-    console.log('Found booking:', { 
-      id: booking.id, 
-      status: booking.status, 
+    console.log('Found booking:', {
+      id: booking.id,
+      status: booking.status,
       activityTitle: booking.activity?.title,
-      childName: booking.child?.firstName 
+      childName: booking.child?.firstName
     });
 
     // Check if booking can be cancelled
@@ -339,7 +340,7 @@ router.put('/:id/reschedule', authenticateToken, validateRescheduleBooking, asyn
 
     // Check if booking exists and belongs to user
     const booking = await prisma.booking.findFirst({
-      where: { 
+      where: {
         id: id,
         parentId: userId,
         status: { not: 'cancelled' }
@@ -357,7 +358,7 @@ router.put('/:id/reschedule', authenticateToken, validateRescheduleBooking, asyn
 
     // Check if new date/time is available
     const conflictingBooking = await prisma.booking.findFirst({
-      where: { 
+      where: {
         activityId: booking.activityId,
         activityDate: new Date(newDate),
         activityTime: newTime,
@@ -365,7 +366,7 @@ router.put('/:id/reschedule', authenticateToken, validateRescheduleBooking, asyn
         id: { not: id }
       }
     });
-      
+
     if (conflictingBooking) {
       throw new AppError('Selected date and time is not available', 400, 'TIME_SLOT_NOT_AVAILABLE');
     }
@@ -410,7 +411,7 @@ router.put('/:id/amend', authenticateToken, validateAmendBooking, asyncHandler(a
 
     // Check if booking exists and belongs to user
     const booking = await prisma.booking.findFirst({
-      where: { 
+      where: {
         id: id,
         parentId: userId,
         status: { not: 'cancelled' }
@@ -434,7 +435,7 @@ router.put('/:id/amend', authenticateToken, validateAmendBooking, asyncHandler(a
     if (childId) {
       // Check if new child belongs to user
       const child = await prisma.child.findFirst({
-        where: { 
+        where: {
           id: childId,
           parentId: userId
         }
@@ -579,7 +580,7 @@ router.patch('/:id/confirm', authenticateToken, asyncHandler(async (req: Request
         title: updatedBooking.activity.title,
         description: updatedBooking.activity.description || updatedBooking.activity.title,
         price: updatedBooking.activity.price || updatedBooking.amount,
-        max_capacity: updatedBooking.activity.maxCapacity || 20,
+        max_capacity: updatedBooking.activity.capacity || 20,
         current_capacity: 15,
       },
       venue: {
@@ -650,7 +651,7 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
         title: booking.activity.title,
         description: booking.activity.description,
         price: booking.activity.price || booking.amount,
-        max_capacity: booking.activity.maxCapacity || 20,
+        max_capacity: booking.activity.capacity || 20,
         current_capacity: 15,
       },
       venue: {

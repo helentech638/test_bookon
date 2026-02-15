@@ -7,24 +7,23 @@ const globalForPrisma = globalThis as unknown as {
 
 // Connection retry configuration
 const createPrismaClient = () => {
-  return new PrismaClient({
+  const options: any = {
     log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
     datasources: {
       db: {
         url: process.env['DATABASE_URL'] || '',
       },
     },
-    // Add error handling for connection issues
     errorFormat: 'minimal',
-    // Add connection pool configuration for better reliability
     __internal: {
       engine: {
-        connectTimeout: 30000, // 30 seconds
-        poolTimeout: 30000,    // 30 seconds
-        connectionLimit: 5,    // Reduce connection limit to prevent pool exhaustion
+        connectTimeout: 30000,
+        poolTimeout: 30000,
+        connectionLimit: 5,
       },
     },
-  });
+  };
+  return new PrismaClient(options);
 };
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

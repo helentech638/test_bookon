@@ -121,12 +121,12 @@ class SchedulerService {
    */
   getJobStatus(): Array<{ name: string; running: boolean; nextRun?: Date }> {
     const status: Array<{ name: string; running: boolean; nextRun?: Date }> = [];
-    
-    this.jobs.forEach((job, name) => {
+
+    this.jobs.forEach((_job, name) => {
       status.push({
         name,
-        running: job.getStatus() === 'scheduled',
-        nextRun: job.nextDate()?.toDate()
+        running: true, // If it's in the map, it's active
+        nextRun: null // node-cron doesn't natively expose next run date easily
       });
     });
 
@@ -139,7 +139,7 @@ class SchedulerService {
   async runJobManually(name: string): Promise<{ success: boolean; error?: string }> {
     try {
       logger.info(`Manually running job: ${name}`);
-      
+
       switch (name) {
         case 'tfc-auto-cancel':
           await tfcService.autoCancelExpiredTFCBookings();
@@ -164,9 +164,9 @@ class SchedulerService {
       return { success: true };
     } catch (error) {
       logger.error(`Manual job ${name} failed:`, error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

@@ -45,7 +45,7 @@ class NotificationAutomationService {
     try {
       const user = await safePrismaQuery(async (client) => {
         return await client.user.findUnique({
-        where: { id: userId }
+          where: { id: userId }
         });
       });
 
@@ -54,7 +54,7 @@ class NotificationAutomationService {
       }
 
       const subject = `Tax-Free Childcare Payment Instructions - ${bookingData.reference}`;
-      
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -107,14 +107,14 @@ class NotificationAutomationService {
             <div style="background: #fff5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f56565;">
               <h3 style="color: #2d3748; margin-top: 0;">⚠️ Payment Deadline</h3>
               <p style="margin: 0; font-size: 18px; font-weight: bold; color: #e53e3e;">
-                ${bookingData.deadline.toLocaleDateString('en-GB', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
+                ${bookingData.deadline.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}
               </p>
               <p style="margin: 10px 0 0 0; font-size: 14px; color: #4a5568;">
                 Payment must be received by this deadline to secure your place
@@ -180,14 +180,14 @@ class NotificationAutomationService {
         PAYMENT REFERENCE: ${bookingData.reference}
         Use this exact reference when making your Tax-Free Childcare payment.
         
-        PAYMENT DEADLINE: ${bookingData.deadline.toLocaleDateString('en-GB', { 
-          weekday: 'long', 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })}
+        PAYMENT DEADLINE: ${bookingData.deadline.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}
         
         HOW TO PAY:
         1. Log into your Tax-Free Childcare account at gov.uk
@@ -212,9 +212,10 @@ class NotificationAutomationService {
       // Send email
       await emailService.sendEmail({
         to: user.email,
+        toName: `${user.firstName} ${user.lastName}`,
         subject,
-        html: htmlContent,
-        text: textContent
+        htmlContent: htmlContent,
+        textContent: textContent
       });
 
       // Create notification record
@@ -263,7 +264,7 @@ class NotificationAutomationService {
     try {
       const user = await safePrismaQuery(async (client) => {
         return await client.user.findUnique({
-        where: { id: userId }
+          where: { id: userId }
         });
       });
 
@@ -272,7 +273,7 @@ class NotificationAutomationService {
       }
 
       const subject = `Reminder: Tax-Free Childcare Payment Due Soon - ${bookingData.reference}`;
-      
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -317,14 +318,14 @@ class NotificationAutomationService {
             <div style="background: #fff5f5; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f56565;">
               <h3 style="color: #2d3748; margin-top: 0;">⏰ Payment Deadline</h3>
               <p style="margin: 0; font-size: 18px; font-weight: bold; color: #e53e3e;">
-                ${bookingData.deadline.toLocaleDateString('en-GB', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
+                ${bookingData.deadline.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}
               </p>
               <p style="margin: 10px 0 0 0; font-size: 16px; color: #e53e3e; font-weight: bold;">
                 Only ${bookingData.daysRemaining} day${bookingData.daysRemaining !== 1 ? 's' : ''} remaining!
@@ -374,9 +375,10 @@ class NotificationAutomationService {
       // Send email
       await emailService.sendEmail({
         to: user.email,
+        toName: `${user.firstName} ${user.lastName}`,
         subject,
-        html: htmlContent,
-        text: `Payment reminder for booking ${bookingData.reference}. Only ${bookingData.daysRemaining} days remaining.`
+        htmlContent: htmlContent,
+        textContent: `Payment reminder for booking ${bookingData.reference}. Only ${bookingData.daysRemaining} days remaining.`
       });
 
       // Create notification record
@@ -427,7 +429,7 @@ class NotificationAutomationService {
     try {
       const user = await safePrismaQuery(async (client) => {
         return await client.user.findUnique({
-        where: { id: userId }
+          where: { id: userId }
         });
       });
 
@@ -436,7 +438,7 @@ class NotificationAutomationService {
       }
 
       const subject = `Booking Cancellation Confirmed - ${cancellationData.activity}`;
-      
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -543,9 +545,10 @@ class NotificationAutomationService {
       // Send email
       await emailService.sendEmail({
         to: user.email,
+        toName: `${user.firstName} ${user.lastName}`,
         subject,
-        html: htmlContent,
-        text: `Booking cancellation confirmed for ${cancellationData.activity}. ${cancellationData.refundAmount > 0 ? `Refund: £${cancellationData.refundAmount.toFixed(2)}` : ''} ${cancellationData.creditAmount > 0 ? `Credit: £${cancellationData.creditAmount.toFixed(2)}` : ''}`
+        htmlContent: htmlContent,
+        textContent: `Booking cancellation confirmed for ${cancellationData.activity}. ${cancellationData.refundAmount > 0 ? `Refund: £${cancellationData.refundAmount.toFixed(2)}` : ''} ${cancellationData.creditAmount > 0 ? `Credit: £${cancellationData.creditAmount.toFixed(2)}` : ''}`
       });
 
       // Create notification record
@@ -583,17 +586,17 @@ class NotificationAutomationService {
   async processScheduledNotifications(): Promise<number> {
     try {
       const now = new Date();
-      
+
       // Get pending notifications that are due
       const pendingNotifications = await safePrismaQuery(async (client) => {
         return await client.notification.findMany({
-        where: {
-          status: 'pending',
-          createdAt: {
-            lte: now
-          }
-        },
-        take: 50 // Process in batches
+          where: {
+            status: 'pending',
+            createdAt: {
+              lte: now
+            }
+          },
+          take: 50 // Process in batches
         });
       });
 
@@ -612,13 +615,13 @@ class NotificationAutomationService {
           processedCount++;
         } catch (error) {
           logger.error(`Error processing notification ${notification.id}:`, error);
-          
+
           // Mark as failed
           await safePrismaQuery(async (client) => {
             return await client.notification.update({
               where: { id: notification.id },
-              data: { 
-                status: 'failed', 
+              data: {
+                status: 'failed',
                 error: error instanceof Error ? error.message : 'Unknown error'
               }
             });
@@ -652,7 +655,7 @@ class NotificationAutomationService {
     try {
       const user = await safePrismaQuery(async (client) => {
         return await client.user.findUnique({
-        where: { id: userId }
+          where: { id: userId }
         });
       });
 
@@ -661,7 +664,7 @@ class NotificationAutomationService {
       }
 
       const subject = `Credit Expiring Soon - £${creditData.amount.toFixed(2)}`;
-      
+
       const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -690,12 +693,12 @@ class NotificationAutomationService {
                 Expires in ${creditData.daysUntilExpiry} day${creditData.daysUntilExpiry !== 1 ? 's' : ''}
               </p>
               <p style="margin: 10px 0 0 0; font-size: 14px; color: #4a5568;">
-                Expiry Date: ${creditData.expiryDate.toLocaleDateString('en-GB', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric'
-                })}
+                Expiry Date: ${creditData.expiryDate.toLocaleDateString('en-GB', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}
               </p>
             </div>
             
@@ -747,9 +750,10 @@ class NotificationAutomationService {
       // Send email
       await emailService.sendEmail({
         to: user.email,
+        toName: `${user.firstName} ${user.lastName}`,
         subject,
-        html: htmlContent,
-        text: `Credit expiring soon: £${creditData.amount.toFixed(2)} expires in ${creditData.daysUntilExpiry} days`
+        htmlContent: htmlContent,
+        textContent: `Credit expiring soon: £${creditData.amount.toFixed(2)} expires in ${creditData.daysUntilExpiry} days`
       });
 
       // Create notification record

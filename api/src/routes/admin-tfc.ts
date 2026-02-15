@@ -1,7 +1,6 @@
-import express from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { asyncHandler } from '../middleware/errorHandler';
-import { validateBookingId } from '../middleware/validation';
 import { validationResult } from 'express-validator';
 import { AppError } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
@@ -18,7 +17,7 @@ router.use(requireRole(['admin', 'staff']));
 /**
  * Get TFC pending bookings queue with stats
  */
-router.get('/pending', asyncHandler(async (req: Request, res: Response) => {
+router.get('/pending', asyncHandler(async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const { venueId, status } = req.query;
     const adminId = req.user!.id;
@@ -107,7 +106,7 @@ router.get('/pending', asyncHandler(async (req: Request, res: Response) => {
 /**
  * Bulk mark multiple TFC bookings as paid
  */
-router.post('/bulk-mark-paid', asyncHandler(async (req: Request, res: Response) => {
+router.post('/bulk-mark-paid', asyncHandler(async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const { bookingIds } = req.body;
     const adminId = req.user!.id;
@@ -152,7 +151,7 @@ router.post('/bulk-mark-paid', asyncHandler(async (req: Request, res: Response) 
 /**
  * Get TFC analytics and reports
  */
-router.get('/analytics', asyncHandler(async (req: Request, res: Response) => {
+router.get('/analytics', asyncHandler(async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const { venueId, dateFrom, dateTo } = req.query;
     const adminId = req.user!.id;
@@ -196,7 +195,7 @@ router.get('/analytics', asyncHandler(async (req: Request, res: Response) => {
       pendingBookings: bookings.filter(b => b.paymentStatus === 'pending_payment').length,
       paidBookings: bookings.filter(b => b.paymentStatus === 'paid').length,
       cancelledBookings: bookings.filter(b => b.status === 'cancelled').length,
-      averageBookingValue: bookings.length > 0 ? 
+      averageBookingValue: bookings.length > 0 ?
         bookings.reduce((sum, b) => sum + Number(b.amount), 0) / bookings.length : 0,
       bookingsByStatus: {} as Record<string, number>,
       bookingsByVenue: {} as Record<string, number>,
@@ -205,16 +204,16 @@ router.get('/analytics', asyncHandler(async (req: Request, res: Response) => {
 
     // Group by status
     bookings.forEach(booking => {
-      analytics.bookingsByStatus[booking.paymentStatus] = 
+      analytics.bookingsByStatus[booking.paymentStatus] =
         (analytics.bookingsByStatus[booking.paymentStatus] || 0) + 1;
     });
 
     // Group by venue
     bookings.forEach(booking => {
       const venueName = booking.activity.venue.name;
-      analytics.bookingsByVenue[venueName] = 
+      analytics.bookingsByVenue[venueName] =
         (analytics.bookingsByVenue[venueName] || 0) + 1;
-      analytics.revenueByVenue[venueName] = 
+      analytics.revenueByVenue[venueName] =
         (analytics.revenueByVenue[venueName] || 0) + Number(booking.amount);
     });
 
@@ -239,7 +238,7 @@ router.get('/analytics', asyncHandler(async (req: Request, res: Response) => {
 router.get('/jobs/status', asyncHandler(async (req: Request, res: Response) => {
   try {
     const healthCheck = await schedulerService.healthCheck();
-    
+
     res.json({
       success: true,
       data: healthCheck
@@ -280,20 +279,30 @@ router.post('/jobs/run/:jobName', asyncHandler(async (req: Request, res: Respons
 /**
  * Get TFC configuration for venues
  */
-router.get('/config', asyncHandler(async (req: Request, res: Response) => {
+router.get('/config', asyncHandler(async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const adminId = req.user!.id;
 
     const venues = await prisma.venue.findMany({
       select: {
         id: true,
-        name: true,
-        tfcEnabled: true,
-        tfcHoldPeriod: true,
-        tfcInstructions: true,
-        tfcPayeeDetails: true
+        name: true
       }
     });
+
+    const venueConfigs = await Promise.all(venues.map(async (venue) => {
+      const settings = await prisma.providerSettings.findUnique({
+        where: { providerId: venue.id }
+      });
+      return {
+        ...venue,
+        tfcEnabled: settings?.tfcEnabled ?? false,
+        tfcHoldPeriod: settings?.tfcHoldPeriod ?? 5,
+        tfcInstructions: settings?.tfcInstructions || '',
+        tfcPayeeName: settings?.tfcPayeeName || '',
+        tfcPayeeReference: settings?.tfcPayeeReference || ''
+      };
+    }));
 
     logger.info('TFC configuration fetched', {
       adminId,
@@ -302,7 +311,7 @@ router.get('/config', asyncHandler(async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: venues
+      data: venueConfigs
     });
   } catch (error) {
     logger.error('Error fetching TFC configuration:', error);
@@ -313,19 +322,25 @@ router.get('/config', asyncHandler(async (req: Request, res: Response) => {
 /**
  * Update TFC configuration for a venue
  */
-router.put('/config/:venueId', asyncHandler(async (req: Request, res: Response) => {
+router.put('/config/:venueId', asyncHandler(async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const { venueId } = req.params;
     const { tfcEnabled, tfcHoldPeriod, tfcInstructions, tfcPayeeDetails } = req.body;
     const adminId = req.user!.id;
 
-    const updatedVenue = await prisma.venue.update({
-      where: { id: venueId },
-      data: {
+    const updatedSettings = await prisma.providerSettings.upsert({
+      where: { providerId: venueId },
+      update: {
         tfcEnabled: tfcEnabled ?? undefined,
         tfcHoldPeriod: tfcHoldPeriod ?? undefined,
         tfcInstructions: tfcInstructions ?? undefined,
-        tfcPayeeDetails: tfcPayeeDetails ?? undefined,
+        updatedAt: new Date()
+      },
+      create: {
+        providerId: venueId,
+        tfcEnabled: tfcEnabled ?? false,
+        tfcHoldPeriod: tfcHoldPeriod ?? 5,
+        tfcInstructions: tfcInstructions ?? '',
         updatedAt: new Date()
       }
     });
@@ -339,7 +354,7 @@ router.put('/config/:venueId', asyncHandler(async (req: Request, res: Response) 
     res.json({
       success: true,
       message: 'TFC configuration updated successfully',
-      data: updatedVenue
+      data: updatedSettings
     });
   } catch (error) {
     logger.error('Error updating TFC configuration:', error);

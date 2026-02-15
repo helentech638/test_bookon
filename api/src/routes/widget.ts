@@ -19,7 +19,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     if (venueId) {
       // Get venue-specific data
       const venue = await prisma.venue.findFirst({
-        where: { 
+        where: {
           id: venueId as string,
           isActive: true
         }
@@ -31,7 +31,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 
       // Get activities for this venue
       const activities = await prisma.activity.findMany({
-        where: { 
+        where: {
           venueId: venueId as string,
           isActive: true
         },
@@ -48,7 +48,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
     if (activityId) {
       // Get activity-specific data
       const activity = await prisma.activity.findFirst({
-        where: { 
+        where: {
           id: activityId as string,
           isActive: true
         },
@@ -112,7 +112,7 @@ router.get('/activity/:id', asyncHandler(async (req: Request, res: Response) => 
     }
 
     const activity = await prisma.activity.findFirst({
-      where: { 
+      where: {
         id: id,
         isActive: true
       },
@@ -142,14 +142,14 @@ router.get('/activity/:id', asyncHandler(async (req: Request, res: Response) => 
 
     const activityData = {
       id: activity.id,
-      title: activity.name,
+      title: activity.title,
       description: activity.description,
       startDate: activity.createdAt, // Using createdAt as placeholder
       startTime: activity.createdAt, // Using createdAt as placeholder
       endTime: activity.createdAt, // Using createdAt as placeholder
       price: 0, // Default price
       currency: 'GBP',
-      capacity: activity.maxCapacity,
+      capacity: activity.capacity,
       bookedCount: bookingCount,
       venue: {
         id: activity.venueId,
@@ -293,7 +293,7 @@ router.get('/performance', asyncHandler(async (req: Request, res: Response) => {
       if (date && !acc[date]) {
         acc[date] = { views: 0, interactions: 0, conversions: 0, errors: 0 };
       }
-      
+
       if (date) {
         switch (event.event_type) {
           case 'WIDGET_VIEW':
@@ -310,7 +310,7 @@ router.get('/performance', asyncHandler(async (req: Request, res: Response) => {
             break;
         }
       }
-      
+
       return acc;
     }, {});
 
@@ -337,15 +337,15 @@ router.get('/performance', asyncHandler(async (req: Request, res: Response) => {
 // Handle widget booking submissions
 router.post('/book', asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { 
-      activityId, 
-      date, 
-      childName, 
-      parentEmail, 
-      phone, 
+    const {
+      activityId,
+      date,
+      childName,
+      parentEmail,
+      phone,
       notes,
       source = 'widget',
-      widgetId 
+      widgetId
     } = req.body;
 
     // Validate required fields
@@ -355,7 +355,7 @@ router.post('/book', asyncHandler(async (req: Request, res: Response) => {
 
     // Validate activity exists and is active
     const activity = await prisma.activity.findFirst({
-      where: { 
+      where: {
         id: activityId as string,
         isActive: true
       }
@@ -374,13 +374,13 @@ router.post('/book', asyncHandler(async (req: Request, res: Response) => {
       }
     });
 
-    if (currentBookings >= (activity.maxCapacity || 20)) {
+    if (currentBookings >= (activity.capacity || 20)) {
       throw new AppError('Activity is fully booked for this date', 400, 'ACTIVITY_FULL');
     }
 
     // Create or find user
     let user = await prisma.user.findFirst({
-      where: { 
+      where: {
         email: parentEmail,
         isActive: true
       }
@@ -485,7 +485,7 @@ router.post('/book', asyncHandler(async (req: Request, res: Response) => {
 
   } catch (error) {
     logger.error('Error processing widget booking:', error);
-    
+
     // Log widget analytics for failed booking
     if (req.body.widgetId) {
       try {

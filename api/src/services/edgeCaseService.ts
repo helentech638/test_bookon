@@ -78,7 +78,7 @@ class EdgeCaseService {
 
       const now = new Date();
       const originalActivityDate = new Date(originalBooking.activityDate);
-      
+
       if (originalActivityDate <= now) {
         throw new AppError('Cannot transfer past activities', 400, 'PAST_ACTIVITY_TRANSFER');
       }
@@ -93,7 +93,7 @@ class EdgeCaseService {
         where: { id: fromBookingId },
         data: {
           status: 'cancelled',
-          notes: `Transferred to ${targetActivity.name}: ${reason}`,
+          notes: `Transferred to ${targetActivity.title}: ${reason}`,
           updatedAt: new Date()
         }
       });
@@ -116,9 +116,9 @@ class EdgeCaseService {
           tfcInstructions: originalBooking.tfcInstructions,
           holdPeriod: originalBooking.holdPeriod,
           bookingDate: transferDate || new Date(),
-          activityDate: targetActivity.date,
-          activityTime: targetActivity.time,
-          notes: `Transferred from ${originalBooking.activity.name}: ${reason}`
+          activityDate: new Date(), // Default to current date
+          activityTime: '09:00', // Default time
+          notes: `Transferred from ${originalBooking.activity.title}: ${reason}`
         }
       });
 
@@ -133,11 +133,12 @@ class EdgeCaseService {
       } else if (priceDifference < 0) {
         // Refund the difference
         const refundAmount = Math.abs(priceDifference);
-        
+
         if (originalBooking.paymentMethod === 'card') {
           // Create refund transaction
           await prisma.refundTransaction.create({
             data: {
+              paymentId: originalBooking.paymentIntentId || 'unknown',
               bookingId: fromBookingId,
               amount: refundAmount,
               method: 'card',
@@ -164,7 +165,7 @@ class EdgeCaseService {
               expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
               source: 'transfer_refund',
               status: 'active',
-              description: `Transfer refund from ${originalBooking.activity.name} to ${targetActivity.name}`
+              description: `Transfer refund from ${originalBooking.activity.title} to ${targetActivity.title}`
             }
           });
           creditAmount = refundAmount;
@@ -205,11 +206,11 @@ class EdgeCaseService {
         refundAmount,
         creditAmount,
         additionalPayment,
-        message: priceDifference > 0 
+        message: priceDifference > 0
           ? `Transfer successful. Additional payment of £${additionalPayment.toFixed(2)} required.`
           : priceDifference < 0
-          ? `Transfer successful. Refund of £${Math.abs(priceDifference).toFixed(2)} will be processed.`
-          : 'Transfer successful. No payment changes required.'
+            ? `Transfer successful. Refund of £${Math.abs(priceDifference).toFixed(2)} will be processed.`
+            : 'Transfer successful. No payment changes required.'
       };
     } catch (error) {
       logger.error('Error processing booking transfer:', error);
@@ -339,6 +340,7 @@ class EdgeCaseService {
       if (resolution === 'lost') {
         await prisma.refundTransaction.create({
           data: {
+            paymentId: chargeback.booking.paymentIntentId || 'unknown',
             bookingId: chargeback.bookingId,
             amount: chargeback.amount,
             method: 'card',
@@ -404,7 +406,7 @@ class EdgeCaseService {
       }
 
       const totalPaid = Number(booking.amount);
-      
+
       if (refundAmount > totalPaid) {
         throw new AppError('Refund amount cannot exceed total paid', 400, 'INVALID_REFUND_AMOUNT');
       }
@@ -414,9 +416,10 @@ class EdgeCaseService {
 
       if (refundMethod === 'card' || refundMethod === 'mixed') {
         const cardRefundAmount = refundMethod === 'mixed' ? refundAmount * 0.5 : refundAmount;
-        
+
         const refundTransaction = await prisma.refundTransaction.create({
           data: {
+            paymentId: booking.paymentIntentId || 'unknown',
             bookingId,
             amount: cardRefundAmount,
             method: 'card',
@@ -438,7 +441,7 @@ class EdgeCaseService {
 
       if (refundMethod === 'credit' || refundMethod === 'mixed') {
         const creditRefundAmount = refundMethod === 'mixed' ? refundAmount * 0.5 : refundAmount;
-        
+
         const credit = await prisma.walletCredit.create({
           data: {
             parentId: booking.parentId,
@@ -508,7 +511,7 @@ class EdgeCaseService {
         } catch (error) {
           logger.error(`Bulk operation ${operationName} failed at step ${i}:`, error);
           failed++;
-          
+
           // Rollback previous operations
           for (let j = rollbackOperations.length - 1; j >= 0; j--) {
             try {
@@ -517,7 +520,7 @@ class EdgeCaseService {
               logger.error(`Rollback failed for operation ${j}:`, rollbackError);
             }
           }
-          
+
           throw error;
         }
       }
@@ -541,7 +544,7 @@ class EdgeCaseService {
       return { results, failed, success };
     } catch (error) {
       logger.error(`Bulk operation ${operationName} failed:`, error);
-      
+
       // Log failed bulk operation
       await auditService.logEvent(
         'system',
@@ -653,7 +656,7 @@ class EdgeCaseService {
       });
     } catch (error) {
       logger.error('System recovery failed:', error);
-      
+
       // Log failed recovery
       await auditService.logEvent(
         'system',

@@ -2,8 +2,8 @@ import Stripe from 'stripe';
 import { PrismaClient } from '@prisma/client';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
-});
+  apiVersion: '2023-10-16',
+} as any);
 
 const prisma = new PrismaClient();
 
@@ -96,12 +96,12 @@ export class StripeConnectService {
   }> {
     try {
       const account = await stripe.accounts.retrieve(accountId);
-      
+
       return {
-        status: account.details_submitted && account.charges_enabled && account.payouts_enabled 
-          ? 'onboarded' 
-          : account.details_submitted 
-            ? 'action_required' 
+        status: account.details_submitted && account.charges_enabled && account.payouts_enabled
+          ? 'onboarded'
+          : account.details_submitted
+            ? 'action_required'
             : 'rejected',
         detailsSubmitted: account.details_submitted,
         chargesEnabled: account.charges_enabled,
@@ -185,7 +185,7 @@ export class StripeConnectService {
     netAmount: number;
   } {
     let franchiseFee = 0;
-    
+
     if (feeType === 'percent') {
       franchiseFee = Math.round((amount * feeValue) / 100);
     } else {

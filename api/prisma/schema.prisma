@@ -49,6 +49,7 @@ model User {
   broadcasts   Broadcast[]
   emails       Email[]
   transactions Transaction[]
+  walletTransactions WalletTransaction[]
   credits      Credit[] @relation("CreditParent")
   creditsCreated Credit[] @relation("CreditCreator")
   refunds      Refund[]
@@ -74,8 +75,28 @@ model Child {
   // Relations
   parent      User     @relation(fields: [parentId], references: [id])
   bookings    Booking[]
+  attendance  Attendance[]
 
   @@map("children")
+}
+
+model Attendance {
+  id            String   @id @default(uuid())
+  registerId    String
+  childId       String
+  bookingId     String?
+  present       Boolean  @default(false)
+  checkInTime   DateTime?
+  checkOutTime  DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  register      Register @relation(fields: [registerId], references: [id], onDelete: Cascade)
+  child         Child    @relation(fields: [childId], references: [id])
+  booking       Booking? @relation(fields: [bookingId], references: [id])
+
+  @@map("attendance")
 }
 
 model Venue {
@@ -146,6 +167,7 @@ model Activity {
   activityType   ActivityType? @relation(fields: [activityTypeId], references: [id])
   bookings       Booking[]
   registers      Register[]
+  sessions       Session[]
 
   @@index([venueId])
   @@index([ownerId])
@@ -190,6 +212,7 @@ model Booking {
   transactions Transaction[]
   credits_new Credit[]
   refunds_new Refund[]
+  attendance Attendance[]
 
   @@index([parentId])
   @@index([parentId, status])
@@ -321,6 +344,22 @@ model WalletCredit {
   @@map("wallet_credits")
 }
 
+model WalletTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  amount      Decimal  @db.Decimal(10, 2)
+  type        String   // credit, debit
+  description String?
+  reference   String?
+  status      String   @default("completed") // pending, completed, failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@map("wallet_transactions")
+}
+
 model RefundTransaction {
   id          String   @id @default(uuid())
   paymentId   String
@@ -338,8 +377,8 @@ model RefundTransaction {
   updatedAt   DateTime @updatedAt
 
   // Relations
+  booking     Booking  @relation(fields: [bookingId], references: [id])
   payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
   @@map("refund_transactions")
 }
@@ -457,15 +496,22 @@ model ProviderSettings {
       id          String   @id @default(uuid())
       venueId     String
       activityId  String
+      sessionId   String?
       date        DateTime
+      capacity    Int      @default(20)
+      presentCount Int     @default(0)
+      totalCount  Int      @default(0)
       status      String   @default("active") // active, completed, cancelled
       notes       String?
       createdAt   DateTime @default(now())
       updatedAt   DateTime @updatedAt
+      lastUpdated DateTime @default(now())
 
       // Relations
       venue       Venue    @relation(fields: [venueId], references: [id])
       activity    Activity @relation(fields: [activityId], references: [id])
+      session     Session? @relation(fields: [sessionId], references: [id])
+      attendance  Attendance[]
 
       @@map("registers")
     }
@@ -544,17 +590,22 @@ model ProviderSettings {
     }
 
     model Session {
-      id          String   @id @default(uuid())
-      courseId    String
+      id          String    @id @default(uuid())
+      courseId    String?
+      activityId  String?
       date        DateTime
-      startTime   String   // Time string (e.g., "15:30")
-      endTime     String   // Time string (e.g., "16:30")
-      status      String   @default("scheduled") // scheduled, cancelled, completed
-      createdAt   DateTime @default(now())
-      updatedAt   DateTime @updatedAt
+      startTime   String    // Time string (e.g., "15:30")
+      endTime     String    // Time string (e.g., "16:30")
+      capacity    Int?
+      bookingsCount Int     @default(0)
+      status      String    @default("scheduled") // scheduled, cancelled, completed
+      createdAt   DateTime  @default(now())
+      updatedAt   DateTime  @updatedAt
 
       // Relations
-      course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+      course      Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+      activity    Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
+      registers   Register[]
 
       @@map("sessions")
     }

@@ -37,7 +37,7 @@ export class DataRetentionService {
       // Clean up expired webhook events
       const webhookCutoff = new Date();
       webhookCutoff.setDate(webhookCutoff.getDate() - retentionPolicy.webhookEvents);
-      
+
       const deletedWebhooks = await prisma.webhookEvent.deleteMany({
         where: {
           createdAt: {
@@ -58,7 +58,7 @@ export class DataRetentionService {
       // Clean up old notifications (keep only recent ones)
       const notificationCutoff = new Date();
       notificationCutoff.setDate(notificationCutoff.getDate() - retentionPolicy.notificationData);
-      
+
       const deletedNotifications = await prisma.notification.deleteMany({
         where: {
           createdAt: {
@@ -80,7 +80,7 @@ export class DataRetentionService {
       // Clean up expired wallet credits
       const creditCutoff = new Date();
       creditCutoff.setDate(creditCutoff.getDate() - retentionPolicy.expiredCredits);
-      
+
       const deletedCredits = await prisma.walletCredit.deleteMany({
         where: {
           status: 'expired',
@@ -102,7 +102,7 @@ export class DataRetentionService {
       // Clean up old audit logs (keep only recent ones for compliance)
       const auditCutoff = new Date();
       auditCutoff.setDate(auditCutoff.getDate() - retentionPolicy.auditLogs);
-      
+
       const deletedAuditLogs = await prisma.auditLog.deleteMany({
         where: {
           timestamp: {
@@ -119,9 +119,9 @@ export class DataRetentionService {
       logger.error(errorMsg, error);
     }
 
-    logger.info('Data retention cleanup completed', { 
-      deletedRecords, 
-      errorCount: errors.length 
+    logger.info('Data retention cleanup completed', {
+      deletedRecords,
+      errorCount: errors.length
     });
 
     return { deletedRecords, errors };
@@ -142,7 +142,6 @@ export class DataRetentionService {
           firstName: 'Anonymized',
           lastName: 'User',
           phone: null,
-          address: null,
           stripeCustomerId: null,
           isActive: false,
           updatedAt: new Date()
@@ -155,10 +154,7 @@ export class DataRetentionService {
         data: {
           firstName: 'Anonymized',
           lastName: 'Child',
-          allergies: null,
-          medicalInfo: null,
-          emergencyContacts: null,
-          updatedAt: new Date()
+          allergies: null
         }
       });
 
@@ -167,8 +163,7 @@ export class DataRetentionService {
         where: { userId },
         data: {
           userId: 'anonymized',
-          userRole: 'anonymized',
-          updatedAt: new Date()
+          userRole: 'anonymized'
         }
       });
 
@@ -207,33 +202,33 @@ export class DataRetentionService {
       ] = await Promise.all([
         prisma.user.count(),
         prisma.user.count({ where: { isActive: false } }),
-        prisma.booking.count({ 
-          where: { 
+        prisma.booking.count({
+          where: {
             createdAt: { lt: cutoffDate },
             status: 'completed'
-          } 
+          }
         }),
-        prisma.auditLog.count({ 
-          where: { 
-            timestamp: { lt: cutoffDate } 
-          } 
+        prisma.auditLog.count({
+          where: {
+            timestamp: { lt: cutoffDate }
+          }
         }),
-        prisma.webhookEvent.count({ 
-          where: { 
-            createdAt: { lt: cutoffDate } 
-          } 
+        prisma.webhookEvent.count({
+          where: {
+            createdAt: { lt: cutoffDate }
+          }
         }),
-        prisma.notification.count({ 
-          where: { 
+        prisma.notification.count({
+          where: {
             createdAt: { lt: cutoffDate },
             read: true
-          } 
+          }
         }),
-        prisma.walletCredit.count({ 
-          where: { 
+        prisma.walletCredit.count({
+          where: {
             status: 'expired',
             updatedAt: { lt: cutoffDate }
-          } 
+          }
         })
       ]);
 
@@ -276,7 +271,6 @@ export class DataRetentionService {
             lastName: true,
             role: true,
             phone: true,
-            address: true,
             createdAt: true,
             updatedAt: true,
             lastLoginAt: true
@@ -291,8 +285,6 @@ export class DataRetentionService {
             dateOfBirth: true,
             yearGroup: true,
             allergies: true,
-            medicalInfo: true,
-            emergencyContacts: true,
             createdAt: true,
             updatedAt: true
           }
@@ -342,8 +334,8 @@ export class DataRetentionService {
         throw new Error('User not found');
       }
 
-      logger.info('User data exported successfully', { 
-        userId, 
+      logger.info('User data exported successfully', {
+        userId,
         childrenCount: children.length,
         bookingsCount: bookings.length,
         notificationsCount: notifications.length,
@@ -371,8 +363,8 @@ export class DataRetentionService {
     try {
       logger.info('Deleting user data for GDPR compliance', { userId });
 
-      // Delete in order to respect foreign key constraints
-      await prisma.registerEntry.deleteMany({
+      // Delete attendance records
+      await prisma.attendance.deleteMany({
         where: {
           child: {
             parentId: userId

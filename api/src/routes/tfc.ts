@@ -21,21 +21,27 @@ router.get('/config/:venueId', authenticateToken, asyncHandler(async (req: Reque
       });
     });
 
+    const providerSettings = await safePrismaQuery(async (client) => {
+      return await client.providerSettings.findUnique({
+        where: { providerId: venueId }
+      });
+    });
+
     if (!venue) {
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
     }
 
-    // Get TFC configuration from venue settings
+    // Get TFC configuration from provider settings
     const tfcConfig = {
-      enabled: venue.tfcEnabled || false,
-      providerName: venue.businessAccount?.name || venue.name,
-      providerNumber: venue.businessAccount?.providerNumber || 'TFC001',
-      holdPeriodDays: venue.tfcHoldPeriod || 5,
-      instructionText: venue.tfcInstructions || `Please use the payment reference when making your Tax-Free Childcare payment. Your booking will be confirmed once payment is received.`,
+      enabled: providerSettings?.tfcEnabled || false,
+      providerName: providerSettings?.tfcPayeeName || venue.businessAccount?.name || venue.name,
+      providerNumber: providerSettings?.tfcPayeeReference || 'TFC001',
+      holdPeriodDays: providerSettings?.tfcHoldPeriod || 5,
+      instructionText: providerSettings?.tfcInstructions || `Please use the payment reference when making your Tax-Free Childcare payment. Your booking will be confirmed once payment is received.`,
       bankDetails: {
-        accountName: venue.businessAccount?.name || venue.name,
-        sortCode: venue.businessAccount?.sortCode || '20-00-00',
-        accountNumber: venue.businessAccount?.accountNumber || '12345678'
+        accountName: providerSettings?.tfcPayeeName || venue.businessAccount?.name || venue.name,
+        sortCode: providerSettings?.tfcSortCode || venue.businessAccount?.sortCode || '20-00-00',
+        accountNumber: providerSettings?.tfcAccountNumber || venue.businessAccount?.accountNumber || '12345678'
       }
     };
 
@@ -74,13 +80,8 @@ router.post('/create-booking', authenticateToken, asyncHandler(async (req: Reque
           amount: parseFloat(amount),
           status: 'tfc_pending',
           paymentMethod: 'tfc',
-          paymentReference,
-          tfcDeadline: new Date(deadline),
-          metadata: {
-            tfcConfig,
-            paymentReference,
-            deadline
-          }
+          tfcReference: paymentReference,
+          tfcDeadline: new Date(deadline)
         },
         include: {
           activity: {
@@ -301,7 +302,7 @@ router.get('/pending', authenticateToken, requireRole(['admin', 'coordinator', '
       const now = new Date();
       const deadline = new Date(booking.tfcDeadline || booking.createdAt);
       const daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       return {
         id: booking.id,
         child: `${booking.child.firstName} ${booking.child.lastName}`,
@@ -375,7 +376,7 @@ router.get('/admin/pending', authenticateToken, requireRole(['admin', 'coordinat
       const now = new Date();
       const deadline = new Date(booking.tfcDeadline || booking.createdAt);
       const isExpired = now > deadline;
-      
+
       return {
         ...booking,
         status: isExpired ? 'expired' : booking.status,
@@ -428,7 +429,7 @@ router.post('/cancel/:bookingId', authenticateToken, requireRole(['admin', 'coor
           paymentStatus: 'cancelled',
           status: 'cancelled',
           updatedAt: new Date(),
-          cancellationReason: reason || 'Cancelled by admin'
+          notes: reason || 'Cancelled by admin'
         }
       });
     });
@@ -482,7 +483,6 @@ router.post('/part-paid/:bookingId', authenticateToken, requireRole(['admin', 'c
         data: {
           paymentStatus: 'part_paid',
           status: 'part_paid',
-          amountReceived: parseFloat(amountReceived),
           updatedAt: new Date()
         }
       });
@@ -665,7 +665,7 @@ router.post('/admin/pending/:bookingId/mark-paid', authenticateToken, requireRol
     const booking = await safePrismaQuery(async (client) => {
       return await client.booking.update({
         where: { id: bookingId },
-        data: { 
+        data: {
           status: 'confirmed',
           confirmedAt: new Date()
         },
@@ -723,10 +723,10 @@ router.post('/admin/pending/:bookingId/cancel', authenticateToken, requireRole([
     const booking = await safePrismaQuery(async (client) => {
       return await client.booking.update({
         where: { id: bookingId },
-        data: { 
+        data: {
           status: 'cancelled',
           cancelledAt: new Date(),
-          cancellationReason: reason || 'Admin cancelled - TFC payment not received'
+          notes: reason || 'Admin cancelled - TFC payment not received'
         },
         include: {
           activity: {
@@ -781,10 +781,9 @@ router.post('/admin/pending/:bookingId/convert-credit', authenticateToken, requi
       // Cancel the booking
       const updatedBooking = await client.booking.update({
         where: { id: bookingId },
-        data: { 
+        data: {
           status: 'cancelled',
-          cancelledAt: new Date(),
-          cancellationReason: reason || 'Converted to credit - TFC payment not received'
+          notes: reason || 'Converted to credit - TFC payment not received'
         },
         include: {
           parent: true,

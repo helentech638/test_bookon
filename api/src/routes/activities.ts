@@ -25,18 +25,18 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { title: { contains: search as string, mode: 'insensitive' } },
         { description: { contains: search as string, mode: 'insensitive' } }
       ];
     }
-    
+
     // Note: type field doesn't exist in Activity model
     if (venueId) where.venueId = venueId;
     if (status) where.status = status;
-    
+
     if (dateFrom || dateTo) {
       where.startDate = {};
       if (dateFrom) where.startDate.gte = new Date(dateFrom as string);
@@ -95,9 +95,9 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
         where: { id },
         include: {
           venue: {
-            select: { 
-              name: true, 
-              city: true, 
+            select: {
+              name: true,
+              city: true,
               address: true,
               capacity: true,
               phone: true,
@@ -128,10 +128,7 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
 
     res.json({
       success: true,
-      data: {
-        ...activity,
-        currency: activity.currency || 'GBP' // Add default currency if not present
-      }
+      data: activity
     });
   } catch (error) {
     logger.error('Error fetching activity:', error);
@@ -390,16 +387,16 @@ router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(
   try {
     const { limit = '5' } = req.query;
     const userId = req.user!.id;
-    
-    logger.info('Upcoming activities requested', { 
+
+    logger.info('Upcoming activities requested', {
       user: req.user?.email,
       limit,
-      userId 
+      userId
     });
 
     const upcomingActivities = await safePrismaQuery(async () => {
       const now = new Date();
-      
+
       const activities = await prisma.activity.findMany({
         where: {
           startDate: { gte: now },
@@ -439,7 +436,7 @@ router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(
       }));
     });
 
-    logger.info('Upcoming activities data retrieved', { 
+    logger.info('Upcoming activities data retrieved', {
       count: upcomingActivities.length
     });
 

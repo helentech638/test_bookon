@@ -4,8 +4,8 @@ import StripeConnectService from './stripeConnectService';
 import FranchiseFeeService from './franchiseFeeService';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
-});
+  apiVersion: '2023-10-16',
+} as any);
 
 const prisma = new PrismaClient();
 
@@ -93,7 +93,7 @@ export class PaymentRoutingService {
     try {
       // Get the original payment intent to calculate proportional fee reversal
       const paymentIntent = await stripe.paymentIntents.retrieve(params.paymentIntentId);
-      
+
       if (!paymentIntent.metadata?.venueId) {
         throw new Error('Payment intent metadata missing venue information');
       }
@@ -145,7 +145,7 @@ export class PaymentRoutingService {
   }> {
     try {
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-      
+
       if (!paymentIntent.metadata?.venueId) {
         throw new Error('Payment intent metadata missing venue information');
       }

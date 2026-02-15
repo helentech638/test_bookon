@@ -8,16 +8,16 @@ const router = Router();
 
 // Middleware to check if user is admin or staff
 const requireAdminOrStaff = (req: Request, _res: Response, next: Function) => {
-  console.log('Admin access check:', { 
-    user: req.user?.email, 
+  console.log('Admin access check:', {
+    user: req.user?.email,
     role: req.user?.role,
-    hasUser: !!req.user 
+    hasUser: !!req.user
   });
-  
+
   if (!req.user) {
     throw new AppError('User not authenticated', 401, 'USER_NOT_AUTHENTICATED');
   }
-  
+
   if (!['admin', 'staff'].includes(req.user.role)) {
     throw new AppError('Admin or staff access required', 403, 'ADMIN_ACCESS_REQUIRED');
   }
@@ -27,9 +27,9 @@ const requireAdminOrStaff = (req: Request, _res: Response, next: Function) => {
 // Get admin statistics
 router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
   try {
-    logger.info('Admin stats requested', { 
+    logger.info('Admin stats requested', {
       user: _req.user?.email,
-      role: _req.user?.role 
+      role: _req.user?.role
     });
 
     // Get total counts using Prisma for better reliability
@@ -54,7 +54,7 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
         cancelledBookingsCount
       };
     });
-    
+
     // Get total revenue - using mock value since amount field doesn't exist yet
     const totalRevenue = 45680.50; // Mock revenue value
 
@@ -85,9 +85,9 @@ router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async 
 // Get all venues for admin
 router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
   try {
-    logger.info('Admin venues route accessed', { 
+    logger.info('Admin venues route accessed', {
       user: _req.user?.email,
-      role: _req.user?.role 
+      role: _req.user?.role
     });
 
     const venues = await safePrismaQuery(async (client) => {
@@ -118,7 +118,7 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
       user: _req.user?.email,
       role: _req.user?.role
     });
-    
+
     // Return proper error response instead of mock data
     res.status(500).json({
       success: false,
@@ -131,9 +131,9 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
 // Get all activities for admin
 router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
   try {
-    logger.info('Admin activities route accessed', { 
+    logger.info('Admin activities route accessed', {
       user: _req.user?.email,
-      role: _req.user?.role 
+      role: _req.user?.role
     });
 
     const activities = await safePrismaQuery(async (client) => {
@@ -178,7 +178,7 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
       user: _req.user?.email,
       role: _req.user?.role
     });
-    
+
     // Return proper error response instead of mock data
     res.status(500).json({
       success: false,
@@ -202,13 +202,13 @@ router.put('/venues/:id', authenticateToken, requireAdminOrStaff, asyncHandler(a
     const updatedVenue = await safePrismaQuery(async (client) => {
       return await client.venue.update({
         where: { id: id! },
-        data: { 
+        data: {
           isActive: status === 'active',
-          updatedAt: new Date() 
+          updatedAt: new Date()
         },
         select: {
           id: true,
-          title: true,
+          name: true,
           isActive: true
         }
       });
@@ -293,9 +293,9 @@ router.put('/activities/:id', authenticateToken, requireAdminOrStaff, asyncHandl
     const updatedActivity = await safePrismaQuery(async (client) => {
       return await client.activity.update({
         where: { id: id! },
-        data: { 
+        data: {
           isActive: status === 'active',
-          updatedAt: new Date() 
+          updatedAt: new Date()
         },
         select: {
           id: true,
@@ -314,11 +314,11 @@ router.put('/activities/:id', authenticateToken, requireAdminOrStaff, asyncHandl
     res.json({
       success: true,
       message: 'Activity status updated successfully',
-        data: {
-          id: updatedActivity.id,
-          title: updatedActivity.title,
-          isActive: updatedActivity.isActive
-        }
+      data: {
+        id: updatedActivity.id,
+        title: updatedActivity.title,
+        isActive: updatedActivity.isActive
+      }
     });
   } catch (error: any) {
     logger.error('Error updating activity status:', error);
@@ -374,7 +374,7 @@ router.delete('/activities/:id', authenticateToken, requireAdminOrStaff, asyncHa
 router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { limit = '10' } = req.query;
-    
+
     const bookings = await safePrismaQuery(async (client) => {
       return await client.booking.findMany({
         take: parseInt(limit as string),
@@ -427,18 +427,18 @@ router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHand
 // Get all bookings for admin with search and filtering
 router.get('/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
-    logger.info('Admin bookings route accessed', { 
-      userId: req.user!.id, 
+    logger.info('Admin bookings route accessed', {
+      userId: req.user!.id,
       userRole: req.user!.role,
-      query: req.query 
+      query: req.query
     });
 
-    const { 
-      page = '1', 
-      limit = '20', 
-      status, 
-      venue_id: _venue_id, 
-      activity_id: _activity_id, 
+    const {
+      page = '1',
+      limit = '20',
+      status,
+      venue_id: _venue_id,
+      activity_id: _activity_id,
       user_id: _user_id,
       date_from: _date_from,
       date_to: _date_to,
@@ -449,30 +449,30 @@ router.get('/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(asy
     // Currently using simplified where clause for performance
 
     logger.info('Building admin bookings query');
-    
+
     // Build Prisma where clause - simplified for now
     const whereClause: any = {};
-    
+
     if (status) whereClause.status = status;
-    if (activity_id) whereClause.activityId = activity_id;
-    if (user_id) whereClause.parentId = user_id;
+    if (_activity_id) whereClause.activityId = _activity_id;
+    if (_user_id) whereClause.parentId = _user_id;
 
     logger.info('Getting total count for pagination');
-    
+
     // Get total count for pagination
     const total = await prisma.booking.count({ where: whereClause });
-    
+
     logger.info('Total count result:', { total });
 
     // Apply pagination and ordering
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
-    
-    logger.info('Executing final query with pagination', { 
-      page: parseInt(page as string), 
-      limit: parseInt(limit as string), 
-      offset 
+
+    logger.info('Executing final query with pagination', {
+      page: parseInt(page as string),
+      limit: parseInt(limit as string),
+      offset
     });
-    
+
     const bookings = await prisma.booking.findMany({
       where: whereClause,
       take: parseInt(limit as string),
@@ -495,7 +495,7 @@ router.get('/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(asy
       }
     });
 
-    logger.info('Query executed successfully', { 
+    logger.info('Query executed successfully', {
       bookingsCount: bookings.length,
       firstBooking: bookings[0] ? { id: bookings[0].id, status: bookings[0].status } : null
     });
@@ -550,9 +550,9 @@ router.patch('/bookings/:id/status', authenticateToken, requireAdminOrStaff, asy
 
     const updatedBooking = await prisma.booking.update({
       where: { id: id! },
-      data: { 
-        status, 
-        updatedAt: new Date() 
+      data: {
+        status,
+        updatedAt: new Date()
       },
       select: { id: true, status: true }
     });
@@ -740,7 +740,7 @@ router.get('/financial-reports', authenticateToken, requireAdminOrStaff, asyncHa
 
     // Revenue by date (last 30 days)
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const recentBookings = bookings.filter((booking: any) => 
+    const recentBookings = bookings.filter((booking: any) =>
       new Date(booking.createdAt) >= thirtyDaysAgo
     );
 
@@ -1051,7 +1051,7 @@ router.post('/bulk-user-update', authenticateToken, requireAdminOrStaff, asyncHa
     const validFields = ['role', 'isActive'];
     const updateFields = Object.keys(updates);
     const invalidFields = updateFields.filter(field => !validFields.includes(field));
-    
+
     if (invalidFields.length > 0) {
       throw new AppError(`Invalid update fields: ${invalidFields.join(', ')}`, 400, 'INVALID_UPDATE_FIELDS');
     }
@@ -1124,15 +1124,15 @@ router.get('/system-config', authenticateToken, requireAdminOrStaff, asyncHandle
 // Advanced Admin Tools - Audit Logs
 router.get('/audit-logs', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { 
-      action_type, 
-      user_id, 
-      table_name, 
-      record_id, 
-      date_from, 
-      date_to, 
-      page = '1', 
-      limit = '50' 
+    const {
+      action_type,
+      user_id,
+      table_name,
+      record_id,
+      date_from,
+      date_to,
+      page = '1',
+      limit = '50'
     } = req.query;
 
     // Build Prisma where clause
@@ -1261,7 +1261,7 @@ router.get('/audit-logs/summary', authenticateToken, requireAdminOrStaff, asyncH
 router.post('/audit-logs/export', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { format = 'csv', filters } = req.body;
-    
+
     if (format !== 'csv' && format !== 'json') {
       return res.status(400).json({
         success: false,
@@ -1413,7 +1413,7 @@ router.get('/payment-settings', authenticateToken, requireAdminOrStaff, asyncHan
 router.put('/payment-settings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { platformFeePercentage, platformFeeFixed } = req.body;
-    
+
     // Validate input
     if (platformFeePercentage < 0 || platformFeePercentage > 100) {
       return res.status(400).json({
@@ -1485,7 +1485,7 @@ router.get('/venue-payment-accounts', authenticateToken, requireAdminOrStaff, as
 router.post('/venue-payment-accounts', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { venueId } = req.body;
-    
+
     if (!venueId) {
       return res.status(400).json({
         success: false,
@@ -1532,7 +1532,7 @@ router.post('/venue-payment-accounts', authenticateToken, requireAdminOrStaff, a
 router.get('/payouts', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { status, venue_id, page = '1', limit = '20' } = req.query;
-    
+
     const whereClause: any = {};
 
     if (status) {
@@ -1581,7 +1581,7 @@ router.post('/payouts/process', authenticateToken, requireAdminOrStaff, asyncHan
   try {
     // TODO: Implement payout processing logic
     // This would trigger payouts for all venues that meet the criteria
-    
+
     return res.json({
       success: true,
       message: 'Payout processing initiated'
@@ -1599,7 +1599,7 @@ router.post('/payouts/process', authenticateToken, requireAdminOrStaff, asyncHan
 router.get('/export/registers', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { format = 'csv', venue_id, date_from, date_to, status } = req.query;
-    
+
     if (format !== 'csv' && format !== 'pdf') {
       return res.status(400).json({
         success: false,
@@ -1692,7 +1692,7 @@ router.get('/export/registers', authenticateToken, requireAdminOrStaff, asyncHan
 router.get('/export/bookings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { format = 'csv', venue_id, date_from, date_to, status } = req.query;
-    
+
     if (format !== 'csv' && format !== 'pdf') {
       return res.status(400).json({
         success: false,
@@ -1797,7 +1797,7 @@ router.get('/export/bookings', authenticateToken, requireAdminOrStaff, asyncHand
 router.get('/export/financial', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { format = 'csv', venue_id, date_from, date_to } = req.query;
-    
+
     if (format !== 'csv' && format !== 'pdf') {
       return res.status(400).json({
         success: false,
@@ -1909,7 +1909,7 @@ router.get('/export/financial', authenticateToken, requireAdminOrStaff, asyncHan
 router.post('/export/schedule', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { type, format, schedule, recipients } = req.body;
-    
+
     if (!type || !format || !schedule || !recipients) {
       return res.status(400).json({
         success: false,
@@ -1919,7 +1919,7 @@ router.post('/export/schedule', authenticateToken, requireAdminOrStaff, asyncHan
 
     // TODO: Implement export scheduling logic
     // This would create a scheduled job to generate and email exports
-    
+
     return res.json({
       success: true,
       message: 'Export scheduled successfully'

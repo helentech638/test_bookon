@@ -154,7 +154,7 @@ class TFCService {
 
       // Send confirmation email to parent
       // TODO: Implement email service
-      
+
       // Update activity capacity - TFC booking is now confirmed
       await this.updateActivityCapacity(booking.activityId, 1);
     } catch (error) {
@@ -169,7 +169,7 @@ class TFCService {
   async autoCancelExpiredTFCBookings(): Promise<{ cancelled: number; errors: number }> {
     try {
       const now = new Date();
-      
+
       // Find all TFC bookings that have passed their deadline
       const expiredBookings = await prisma.booking.findMany({
         where: {
@@ -193,7 +193,7 @@ class TFCService {
         try {
           await this.cancelUnpaidTFCBooking(booking.id, 'system', 'Payment deadline exceeded - auto-cancelled');
           cancelled++;
-          
+
           logger.info('Auto-cancelled expired TFC booking', {
             bookingId: booking.id,
             reference: booking.tfcReference,
@@ -229,7 +229,7 @@ class TFCService {
     try {
       const now = new Date();
       const reminderTime = new Date(now.getTime() + 48 * 60 * 60 * 1000); // 48 hours from now
-      
+
       // Find TFC bookings that need reminders (deadline in 48 hours)
       const bookingsNeedingReminders = await safePrismaQuery(async (client) => {
         return await client.booking.findMany({
@@ -261,7 +261,7 @@ class TFCService {
           // Send reminder email
           await this.sendTFCPaymentReminder(booking);
           remindersSent++;
-          
+
           logger.info('TFC payment reminder sent', {
             bookingId: booking.id,
             reference: booking.tfcReference,
@@ -301,7 +301,7 @@ class TFCService {
     // - Amount
     // - Instructions
     // - Link to payment instructions
-    
+
     logger.info('TFC payment reminder email would be sent', {
       bookingId: booking.id,
       parentEmail: booking.parent.email,
@@ -348,7 +348,7 @@ class TFCService {
 
       // Send cancellation email to parent
       // TODO: Implement email service
-      
+
       // Free up activity capacity - TFC booking is cancelled
       await this.updateActivityCapacity(booking.activityId, -1);
     } catch (error) {
@@ -410,14 +410,14 @@ class TFCService {
         child: `${booking.child.firstName} ${booking.child.lastName}`,
         parent: `${booking.parent.firstName} ${booking.parent.lastName}`,
         parentEmail: booking.parent.email,
-        activity: booking.activity.name,
+        activity: booking.activity.title,
         venue: booking.activity.venue.name,
         venueId: booking.activity.venue.id,
         amount: booking.amount,
         reference: booking.tfcReference,
         deadline: booking.tfcDeadline,
         createdAt: booking.createdAt,
-        daysRemaining: booking.tfcDeadline ? 
+        daysRemaining: booking.tfcDeadline ?
           Math.ceil((booking.tfcDeadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0
       }));
     } catch (error) {
@@ -512,7 +512,7 @@ If you have any questions, please contact us immediately.`;
       // 1. Update a capacity tracking table
       // 2. Send WebSocket updates to relevant clients
       // 3. Trigger notifications if capacity is now full/available
-      
+
       logger.info(`Activity capacity updated`, {
         activityId,
         change,

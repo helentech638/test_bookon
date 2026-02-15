@@ -67,7 +67,7 @@ class EmailService {
 
       const response = await sgMail.send(msg);
       const messageId = response[0]?.headers?.['x-message-id'] as string;
-      
+
       logger.info('Email sent successfully', {
         to: emailData.to,
         subject: emailData.subject,
@@ -116,7 +116,7 @@ class EmailService {
 
       const response = await sgMail.send(msg);
       const messageId = response[0]?.headers?.['x-message-id'] as string;
-      
+
       logger.info('Template email sent successfully', {
         to,
         templateId,
@@ -164,7 +164,7 @@ class EmailService {
 
         await sgMail.send(messages);
         success += batch.length;
-        
+
         logger.info(`Batch of ${batch.length} emails sent successfully`);
       } catch (error) {
         logger.error(`Failed to send batch of ${batch.length} emails:`, error);
@@ -315,7 +315,7 @@ class EmailService {
   }): Promise<void> {
     try {
       const subject = `Tax-Free Childcare Payment Required - ${data.activityName}`;
-      
+
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">Tax-Free Childcare Payment Required</h2>
@@ -374,7 +374,7 @@ class EmailService {
   }): Promise<void> {
     try {
       const subject = `Booking Cancelled - Payment Deadline Expired - ${data.activityName}`;
-      
+
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #dc2626;">Booking Cancelled</h2>
@@ -422,7 +422,7 @@ class EmailService {
   }): Promise<void> {
     try {
       const subject = `Credit Issued - £${data.amount.toFixed(2)}`;
-      
+
       const html = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #059669;">Credit Issued</h2>
@@ -459,6 +459,109 @@ class EmailService {
       throw error;
     }
   }
+
+  /**
+   * Send booking confirmation email
+   */
+  async sendBookingConfirmation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    venueName: string;
+    startDate: Date;
+    startTime: string;
+    amount: number;
+  }): Promise<void> {
+    try {
+      const subject = `Booking Confirmed - ${data.activityName}`;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #059669;">Booking Confirmed</h2>
+          
+          <p>Dear ${data.parentName},</p>
+          
+          <p>Your booking for <strong>${data.activityName}</strong> for ${data.childName} has been confirmed.</p>
+          
+          <div style="background-color: #f0fdf4; border: 1px solid #86efac; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #166534; margin-top: 0;">Booking Details</h3>
+            <p><strong>Activity:</strong> ${data.activityName}</p>
+            <p><strong>Venue:</strong> ${data.venueName}</p>
+            <p><strong>Date:</strong> ${data.startDate.toLocaleDateString('en-GB')}</p>
+            <p><strong>Time:</strong> ${data.startTime}</p>
+            <p><strong>Amount Paid:</strong> £${data.amount.toFixed(2)}</p>
+          </div>
+          
+          <p>We look forward to seeing you there!</p>
+          
+          <p>If you have any questions, please contact us at support@bookon.com or call 01234 567890.</p>
+          
+          <p>Best regards,<br>The BookOn Team</p>
+        </div>
+      `;
+
+      await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject,
+        htmlContent: html
+      });
+
+      logger.info('Booking confirmation email sent', { to: data.to, activity: data.activityName });
+    } catch (error) {
+      logger.error('Failed to send booking confirmation email:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send booking cancellation email
+   */
+  async sendBookingCancellation(data: {
+    to: string;
+    parentName: string;
+    childName: string;
+    activityName: string;
+    reason: string;
+  }): Promise<void> {
+    try {
+      const subject = `Booking Cancelled - ${data.activityName}`;
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #059669;">Booking Cancelled</h2>
+          
+          <p>Dear ${data.parentName},</p>
+          
+          <p>Your booking for <strong>${data.activityName}</strong> for ${data.childName} has been cancelled.</p>
+          
+          <div style="background-color: #f0fdf4; border: 1px solid #86efac; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #166534; margin-top: 0;">Cancellation Details</h3>
+            <p><strong>Activity:</strong> ${data.activityName}</p>
+            <p><strong>Reason:</strong> ${data.reason}</p>
+          </div>
+          
+          <p>If you have any questions, please contact us at support@bookon.com or call 01234 567890.</p>
+          
+          <p>Best regards,<br>The BookOn Team</p>
+        </div>
+      `;
+
+      await this.sendEmail({
+        to: data.to,
+        toName: data.parentName,
+        subject,
+        htmlContent: html
+      });
+
+      logger.info('Booking cancellation email sent', { to: data.to, activity: data.activityName });
+    } catch (error) {
+      logger.error('Failed to send booking cancellation email:', error);
+      throw error;
+    }
+  }
+
 }
 
 export const emailService = new EmailService();

@@ -8,7 +8,7 @@ import logger from '../utils/logger';
 const router = Router();
 
 // Get all activity types
-router.get('/', asyncHandler(async (req: Request, res: Response) => {
+router.get('/', asyncHandler(async (_req: Request, res: Response) => {
   try {
     const activityTypes = await safePrismaQuery(async (client) => {
       return await client.activityType.findMany({
@@ -40,7 +40,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 // Get all activity types (including inactive) - Admin only
-router.get('/admin', authenticateToken, requireAdmin, asyncHandler(async (req: Request, res: Response) => {
+router.get('/admin', authenticateToken, requireAdmin, asyncHandler(async (_req: Request, res: Response) => {
   try {
     const activityTypes = await safePrismaQuery(async (client) => {
       return await client.activityType.findMany({
@@ -78,7 +78,7 @@ router.get('/:id', asyncHandler(async (req: Request, res: Response) => {
 
     const activityType = await safePrismaQuery(async (client) => {
       return await client.activityType.findUnique({
-        where: { id },
+        where: { id: id as string },
         select: {
           id: true,
           name: true,
@@ -124,11 +124,11 @@ router.post('/', authenticateToken, requireAdmin, asyncHandler(async (req: Reque
     // Check if activity type with same name already exists
     const existingType = await safePrismaQuery(async (client) => {
       return await client.activityType.findFirst({
-        where: { 
-          name: { 
-            equals: name.trim(), 
-            mode: 'insensitive' 
-          } 
+        where: {
+          name: {
+            equals: name.trim(),
+            mode: 'insensitive'
+          }
         }
       });
     });
@@ -188,7 +188,7 @@ router.put('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: Req
     // Check if activity type exists
     const existingType = await safePrismaQuery(async (client) => {
       return await client.activityType.findUnique({
-        where: { id },
+        where: { id: id as string },
         select: { id: true, name: true }
       });
     });
@@ -200,12 +200,12 @@ router.put('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: Req
     // Check if another activity type with same name exists
     const duplicateType = await safePrismaQuery(async (client) => {
       return await client.activityType.findFirst({
-        where: { 
-          name: { 
-            equals: name.trim(), 
-            mode: 'insensitive' 
+        where: {
+          name: {
+            equals: name.trim(),
+            mode: 'insensitive'
           },
-          id: { not: id }
+          id: { not: id as string }
         }
       });
     });
@@ -216,7 +216,7 @@ router.put('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: Req
 
     const updatedActivityType = await safePrismaQuery(async (client) => {
       return await client.activityType.update({
-        where: { id },
+        where: { id: id as string },
         data: {
           name: name.trim(),
           description: description?.trim() || null,
@@ -265,7 +265,7 @@ router.delete('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: 
     // Check if activity type has any activities
     const activitiesCount = await safePrismaQuery(async (client) => {
       return await client.activity.count({
-        where: { activityTypeId: id }
+        where: { activityTypeId: id as string }
       });
     });
 
@@ -275,7 +275,7 @@ router.delete('/:id', authenticateToken, requireAdmin, asyncHandler(async (req: 
 
     await safePrismaQuery(async (client) => {
       return await client.activityType.delete({
-        where: { id }
+        where: { id: id as string }
       });
     });
 

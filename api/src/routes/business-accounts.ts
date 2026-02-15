@@ -11,10 +11,10 @@ const router = Router();
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    
-    logger.info('Business accounts requested', { 
+
+    logger.info('Business accounts requested', {
       user: req.user?.email,
-      userId 
+      userId
     });
 
     const businessAccounts = await safePrismaQuery(async (client) => {
@@ -40,8 +40,8 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       });
     });
 
-    logger.info('Business accounts retrieved', { 
-      count: businessAccounts.length 
+    logger.info('Business accounts retrieved', {
+      count: businessAccounts.length
     });
 
     res.json({
@@ -59,11 +59,11 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    
-    logger.info('Business account requested', { 
+
+    logger.info('Business account requested', {
       user: req.user?.email,
       businessAccountId: id,
-      userId 
+      userId
     });
 
     const businessAccount = await safePrismaQuery(async (client) => {
@@ -89,8 +89,8 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       throw new AppError('Business account not found', 404, 'BUSINESS_ACCOUNT_NOT_FOUND');
     }
 
-    logger.info('Business account retrieved', { 
-      businessAccountId: id 
+    logger.info('Business account retrieved', {
+      businessAccountId: id
     });
 
     res.json({
@@ -116,12 +116,12 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
       vatMode = 'inclusive',
       adminFeeAmount
     } = req.body;
-    
-    logger.info('Creating business account', { 
+
+    logger.info('Creating business account', {
       user: req.user?.email,
       name,
       stripeAccountId,
-      userId 
+      userId
     });
 
     const businessAccount = await safePrismaQuery(async (client) => {
@@ -133,13 +133,14 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           franchiseFeeType,
           franchiseFeeValue: parseFloat(franchiseFeeValue),
           vatMode,
+          status: 'onboarded', // Default status for new accounts
           adminFeeAmount: adminFeeAmount ? parseFloat(adminFeeAmount) : null
         }
       });
     });
 
-    logger.info('Business account created', { 
-      businessAccountId: businessAccount.id 
+    logger.info('Business account created', {
+      businessAccountId: businessAccount.id
     });
 
     res.status(201).json({
@@ -158,11 +159,11 @@ router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     const { id } = req.params;
     const userId = req.user!.id;
     const updateData = req.body;
-    
-    logger.info('Updating business account', { 
+
+    logger.info('Updating business account', {
       user: req.user?.email,
       businessAccountId: id,
-      userId 
+      userId
     });
 
     const businessAccount = await safePrismaQuery(async (client) => {
@@ -175,8 +176,8 @@ router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       });
     });
 
-    logger.info('Business account updated', { 
-      businessAccountId: id 
+    logger.info('Business account updated', {
+      businessAccountId: id
     });
 
     res.json({
@@ -195,12 +196,12 @@ router.patch('/:id/stripe-status', authenticateToken, asyncHandler(async (req: R
     const { id } = req.params;
     const userId = req.user!.id;
     const { status } = req.body;
-    
-    logger.info('Updating Stripe account status', { 
+
+    logger.info('Updating Stripe account status', {
       user: req.user?.email,
       businessAccountId: id,
       status,
-      userId 
+      userId
     });
 
     const businessAccount = await safePrismaQuery(async (client) => {
@@ -213,9 +214,9 @@ router.patch('/:id/stripe-status', authenticateToken, asyncHandler(async (req: R
       });
     });
 
-    logger.info('Stripe account status updated', { 
+    logger.info('Stripe account status updated', {
       businessAccountId: id,
-      status 
+      status
     });
 
     res.json({
@@ -233,11 +234,11 @@ router.get('/:id/franchise-fee', authenticateToken, asyncHandler(async (req: Req
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    
-    logger.info('Franchise fee configuration requested', { 
+
+    logger.info('Franchise fee configuration requested', {
       user: req.user?.email,
       businessAccountId: id,
-      userId 
+      userId
     });
 
     const config = await FranchiseFeeService.getFranchiseFeeConfig(id);
@@ -246,8 +247,8 @@ router.get('/:id/franchise-fee', authenticateToken, asyncHandler(async (req: Req
       throw new AppError('Business account not found', 404, 'BUSINESS_ACCOUNT_NOT_FOUND');
     }
 
-    logger.info('Franchise fee configuration retrieved', { 
-      businessAccountId: id 
+    logger.info('Franchise fee configuration retrieved', {
+      businessAccountId: id
     });
 
     res.json({
@@ -266,13 +267,13 @@ router.put('/:id/franchise-fee', authenticateToken, asyncHandler(async (req: Req
     const { id } = req.params;
     const userId = req.user!.id;
     const { franchiseFeeType, franchiseFeeValue, vatMode, adminFeeAmount } = req.body;
-    
-    logger.info('Updating franchise fee configuration', { 
+
+    logger.info('Updating franchise fee configuration', {
       user: req.user?.email,
       businessAccountId: id,
       franchiseFeeType,
       franchiseFeeValue,
-      userId 
+      userId
     });
 
     const config = await FranchiseFeeService.updateFranchiseFeeConfig(id, {
@@ -282,8 +283,8 @@ router.put('/:id/franchise-fee', authenticateToken, asyncHandler(async (req: Req
       adminFeeAmount
     });
 
-    logger.info('Franchise fee configuration updated', { 
-      businessAccountId: id 
+    logger.info('Franchise fee configuration updated', {
+      businessAccountId: id
     });
 
     res.json({
@@ -302,13 +303,13 @@ router.post('/:id/calculate-fee', authenticateToken, asyncHandler(async (req: Re
     const { id } = req.params;
     const userId = req.user!.id;
     const { amount, venueId } = req.body;
-    
-    logger.info('Calculating franchise fee', { 
+
+    logger.info('Calculating franchise fee', {
       user: req.user?.email,
       businessAccountId: id,
       amount,
       venueId,
-      userId 
+      userId
     });
 
     if (!venueId) {
@@ -317,11 +318,11 @@ router.post('/:id/calculate-fee', authenticateToken, asyncHandler(async (req: Re
 
     const result = await FranchiseFeeService.calculateEffectiveFranchiseFee(venueId, parseFloat(amount));
 
-    logger.info('Franchise fee calculated', { 
+    logger.info('Franchise fee calculated', {
       businessAccountId: id,
       venueId,
       franchiseFee: result.calculatedFee,
-      netAmount: result.breakdown.netAmount 
+      netAmount: result.breakdown.netAmount
     });
 
     res.json({

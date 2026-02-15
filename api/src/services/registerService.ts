@@ -27,8 +27,10 @@ class RegisterService {
           include: {
             activity: {
               select: {
+                id: true,
                 title: true,
                 type: true,
+                venueId: true,
                 venue: {
                   select: {
                     name: true,
@@ -48,9 +50,10 @@ class RegisterService {
         const register = await client.register.create({
           data: {
             sessionId,
-            activityId: session.activityId,
+            activityId: session.activity!.id,
+            venueId: session.activity!.venueId,
             date: session.date,
-            capacity: capacity || session.capacity,
+            capacity: capacity || session.capacity || 20,
             notes,
             status: 'active'
           },
@@ -77,7 +80,7 @@ class RegisterService {
         logger.info('Register created', {
           registerId: register.id,
           sessionId,
-          activityId: session.activityId,
+          activityId: session.activity!.id,
           date: session.date
         });
 
@@ -119,8 +122,7 @@ class RegisterService {
                     firstName: true,
                     lastName: true,
                     dateOfBirth: true,
-                    medicalInfo: true,
-                    emergencyContact: true
+                    allergies: true
                   }
                 },
                 booking: {
@@ -151,7 +153,7 @@ class RegisterService {
     try {
       return await safePrismaQuery(async (client) => {
         const where: any = { activityId };
-        
+
         if (dateFrom || dateTo) {
           where.date = {};
           if (dateFrom) where.date.gte = dateFrom;
@@ -225,9 +227,10 @@ class RegisterService {
           include: {
             session: {
               include: {
-                bookings: {
-                  include: {
-                    child: true
+                activity: {
+                  select: {
+                    title: true,
+                    type: true
                   }
                 }
               }
@@ -248,7 +251,7 @@ class RegisterService {
         const results = [];
         for (const record of attendanceRecords) {
           const existing = existingAttendance.find(a => a.childId === record.childId);
-          
+
           if (existing) {
             // Update existing record
             const updated = await client.attendance.update({
@@ -310,34 +313,23 @@ class RegisterService {
         const register = await client.register.findUnique({
           where: { id: registerId },
           include: {
-            attendance: true,
-            session: {
-              include: {
-                bookings: {
-                  include: {
-                    child: true
-                  }
-                }
-              }
-            }
+            attendance: true
           }
         });
 
         if (!register) return null;
 
-        const totalBookings = register.session.bookings.length;
         const totalAttendance = register.attendance.length;
         const presentCount = register.attendance.filter(a => a.present).length;
         const absentCount = totalAttendance - presentCount;
-        const noShowCount = totalBookings - totalAttendance;
 
         return {
-          totalBookings,
+          totalBookings: register.totalCount,
           totalAttendance,
           presentCount,
           absentCount,
-          noShowCount,
-          attendanceRate: totalBookings > 0 ? (totalAttendance / totalBookings) * 100 : 0,
+          noShowCount: register.totalCount - totalAttendance,
+          attendanceRate: register.totalCount > 0 ? (totalAttendance / register.totalCount) * 100 : 0,
           presentRate: totalAttendance > 0 ? (presentCount / totalAttendance) * 100 : 0
         };
       });
@@ -390,15 +382,15 @@ class RegisterService {
           totalSessions: registers.length,
           totalAttendance: registers.reduce((sum, r) => sum + r.attendance.length, 0),
           totalPresent: registers.reduce((sum, r) => sum + r.presentCount, 0),
-          averageAttendance: registers.length > 0 
-            ? registers.reduce((sum, r) => sum + r.attendance.length, 0) / registers.length 
+          averageAttendance: registers.length > 0
+            ? registers.reduce((sum, r) => sum + r.attendance.length, 0) / registers.length
             : 0,
           sessions: registers.map(register => ({
             date: register.date,
             presentCount: register.presentCount,
             totalCount: register.totalCount,
-            attendanceRate: register.totalCount > 0 
-              ? (register.presentCount / register.totalCount) * 100 
+            attendanceRate: register.totalCount > 0
+              ? (register.presentCount / register.totalCount) * 100
               : 0,
             children: register.attendance.map(att => ({
               name: `${att.child.firstName} ${att.child.lastName}`,
@@ -449,16 +441,18 @@ class RegisterService {
               gte: startDate,
               lte: endDate
             },
-            status: 'active'
+            status: 'scheduled'
           },
           include: {
-                activity: {
-                  select: {
-                    title: true,
-                    capacity: true
-                  }
-                }
+            activity: {
+              select: {
+                id: true,
+                title: true,
+                capacity: true,
+                venueId: true
               }
+            }
+          }
         });
 
         const registers = [];
@@ -472,9 +466,10 @@ class RegisterService {
             const register = await client.register.create({
               data: {
                 sessionId: session.id,
-                activityId: session.activityId,
+                activityId: session.activity!.id,
+                venueId: session.activity!.venueId,
                 date: session.date,
-                capacity: session.capacity || session.activity.capacity || 0,
+                capacity: session.capacity || session.activity!.capacity || 20,
                 status: 'active'
               }
             });
