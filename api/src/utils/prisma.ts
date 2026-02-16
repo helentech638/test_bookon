@@ -7,23 +7,9 @@ const globalForPrisma = globalThis as unknown as {
 
 // Connection retry configuration
 const createPrismaClient = () => {
-  const options: any = {
-    log: process.env['NODE_ENV'] === 'development' ? ['error', 'warn'] : ['error'],
-    datasources: {
-      db: {
-        url: process.env['DATABASE_URL'] || '',
-      },
-    },
-    errorFormat: 'minimal',
-    __internal: {
-      engine: {
-        connectTimeout: 30000,
-        poolTimeout: 30000,
-        connectionLimit: 5,
-      },
-    },
-  };
-  return new PrismaClient(options);
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  });
 };
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();

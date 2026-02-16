@@ -1115,12 +1115,16 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <NotificationProvider>
-          <BasketProvider>
-            <AuthErrorBoundary>
-            <Router>
-              <div className="App">
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <AuthProvider>
+          <NotificationProvider>
+            <BasketProvider>
+              <AuthErrorBoundary>
                 <AppRoutes />
                 
                 {/* Global toast notifications */}
@@ -1135,7 +1139,7 @@ function App() {
                     success: {
                       duration: 3000,
                       iconTheme: {
-                        primary: '#10b981',
+                        primary: '#00806a',
                         secondary: '#fff',
                       },
                     },
@@ -1148,12 +1152,11 @@ function App() {
                     },
                   }}
                 />
-              </div>
-            </Router>
-          </AuthErrorBoundary>
-          </BasketProvider>
-        </NotificationProvider>
-      </AuthProvider>
+              </AuthErrorBoundary>
+            </BasketProvider>
+          </NotificationProvider>
+        </AuthProvider>
+      </Router>
     </QueryClientProvider>
   );
 }

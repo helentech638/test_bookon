@@ -235,7 +235,7 @@ router.get('/analytics', asyncHandler(async (req: ExpressRequest, res: ExpressRe
 /**
  * Get scheduled jobs status
  */
-router.get('/jobs/status', asyncHandler(async (req: Request, res: Response) => {
+router.get('/jobs/status', asyncHandler(async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const healthCheck = await schedulerService.healthCheck();
 
@@ -252,7 +252,7 @@ router.get('/jobs/status', asyncHandler(async (req: Request, res: Response) => {
 /**
  * Manually run a scheduled job
  */
-router.post('/jobs/run/:jobName', asyncHandler(async (req: Request, res: Response) => {
+router.post('/jobs/run/:jobName', asyncHandler(async (req: ExpressRequest, res: ExpressResponse) => {
   try {
     const { jobName } = req.params;
     const adminId = req.user!.id;

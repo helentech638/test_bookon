@@ -8,35 +8,51 @@ const globalForPrisma = globalThis as unknown as {
 // Connection retry configuration
 const createPrismaClient = () => {
   const isProduction = process.env['NODE_ENV'] === 'production';
+  const isDevelopment = process.env['NODE_ENV'] === 'development';
   
-  // Modify database URL to disable prepared statements in production
   let databaseUrl = process.env['DATABASE_URL'] || '';
+  
+  // Check if DATABASE_URL is set
+  if (!databaseUrl) {
+    console.error('\n❌ CRITICAL ERROR: DATABASE_URL environment variable is not set!');
+    console.error('\n📝 Instructions:');
+    console.error('1. Create a .env or .env.local file in the backend directory');
+    console.error('2. Add your database URL:');
+    console.error('   DATABASE_URL="postgresql://username:password@localhost:5432/bookon_dev"');
+    console.error('\n📚 See LOCAL_DEVELOPMENT_SETUP.md for complete setup instructions\n');
+    
+    // For development, we'll create a placeholder client that will error when used
+    if (isDevelopment) {
+      console.warn('⚠️  Using placeholder Prisma client - database operations will fail until DATABASE_URL is set');
+    }
+  }
+  
+  // Modify database URL only for production (serverless optimization)
   if (isProduction && databaseUrl) {
-    // Add parameters to disable prepared statements (matching your working second project)
-    const url = new URL(databaseUrl);
-    url.searchParams.set('prepared', 'false');  // Use 'prepared' instead of 'prepared_statements'
-    url.searchParams.set('pgbouncer', 'true'); // Enable pgbouncer
-    url.searchParams.set('connection_limit', '5'); // Reduce connection limit for serverless
-    url.searchParams.set('pool_timeout', '10'); // Reduce pool timeout
-    url.searchParams.set('sslmode', 'disable'); // Disable SSL for serverless environments
-    url.searchParams.set('connect_timeout', '10'); // Add connection timeout
-    url.searchParams.set('statement_timeout', '30000'); // Add statement timeout
-    databaseUrl = url.toString();
+    try {
+      const url = new URL(databaseUrl);
+      // Add parameters to disable prepared statements for serverless
+      url.searchParams.set('prepared', 'false');
+      url.searchParams.set('pgbouncer', 'true');
+      url.searchParams.set('connection_limit', '5');
+      url.searchParams.set('pool_timeout', '10');
+      url.searchParams.set('sslmode', 'disable');
+      url.searchParams.set('connect_timeout', '10');
+      url.searchParams.set('statement_timeout', '30000');
+      databaseUrl = url.toString();
+    } catch (error) {
+      console.error('⚠️  Failed to parse DATABASE_URL:', error);
+    }
   }
   
   return new PrismaClient({
     log: isProduction ? ['error'] : ['error', 'warn'],
     datasources: {
       db: {
-        // Always use pooled connection URL for regular operations
-        // DATABASE_DIRECT_URL should only be used for migrations and seeding
         url: databaseUrl,
       },
     },
-    // Add error handling for connection issues
     errorFormat: 'minimal',
-    // Add connection pool configuration for better reliability
-    // Note: __internal configuration removed due to type compatibility issues
   });
 };
 

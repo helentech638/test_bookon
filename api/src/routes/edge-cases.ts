@@ -79,7 +79,7 @@ router.post('/transfer', authenticateToken, validateTransferRequest, asyncHandle
 router.post('/chargeback', authenticateToken, validateChargebackData, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
@@ -126,7 +126,7 @@ router.post('/chargeback', authenticateToken, validateChargebackData, asyncHandl
 router.post('/chargeback/:chargebackId/resolve', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
@@ -163,7 +163,7 @@ router.post('/chargeback/:chargebackId/resolve', authenticateToken, asyncHandler
 router.post('/partial-refund', authenticateToken, validatePartialRefund, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
@@ -209,7 +209,7 @@ router.post('/partial-refund', authenticateToken, validatePartialRefund, asyncHa
 router.post('/bulk-operation', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
@@ -259,7 +259,7 @@ router.post('/bulk-operation', authenticateToken, asyncHandler(async (req: Reque
 router.post('/system-recovery', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
@@ -294,7 +294,7 @@ router.post('/system-recovery', authenticateToken, asyncHandler(async (req: Requ
 router.get('/chargebacks', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
@@ -356,7 +356,7 @@ router.get('/chargebacks', authenticateToken, asyncHandler(async (req: Request, 
       child: `${chargeback.booking.child.firstName} ${chargeback.booking.child.lastName}`,
       parent: `${chargeback.booking.parent.firstName} ${chargeback.booking.parent.lastName}`,
       parentEmail: chargeback.booking.parent.email,
-      activity: chargeback.booking.activity.name,
+      activity: chargeback.booking.activity.title,
       venue: chargeback.booking.activity.venue.name,
       venueId: chargeback.booking.activity.venue.id
     }));

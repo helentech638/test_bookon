@@ -985,48 +985,8 @@ router.post('/generate-invoice', authenticateToken, requireAdminOrStaff, asyncHa
     }
 
     // Generate real invoice using database
-    const invoice = await safePrismaQuery(async (client) => {
-      // Get booking details
-      const booking = await client.booking.findUnique({
-        where: { id: bookingId },
-        include: {
-          activity: {
-            select: { title: true, price: true }
-          },
-          parent: {
-            select: { firstName: true, lastName: true, email: true }
-          }
-        }
-      });
-
-      if (!booking) {
-        throw new AppError('Booking not found', 404, 'BOOKING_NOT_FOUND');
-      }
-
-      // Create invoice record
-      return await client.invoice.create({
-        data: {
-          bookingId,
-          amount: customAmount || booking.activity.price,
-          status: 'generated',
-          notes: notes || '',
-          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }
-      });
-    });
-
-    logger.info('Admin generated invoice', {
-      adminUserId: req.user!.id,
-      bookingId,
-      invoiceId: invoice.id,
-      timestamp: new Date()
-    });
-
-    res.json({
-      success: true,
-      message: 'Invoice generated successfully',
-      data: invoice
-    });
+    // Functionality not implemented
+    throw new AppError('Invoice generation not implemented', 501, 'NOT_IMPLEMENTED');
   } catch (error) {
     logger.error('Error generating invoice:', error);
     if (error instanceof AppError) throw error;
@@ -1762,7 +1722,7 @@ router.get('/export/bookings', authenticateToken, requireAdminOrStaff, asyncHand
         booking.id,
         booking.activityDate,
         booking.activity.venue.name,
-        booking.activity.name,
+        booking.activity.title,
         `${booking.parent.firstName} ${booking.parent.lastName}`,
         booking.parent.email,
         booking.status,
@@ -1854,12 +1814,12 @@ router.get('/export/financial', authenticateToken, requireAdminOrStaff, asyncHan
 
       // Group data by date, venue, and activity for aggregation
       const groupedData = financialData.reduce((acc, booking) => {
-        const key = `${booking.activityDate}-${booking.activity.venue.name}-${booking.activity.name}`;
+        const key = `${booking.activityDate}-${booking.activity.venue.name}-${booking.activity.title}`;
         if (!acc[key]) {
           acc[key] = {
             date: booking.activityDate,
             venue: booking.activity.venue.name,
-            activity: booking.activity.name,
+            activity: booking.activity.title,
             totalBookings: 0,
             totalRevenue: 0,
             totalPlatformFees: 0

@@ -31,7 +31,12 @@ class ActivityService {
           data: {
             title: activityData.title,
             type: activityData.type,
-            venueId: activityData.venueId,
+            venue: {
+              connect: { id: activityData.venueId }
+            },
+            owner: {
+              connect: { id: activityData.createdBy }
+            },
             description: activityData.description,
             startDate: sessionOptions.startDate,
             endDate: sessionOptions.endDate,
@@ -39,13 +44,8 @@ class ActivityService {
             endTime: sessionOptions.endTime,
             capacity: activityData.capacity,
             price: activityData.price,
-            earlyDropoff: holidayOptions?.earlyDropoff || false,
-            earlyDropoffPrice: holidayOptions?.earlyDropoffPrice || null,
-            latePickup: holidayOptions?.latePickup || false,
-            latePickupPrice: holidayOptions?.latePickupPrice || null,
             status: 'active',
-            isActive: true,
-            createdBy: activityData.createdBy
+            isActive: true
           }
         });
 
@@ -115,7 +115,7 @@ class ActivityService {
 
     while (current <= end) {
       const dateString = current.toISOString().split('T')[0];
-      
+
       // Skip excluded dates
       if (!excludeDates.includes(dateString)) {
         // For afterschool activities, generate sessions for weekdays only
@@ -211,16 +211,6 @@ class ActivityService {
                   }
                 }
               }
-            },
-            bookings: {
-              include: {
-                child: {
-                  select: {
-                    firstName: true,
-                    lastName: true
-                  }
-                }
-              }
             }
           }
         });
@@ -263,8 +253,8 @@ class ActivityService {
           totalBookings: activity._count.bookings,
           totalCapacity,
           utilizationRate: Math.round(utilizationRate * 100) / 100,
-          averageBookingsPerSession: activity._count.sessions > 0 
-            ? Math.round((totalBookings / activity._count.sessions) * 100) / 100 
+          averageBookingsPerSession: activity._count.sessions > 0
+            ? Math.round((totalBookings / activity._count.sessions) * 100) / 100
             : 0
         };
       });

@@ -56,8 +56,8 @@ const RegisterPage: React.FC = () => {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
-    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/.test(formData.password)) {
-      newErrors.password = 'Password must contain uppercase, lowercase, number, and special character';
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?])/.test(formData.password)) {
+      newErrors.password = 'Password must have uppercase, lowercase, number, and special character (!@#$%^&* etc)';
     }
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = 'Please confirm your password';
@@ -104,7 +104,8 @@ const RegisterPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Registration failed:', error);
-      setErrors({ general: 'Registration failed. Please try again.' });
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.';
+      setErrors({ general: errorMessage });
     } finally {
       setIsLoading(false);
     }

@@ -182,15 +182,13 @@ router.put('/:providerId', authenticateToken, validateProviderId, validateProvid
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }
 
     const settings = await prisma.providerSettings.findMany({
-      include: {
-        // Include venue information if available
-      },
+
       orderBy: { updatedAt: 'desc' }
     });
 
@@ -307,7 +305,7 @@ router.post('/:providerId/reset', authenticateToken, validateProviderId, asyncHa
 router.get('/admin/summary', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const user = req.user!;
-    
+
     if (user.role !== 'admin') {
       throw new AppError('Admin access required', 403, 'ADMIN_ACCESS_REQUIRED');
     }

@@ -109,7 +109,7 @@ class CronService {
               deadline: new Date(booking.tfcDeadline!),
               amount: Number(booking.amount),
               child: `${booking.child.firstName} ${booking.child.lastName}`,
-              activity: booking.activity.name,
+              activity: booking.activity.title,
               venue: booking.activity.venue.name,
               daysRemaining
             }
@@ -201,7 +201,7 @@ class CronService {
   private async processExpiredCredits(): Promise<void> {
     try {
       const expiredCount = await walletService.processExpiredCredits();
-      
+
       if (expiredCount > 0) {
         logger.info(`Processed ${expiredCount} expired credits`);
       }
@@ -216,7 +216,7 @@ class CronService {
   private async processScheduledNotifications(): Promise<void> {
     try {
       const processedCount = await notificationAutomationService.processScheduledNotifications();
-      
+
       if (processedCount > 0) {
         logger.info(`Processed ${processedCount} scheduled notifications`);
       }
@@ -271,7 +271,7 @@ class CronService {
             {
               bookingId: booking.id,
               child: `${booking.child.firstName} ${booking.child.lastName}`,
-              activity: booking.activity.name,
+              activity: booking.activity.title,
               venue: booking.activity.venue.name,
               refundAmount: 0,
               creditAmount: 0,

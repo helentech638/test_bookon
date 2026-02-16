@@ -69,7 +69,7 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
     const existingPayment = await prisma.payment.findFirst({
       where: {
         bookingId: bookingId,
-        isActive: true
+
       }
     });
 
@@ -96,12 +96,12 @@ router.post('/create-intent', authenticateToken, validatePaymentIntent, asyncHan
         status: 'pending',
         paymentMethod: 'stripe',
         stripeAccountId: venueId || booking.activity.venue?.stripeAccountId,
-        isActive: true
+
       }
     });
 
-    logger.info('Payment intent created successfully', { 
-      paymentId: payment.id, 
+    logger.info('Payment intent created successfully', {
+      paymentId: payment.id,
       bookingId,
       userId,
       stripeIntentId: paymentIntent.id,
@@ -144,7 +144,7 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
     const payment = await prisma.payment.findFirst({
       where: {
         stripePaymentIntentId: paymentIntentId,
-        isActive: true
+
       }
     });
 
@@ -190,11 +190,11 @@ router.post('/confirm', authenticateToken, asyncHandler(async (req: Request, res
   } catch (error) {
     logger.error('Error confirming payment:', error);
     if (error instanceof AppError) throw error;
-    
+
     if (error instanceof Stripe.errors.StripeError) {
       throw new AppError(`Payment error: ${error.message}`, 400, 'STRIPE_ERROR');
     }
-    
+
     throw new AppError('Failed to confirm payment', 500, 'PAYMENT_CONFIRMATION_ERROR');
   }
 }));
@@ -204,12 +204,12 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    
+
     const payment = await prisma.payment.findFirst({
       where: {
         id: id,
         userId: userId,
-        isActive: true
+
       },
       include: {
         booking: {
@@ -235,9 +235,9 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
         const paymentIntent = await stripeService.getPaymentIntent(payment.stripePaymentIntentId);
         stripeStatus = paymentIntent.status;
       } catch (stripeError) {
-        logger.warn('Could not retrieve Stripe payment intent', { 
-          paymentId: id, 
-          stripeError 
+        logger.warn('Could not retrieve Stripe payment intent', {
+          paymentId: id,
+          stripeError
         });
       }
     }
@@ -266,17 +266,17 @@ router.get('/:id/status', authenticateToken, asyncHandler(async (req: Request, r
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { 
-      page = '1', 
-      limit = '10', 
-      status 
+    const {
+      page = '1',
+      limit = '10',
+      status
     } = req.query;
-    
+
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
-    
+
     const whereClause: any = {
       userId: userId,
-      isActive: true
+
     };
 
     // Filter by status
@@ -347,13 +347,13 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
     const { id } = req.params;
     const userId = req.user!.id;
     const { reason } = req.body;
-    
+
     // Get payment record
     const payment = await prisma.payment.findFirst({
       where: {
         id: id,
         userId: userId,
-        isActive: true
+
       },
       include: {
         booking: true
@@ -375,7 +375,7 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
       const now = new Date();
       const paymentDate = new Date(payment.completedAt!);
       const daysSincePayment = (now.getTime() - paymentDate.getTime()) / (1000 * 60 * 60 * 24);
-      
+
       if (daysSincePayment > 7) {
         throw new AppError('Refund window has expired (7 days)', 400, 'REFUND_WINDOW_EXPIRED');
       }
@@ -414,8 +414,8 @@ router.post('/:id/refund', authenticateToken, asyncHandler(async (req: Request, 
       }
     });
 
-    logger.info('Payment refunded successfully', { 
-      paymentId: payment.id, 
+    logger.info('Payment refunded successfully', {
+      paymentId: payment.id,
       bookingId: payment.bookingId,
       userId,
       refundId: refund?.id
@@ -484,7 +484,7 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
     const payment = await prisma.payment.findFirst({
       where: {
         stripePaymentIntentId: paymentIntent.id,
-        isActive: true
+
       }
     });
 
@@ -506,9 +506,9 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
         }
       });
 
-      logger.info('Payment completed via webhook', { 
-        paymentId: payment.id, 
-        bookingId: payment.bookingId 
+      logger.info('Payment completed via webhook', {
+        paymentId: payment.id,
+        bookingId: payment.bookingId
       });
     }
   } catch (error) {
@@ -521,7 +521,7 @@ async function handlePaymentFailure(paymentIntent: Stripe.PaymentIntent) {
     const payment = await prisma.payment.findFirst({
       where: {
         stripePaymentIntentId: paymentIntent.id,
-        isActive: true
+
       }
     });
 
@@ -534,9 +534,9 @@ async function handlePaymentFailure(paymentIntent: Stripe.PaymentIntent) {
         }
       });
 
-      logger.info('Payment failed via webhook', { 
-        paymentId: payment.id, 
-        bookingId: payment.bookingId 
+      logger.info('Payment failed via webhook', {
+        paymentId: payment.id,
+        bookingId: payment.bookingId
       });
     }
   } catch (error) {
@@ -549,7 +549,7 @@ async function handleRefundCreated(refund: Stripe.Refund) {
     const payment = await prisma.payment.findFirst({
       where: {
         stripePaymentIntentId: refund.payment_intent as string,
-        isActive: true
+
       }
     });
 
@@ -571,8 +571,8 @@ async function handleRefundCreated(refund: Stripe.Refund) {
         }
       });
 
-      logger.info('Payment refunded via webhook', { 
-        paymentId: payment.id, 
+      logger.info('Payment refunded via webhook', {
+        paymentId: payment.id,
         bookingId: payment.bookingId,
         refundId: refund.id
       });
@@ -586,7 +586,7 @@ async function handleRefundCreated(refund: Stripe.Refund) {
 router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { paymentId, amount, reason } = req.body;
-    
+
     if (!paymentId) {
       throw new AppError('Payment ID is required', 400, 'PAYMENT_ID_REQUIRED');
     }
@@ -595,7 +595,7 @@ router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res:
     const payment = await prisma.payment.findFirst({
       where: {
         id: paymentId,
-        isActive: true
+
       },
       include: {
         booking: {
@@ -652,10 +652,10 @@ router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res:
       });
     }
 
-    logger.info('Refund processed successfully', { 
-      paymentId, 
+    logger.info('Refund processed successfully', {
+      paymentId,
       refundId: refund.id,
-      amount: refundAmount 
+      amount: refundAmount
     });
 
     res.json({
@@ -677,24 +677,27 @@ router.post('/refund', authenticateToken, asyncHandler(async (req: Request, res:
 router.get('/:paymentId/refunds', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { paymentId } = req.params;
-    
+
     // Get payment to find the Stripe payment intent ID
-    const payment = await db('payments')
-      .select('stripe_payment_intent_id')
-      .where('id', paymentId)
-      .where('is_active', true)
-      .first();
+    const payment = await prisma.payment.findFirst({
+      where: {
+        id: paymentId
+      },
+      select: {
+        stripePaymentIntentId: true
+      }
+    });
 
     if (!payment) {
       throw new AppError('Payment not found', 404, 'PAYMENT_NOT_FOUND');
     }
 
-    if (!payment.stripe_payment_intent_id) {
+    if (!payment.stripePaymentIntentId) {
       throw new AppError('No Stripe payment intent found for this payment', 400, 'NO_STRIPE_PAYMENT_INTENT');
     }
-    
-    const refunds = await stripeService.listRefunds(payment.stripe_payment_intent_id);
-    
+
+    const refunds = await stripeService.listRefunds(payment.stripePaymentIntentId);
+
     res.json({
       success: true,
       data: refunds

@@ -126,7 +126,7 @@ class SchedulerService {
       status.push({
         name,
         running: true, // If it's in the map, it's active
-        nextRun: null // node-cron doesn't natively expose next run date easily
+        nextRun: undefined // node-cron doesn't natively expose next run date easily
       });
     });
 

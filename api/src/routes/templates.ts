@@ -29,8 +29,8 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
-    
-    logger.info('Templates requested', { 
+
+    logger.info('Templates requested', {
       user: req.user?.email,
       search,
       type,
@@ -38,7 +38,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       status,
       page: pageNum,
       limit: limitNum,
-      userId 
+      userId
     });
 
     const startTime = performance.now();
@@ -46,8 +46,8 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     const result = await safePrismaQuery(async (client) => {
       const where: any = {
         createdBy: userId,
-        ...(status === 'active' ? { status: 'active' } : 
-            status === 'archived' ? { status: 'archived' } : 
+        ...(status === 'active' ? { status: 'active' } :
+          status === 'archived' ? { status: 'archived' } :
             status === 'all' ? {} : { status: 'active' })
       };
 
@@ -108,7 +108,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     const endTime = performance.now();
     const loadTime = endTime - startTime;
 
-    logger.info('Templates retrieved', { 
+    logger.info('Templates retrieved', {
       count: result.templates.length,
       total: result.pagination.total,
       loadTime: `${loadTime.toFixed(2)}ms`
@@ -136,11 +136,11 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    
-    logger.info('Template requested', { 
+
+    logger.info('Template requested', {
       user: req.user?.email,
       templateId: id,
-      userId 
+      userId
     });
 
     const template = await safePrismaQuery(async (client) => {
@@ -156,10 +156,10 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
               lastName: true
             }
           },
-          activities: {
+          courses: {
             select: {
               id: true,
-              title: true,
+              name: true,
               startDate: true,
               endDate: true,
               status: true
@@ -177,8 +177,8 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
       throw new AppError('Template not found', 404, 'TEMPLATE_NOT_FOUND');
     }
 
-    logger.info('Template retrieved', { 
-      templateId: id 
+    logger.info('Template retrieved', {
+      templateId: id
     });
 
     res.json({
@@ -207,12 +207,12 @@ router.post('/', authenticateToken, requireRole(['admin']), asyncHandler(async (
       tags = [],
       image
     } = req.body;
-    
-    logger.info('Creating template', { 
+
+    logger.info('Creating template', {
       user: req.user?.email,
       name,
       type,
-      userId 
+      userId
     });
 
     const template = await safePrismaQuery(async (client) => {
@@ -224,11 +224,13 @@ router.post('/', authenticateToken, requireRole(['admin']), asyncHandler(async (
           description,
           defaultPrice: parseFloat(defaultPrice),
           defaultCapacity: parseInt(defaultCapacity),
-          requiresPhotoConsent,
-          requiresMedicalReminder,
+          flags: {
+            photo_consent_required: requiresPhotoConsent,
+            medical_reminder: requiresMedicalReminder
+          },
           tags,
-          image,
-          createdBy: userId
+          imageUrl: image,
+          creator: { connect: { id: userId } }
         },
         include: {
           creator: {
@@ -241,8 +243,8 @@ router.post('/', authenticateToken, requireRole(['admin']), asyncHandler(async (
       });
     });
 
-    logger.info('Template created', { 
-      templateId: template.id 
+    logger.info('Template created', {
+      templateId: template.id
     });
 
     res.status(201).json({
@@ -261,11 +263,11 @@ router.put('/:id', authenticateToken, requireRole(['admin']), asyncHandler(async
     const { id } = req.params;
     const userId = req.user!.id;
     const updateData = req.body;
-    
-    logger.info('Updating template', { 
+
+    logger.info('Updating template', {
       user: req.user?.email,
       templateId: id,
-      userId 
+      userId
     });
 
     const template = await safePrismaQuery(async (client) => {
@@ -298,8 +300,8 @@ router.put('/:id', authenticateToken, requireRole(['admin']), asyncHandler(async
       });
     });
 
-    logger.info('Template updated', { 
-      templateId: id 
+    logger.info('Template updated', {
+      templateId: id
     });
 
     res.json({
@@ -317,11 +319,11 @@ router.patch('/:id/archive', authenticateToken, requireRole(['admin']), asyncHan
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    
-    logger.info('Archiving template', { 
+
+    logger.info('Archiving template', {
       user: req.user?.email,
       templateId: id,
-      userId 
+      userId
     });
 
     const template = await safePrismaQuery(async (client) => {
@@ -331,15 +333,14 @@ router.patch('/:id/archive', authenticateToken, requireRole(['admin']), asyncHan
           createdBy: userId
         },
         data: {
-          isArchived: true,
-          isActive: false,
+          status: 'archived',
           updatedAt: new Date()
         }
       });
     });
 
-    logger.info('Template archived', { 
-      templateId: id 
+    logger.info('Template archived', {
+      templateId: id
     });
 
     res.json({
@@ -357,11 +358,11 @@ router.patch('/:id/unarchive', authenticateToken, asyncHandler(async (req: Reque
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    
-    logger.info('Unarchiving template', { 
+
+    logger.info('Unarchiving template', {
       user: req.user?.email,
       templateId: id,
-      userId 
+      userId
     });
 
     const template = await safePrismaQuery(async (client) => {
@@ -371,15 +372,14 @@ router.patch('/:id/unarchive', authenticateToken, asyncHandler(async (req: Reque
           createdBy: userId
         },
         data: {
-          isArchived: false,
-          isActive: true,
+          status: 'active',
           updatedAt: new Date()
         }
       });
     });
 
-    logger.info('Template unarchived', { 
-      templateId: id 
+    logger.info('Template unarchived', {
+      templateId: id
     });
 
     res.json({
@@ -397,11 +397,11 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
   try {
     const { id } = req.params;
     const userId = req.user!.id;
-    
-    logger.info('Deleting template', { 
+
+    logger.info('Deleting template', {
       user: req.user?.email,
       templateId: id,
-      userId 
+      userId
     });
 
     await safePrismaQuery(async (client) => {
@@ -417,24 +417,13 @@ router.delete('/:id', authenticateToken, requireRole(['admin']), asyncHandler(as
         throw new AppError('Template not found', 404, 'TEMPLATE_NOT_FOUND');
       }
 
-      // Check if template has any activities
-      const activityCount = await client.activity.count({
-        where: {
-          templateId: id
-        }
-      });
-
-      if (activityCount > 0) {
-        throw new AppError('Cannot delete template with existing activities', 400, 'TEMPLATE_HAS_ACTIVITIES');
-      }
-
       return await client.template.delete({
         where: { id: id }
       });
     });
 
-    logger.info('Template deleted', { 
-      templateId: id 
+    logger.info('Template deleted', {
+      templateId: id
     });
 
     res.json({
@@ -463,11 +452,11 @@ router.post('/:id/create-activity', authenticateToken, asyncHandler(async (req: 
       capacity,
       description
     } = req.body;
-    
-    logger.info('Creating activity from template', { 
+
+    logger.info('Creating activity from template', {
       user: req.user?.email,
       templateId: id,
-      userId 
+      userId
     });
 
     const template = await safePrismaQuery(async (client) => {
@@ -476,8 +465,7 @@ router.post('/:id/create-activity', authenticateToken, asyncHandler(async (req: 
         where: {
           id: id,
           createdBy: userId,
-          isActive: true,
-          isArchived: false
+          status: 'active'
         }
       });
 
@@ -492,17 +480,16 @@ router.post('/:id/create-activity', authenticateToken, asyncHandler(async (req: 
           data: {
             title: name || templateData.name,
             description: description || templateData.description,
-            venueId: venueId,
-            createdBy: userId,
-            templateId: id,
+            venue: { connect: { id: venueId } },
+            owner: { connect: { id: userId } },
+            // templateId removed as it doesn't exist in Activity model
             startDate: new Date(startDate),
             endDate: new Date(endDate),
             startTime: startTime,
             endTime: endTime,
             price: parseFloat(price || templateData.defaultPrice),
             capacity: parseInt(capacity || templateData.defaultCapacity),
-            requiresPhotoConsent: templateData.requiresPhotoConsent,
-            requiresMedicalReminder: templateData.requiresMedicalReminder,
+            status: 'active',
             isActive: true
           },
           include: {
@@ -519,9 +506,9 @@ router.post('/:id/create-activity', authenticateToken, asyncHandler(async (req: 
       return activities;
     });
 
-    logger.info('Activities created from template', { 
+    logger.info('Activities created from template', {
       templateId: id,
-      activityCount: template.length 
+      activityCount: template.length
     });
 
     res.status(201).json({

@@ -11,26 +11,26 @@ const router = Router();
 router.get('/reporting', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { 
+    const {
       range = 'month',
       startDate,
       endDate,
       venueId,
       businessAccountId
     } = req.query;
-    
-    logger.info('Finance reporting requested', { 
+
+    logger.info('Finance reporting requested', {
       user: req.user?.email,
       range,
       venueId,
       businessAccountId,
-      userId 
+      userId
     });
 
     // Calculate date range
     let dateFilter: any = {};
     const now = new Date();
-    
+
     switch (range) {
       case 'today':
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -116,7 +116,7 @@ router.get('/reporting', authenticateToken, asyncHandler(async (req: Request, re
 
           try {
             const breakdown = await PaymentRoutingService.getPaymentBreakdown(payment.stripePaymentIntentId);
-            
+
             return {
               id: booking.id,
               paymentIntentId: payment.stripePaymentIntentId,
@@ -162,13 +162,13 @@ router.get('/reporting', authenticateToken, asyncHandler(async (req: Request, re
       averageTransactionValue: 0
     });
 
-    summary.averageTransactionValue = summary.transactionCount > 0 
-      ? summary.totalGross / summary.transactionCount 
+    summary.averageTransactionValue = summary.transactionCount > 0
+      ? summary.totalGross / summary.transactionCount
       : 0;
 
-    logger.info('Finance reporting data retrieved', { 
+    logger.info('Finance reporting data retrieved', {
       transactionCount: summary.transactionCount,
-      totalGross: summary.totalGross 
+      totalGross: summary.totalGross
     });
 
     res.json({
@@ -189,17 +189,17 @@ router.get('/analytics', authenticateToken, asyncHandler(async (req: Request, re
   try {
     const userId = req.user!.id;
     const { range = 'month' } = req.query;
-    
-    logger.info('Franchise fee analytics requested', { 
+
+    logger.info('Franchise fee analytics requested', {
       user: req.user?.email,
       range,
-      userId 
+      userId
     });
 
     // Calculate date range
     let dateFilter: any = {};
     const now = new Date();
-    
+
     switch (range) {
       case 'today':
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -230,7 +230,7 @@ router.get('/analytics', authenticateToken, asyncHandler(async (req: Request, re
       // Get business account performance
       const businessAccounts = await client.businessAccount.findMany({
         where: {
-          isActive: true
+          status: 'onboarded'
         },
         include: {
           venues: {
@@ -268,15 +268,16 @@ router.get('/analytics', authenticateToken, asyncHandler(async (req: Request, re
             activity.bookings.forEach(booking => {
               const payment = booking.payments[0];
               if (payment) {
-                totalRevenue += payment.amount;
+                totalRevenue += Number(payment.amount);
                 transactionCount += 1;
-                
+
                 // Calculate franchise fee (simplified)
-                const franchiseFeeRate = account.franchiseFeeType === 'percent' 
-                  ? account.franchiseFeeValue / 100 
-                  : account.franchiseFeeValue / payment.amount;
-                
-                totalFranchiseFees += payment.amount * franchiseFeeRate;
+                const franchiseFeeVal = Number(account.franchiseFeeValue);
+                const franchiseFeeRate = account.franchiseFeeType === 'percent'
+                  ? franchiseFeeVal / 100
+                  : franchiseFeeVal / Number(payment.amount);
+
+                totalFranchiseFees += Number(payment.amount) * franchiseFeeRate;
               }
             });
           });
@@ -290,16 +291,16 @@ router.get('/analytics', authenticateToken, asyncHandler(async (req: Request, re
           totalFranchiseFees,
           transactionCount,
           averageTransactionValue: transactionCount > 0 ? totalRevenue / transactionCount : 0,
-          franchiseFeeRate: account.franchiseFeeType === 'percent' ? account.franchiseFeeValue : null,
-          franchiseFeeFixed: account.franchiseFeeType === 'fixed' ? account.franchiseFeeValue : null
+          franchiseFeeRate: account.franchiseFeeType === 'percent' ? Number(account.franchiseFeeValue) : null,
+          franchiseFeeFixed: account.franchiseFeeType === 'fixed' ? Number(account.franchiseFeeValue) : null
         };
       });
 
       return accountAnalytics.sort((a, b) => b.totalRevenue - a.totalRevenue);
     });
 
-    logger.info('Franchise fee analytics retrieved', { 
-      accountCount: analytics.length 
+    logger.info('Franchise fee analytics retrieved', {
+      accountCount: analytics.length
     });
 
     res.json({

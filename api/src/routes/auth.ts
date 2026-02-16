@@ -18,7 +18,7 @@ const validateRegistration = [
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/)
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?])/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
   body('firstName').trim().isLength({ min: 2 }).withMessage('First name is required'),
   body('lastName').trim().isLength({ min: 2 }).withMessage('Last name is required'),
@@ -38,7 +38,7 @@ const validatePasswordChange = [
   body('newPassword')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=\[\]{};':"\\|,.<>\/?])/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'),
 ];
 

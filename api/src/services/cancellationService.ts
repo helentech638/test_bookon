@@ -36,9 +36,13 @@ export interface ProRataCalculation {
   creditAmount: number;
   adminFee: number;
   breakdown: {
-    cashRefund: number;
-    creditRefund: number;
-    fees: number;
+    totalPaid: number;
+    sessionsUsed: number;
+    sessionsRemaining: number;
+    valuePerSession: number;
+    refundableAmount: number;
+    creditAmount: number;
+    adminFee: number;
   };
 }
 
@@ -70,29 +74,30 @@ class CancellationService {
       const totalPaid = Number(booking.amount);
       const activityDate = new Date(booking.activityDate);
       const activityTime = booking.activityTime;
-      
+
       // Calculate session details
       const sessionDateTime = new Date(`${activityDate.toISOString().split('T')[0]}T${activityTime}`);
       const hoursUntilSession = (sessionDateTime.getTime() - cancellationDate.getTime()) / (1000 * 60 * 60);
-      
-      // Enhanced calculation for multi-session courses
+
       // Check if this is a course booking (multiple sessions)
-      const isCourseBooking = booking.activity.duration && booking.activity.duration > 1;
-      
+      // Assuming course if start and end dates are different by more than 24 hours
+      const courseDurationMs = new Date(booking.activity.endDate).getTime() - new Date(booking.activity.startDate).getTime();
+      const isCourseBooking = courseDurationMs > 24 * 60 * 60 * 1000;
+
       let sessionsUsed = 0;
       let sessionsRemaining = 0;
       let valuePerSession = totalPaid;
 
       if (isCourseBooking) {
         // For course bookings, calculate based on course duration
-        const totalSessions = booking.activity.duration || 1;
-        const sessionDuration = booking.activity.sessionDuration || 60; // minutes
-        
+        // Estimate total sessions (e.g. weekly) if not stored
+        const totalSessions = Math.floor(courseDurationMs / (7 * 24 * 60 * 60 * 1000)) + 1;
+
         // Calculate how many sessions have passed
         const now = new Date();
         const courseStartDate = new Date(booking.activity.startDate);
         const courseEndDate = new Date(booking.activity.endDate);
-        
+
         if (now < courseStartDate) {
           // Course hasn't started yet
           sessionsUsed = 0;
@@ -108,7 +113,7 @@ class CancellationService {
           sessionsUsed = Math.floor((elapsedTime / totalCourseDuration) * totalSessions);
           sessionsRemaining = totalSessions - sessionsUsed;
         }
-        
+
         valuePerSession = totalPaid / totalSessions;
       } else {
         // Single session booking
@@ -119,7 +124,7 @@ class CancellationService {
 
       // Calculate refundable amounts
       const refundableAmount = sessionsRemaining * valuePerSession;
-      
+
       // Apply admin fee only once per cancellation action
       const creditAmount = Math.max(0, refundableAmount - this.ADMIN_FEE);
       const cashRefund = 0; // Default to credit only
@@ -134,9 +139,13 @@ class CancellationService {
         creditAmount: creditRefund,
         adminFee: this.ADMIN_FEE,
         breakdown: {
-          cashRefund,
-          creditRefund,
-          fees: this.ADMIN_FEE
+          totalPaid,
+          sessionsUsed,
+          sessionsRemaining,
+          valuePerSession,
+          refundableAmount,
+          creditAmount: creditRefund,
+          adminFee: this.ADMIN_FEE
         }
       };
     } catch (error) {
@@ -224,7 +233,7 @@ class CancellationService {
 
       // Calculate refund amounts
       const calculation = await this.calculateProRataRefund(bookingId, cancellationDate);
-      
+
       // Determine refund method based on payment method and timing
       let method: 'cash' | 'credit' | 'mixed' = 'credit';
       let refundAmount = 0;
@@ -278,9 +287,9 @@ class CancellationService {
    * Process cancellation request
    */
   async processCancellation(
-    bookingId: string, 
-    parentId: string, 
-    reason: string, 
+    bookingId: string,
+    parentId: string,
+    reason: string,
     adminId?: string
   ): Promise<{ refundTransactionId?: string; creditId?: string }> {
     try {
@@ -306,8 +315,12 @@ class CancellationService {
 
       // Process refund if applicable
       if (eligibility.refundAmount > 0) {
+        // Fetch booking for paymentId
+        const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+
         const refundTransaction = await prisma.refundTransaction.create({
           data: {
+            paymentId: booking?.paymentIntentId || 'unknown',
             bookingId,
             amount: eligibility.refundAmount,
             method: 'card',
@@ -399,6 +412,7 @@ class CancellationService {
       if (refundMethod === 'cash' || refundMethod === 'parent_choice') {
         const refundTransaction = await prisma.refundTransaction.create({
           data: {
+            paymentId: booking.paymentIntentId || 'unknown',
             bookingId,
             amount: totalAmount,
             method: 'card',
@@ -527,11 +541,11 @@ class CancellationService {
 
       refunds.forEach(refund => {
         // Count by reason
-        stats.cancellationsByReason[refund.reason] = 
+        stats.cancellationsByReason[refund.reason] =
           (stats.cancellationsByReason[refund.reason] || 0) + 1;
-        
+
         // Count by method
-        stats.cancellationsByMethod[refund.method] = 
+        stats.cancellationsByMethod[refund.method] =
           (stats.cancellationsByMethod[refund.method] || 0) + 1;
       });
 

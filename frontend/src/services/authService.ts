@@ -198,12 +198,15 @@ class AuthService {
       if (!response.ok) {
         // Handle specific error cases
         if (response.status === 400) {
-          const errorMessage = data.message || data.error || 'Invalid registration data';
+          // Extract detailed error message from validation
+          const errorMessage = data.message || data.error || data.errors?.[0]?.msg || 'Invalid registration data';
           throw new Error(errorMessage);
         } else if (response.status === 409) {
           throw new Error('Email already exists. Please use a different email or try logging in.');
+        } else if (response.status === 500) {
+          throw new Error('Server error. Please try again later.');
         } else {
-          throw new Error(data.message || 'Registration failed');
+          throw new Error(data.message || 'Registration failed. Please try again.');
         }
       }
 
@@ -211,11 +214,12 @@ class AuthService {
         toast.success('Registration successful! Please log in with your credentials.');
         return data;
       } else {
-        throw new Error(data.message || 'Registration failed');
+        throw new Error(data.message || 'Registration failed. Please try again.');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      toast.error(error instanceof Error ? error.message : 'Registration failed');
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.';
+      toast.error(errorMessage);
       throw error;
     }
   }

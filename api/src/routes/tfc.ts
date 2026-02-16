@@ -40,8 +40,8 @@ router.get('/config/:venueId', authenticateToken, asyncHandler(async (req: Reque
       instructionText: providerSettings?.tfcInstructions || `Please use the payment reference when making your Tax-Free Childcare payment. Your booking will be confirmed once payment is received.`,
       bankDetails: {
         accountName: providerSettings?.tfcPayeeName || venue.businessAccount?.name || venue.name,
-        sortCode: providerSettings?.tfcSortCode || venue.businessAccount?.sortCode || '20-00-00',
-        accountNumber: providerSettings?.tfcAccountNumber || venue.businessAccount?.accountNumber || '12345678'
+        sortCode: providerSettings?.tfcSortCode || '20-00-00',
+        accountNumber: providerSettings?.tfcAccountNumber || '12345678',
       }
     };
 
@@ -72,6 +72,9 @@ router.post('/create-booking', authenticateToken, asyncHandler(async (req: Reque
 
     // Create booking with TFC status
     const booking = await safePrismaQuery(async (client) => {
+      const activity = await client.activity.findUnique({ where: { id: activityId } });
+      if (!activity) throw new AppError('Activity not found', 404, 'ACTIVITY_NOT_FOUND');
+
       return await client.booking.create({
         data: {
           activityId,
@@ -79,9 +82,13 @@ router.post('/create-booking', authenticateToken, asyncHandler(async (req: Reque
           parentId: userId,
           amount: parseFloat(amount),
           status: 'tfc_pending',
+          paymentStatus: 'pending',
           paymentMethod: 'tfc',
           tfcReference: paymentReference,
-          tfcDeadline: new Date(deadline)
+          tfcDeadline: new Date(deadline),
+          bookingDate: new Date(),
+          activityDate: activity.startDate,
+          activityTime: activity.startTime
         },
         include: {
           activity: {
@@ -97,12 +104,13 @@ router.post('/create-booking', authenticateToken, asyncHandler(async (req: Reque
 
     // Send TFC instructions email
     try {
+      const b = booking as any;
       await emailService.sendTFCInstructions({
-        to: booking.parent.email,
-        parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
-        childName: `${booking.child.firstName} ${booking.child.lastName}`,
-        activityName: booking.activity.title,
-        venueName: booking.activity.venue.name,
+        to: b.parent.email,
+        parentName: `${b.parent.firstName} ${b.parent.lastName}`,
+        childName: `${b.child.firstName} ${b.child.lastName}`,
+        activityName: b.activity.title,
+        venueName: b.activity.venue.name,
         paymentReference,
         deadline: new Date(deadline),
         amount: parseFloat(amount),
@@ -181,7 +189,7 @@ router.get('/booking/:bookingId/status', authenticateToken, asyncHandler(async (
           parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
           childName: `${booking.child.firstName} ${booking.child.lastName}`,
           activityName: booking.activity.title,
-          paymentReference: booking.paymentReference
+          paymentReference: booking.tfcReference || ''
         });
       } catch (emailError) {
         logger.error('Failed to send TFC cancellation email:', emailError);
@@ -239,10 +247,10 @@ router.post('/booking/:bookingId/resend-instructions', authenticateToken, asyncH
       childName: `${booking.child.firstName} ${booking.child.lastName}`,
       activityName: booking.activity.title,
       venueName: booking.activity.venue.name,
-      paymentReference: booking.paymentReference || '',
+      paymentReference: booking.paymentIntentId || '',
       deadline: new Date(booking.tfcDeadline || booking.createdAt),
       amount: Number(booking.amount),
-      tfcConfig: booking.metadata?.tfcConfig || {}
+      tfcConfig: {}
     });
 
     logger.info('TFC instructions resent', {
@@ -667,7 +675,7 @@ router.post('/admin/pending/:bookingId/mark-paid', authenticateToken, requireRol
         where: { id: bookingId },
         data: {
           status: 'confirmed',
-          confirmedAt: new Date()
+          paymentStatus: 'paid'
         },
         include: {
           activity: {
@@ -683,15 +691,16 @@ router.post('/admin/pending/:bookingId/mark-paid', authenticateToken, requireRol
 
     // Send confirmation email
     try {
+      const b = booking as any;
       await emailService.sendBookingConfirmation({
-        to: booking.parent.email,
-        parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
-        childName: `${booking.child.firstName} ${booking.child.lastName}`,
-        activityName: booking.activity.title,
-        venueName: booking.activity.venue.name,
-        startDate: booking.activity.startDate,
-        startTime: booking.activity.startTime,
-        amount: Number(booking.amount)
+        to: b.parent.email,
+        parentName: `${b.parent.firstName} ${b.parent.lastName}`,
+        childName: `${b.child.firstName} ${b.child.lastName}`,
+        activityName: b.activity.title,
+        venueName: b.activity.venue.name,
+        startDate: b.activity.startDate,
+        startTime: b.activity.startTime,
+        amount: Number(b.amount)
       });
     } catch (emailError) {
       logger.error('Failed to send booking confirmation email:', emailError);
@@ -725,7 +734,6 @@ router.post('/admin/pending/:bookingId/cancel', authenticateToken, requireRole([
         where: { id: bookingId },
         data: {
           status: 'cancelled',
-          cancelledAt: new Date(),
           notes: reason || 'Admin cancelled - TFC payment not received'
         },
         include: {
@@ -777,7 +785,7 @@ router.post('/admin/pending/:bookingId/convert-credit', authenticateToken, requi
     const { bookingId } = req.params;
     const { creditAmount, reason } = req.body;
 
-    const booking = await safePrismaQuery(async (client) => {
+    const { booking: updatedBooking } = await safePrismaQuery(async (client) => {
       // Cancel the booking
       const updatedBooking = await client.booking.update({
         where: { id: bookingId },
@@ -793,15 +801,16 @@ router.post('/admin/pending/:bookingId/convert-credit', authenticateToken, requi
       });
 
       // Create credit for the parent
-      const credit = await client.credit.create({
+      const credit = await client.walletCredit.create({
         data: {
-          parentId: booking.parentId,
-          amount: parseFloat(creditAmount || booking.amount.toString()),
+          parentId: updatedBooking.parentId,
+          providerId: updatedBooking.activity.venueId,
+          amount: parseFloat(creditAmount || updatedBooking.amount.toString()),
           source: 'tfc_conversion',
-          description: `Credit from TFC booking conversion - ${booking.activity.title}`,
+          description: `Credit from TFC booking conversion - ${updatedBooking.activity.title}`,
           bookingId: bookingId,
-          createdBy: req.user!.id,
-          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year expiry
+          status: 'active',
+          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000) // 1 year expiry
         }
       });
 
@@ -811,9 +820,9 @@ router.post('/admin/pending/:bookingId/convert-credit', authenticateToken, requi
     // Send credit notification email
     try {
       await emailService.sendCreditIssued({
-        to: booking.parent.email,
-        parentName: `${booking.parent.firstName} ${booking.parent.lastName}`,
-        amount: parseFloat(creditAmount || booking.amount.toString()),
+        to: updatedBooking.parent.email,
+        parentName: `${updatedBooking.parent.firstName} ${updatedBooking.parent.lastName}`,
+        amount: parseFloat(creditAmount || updatedBooking.amount.toString()),
         reason: 'TFC booking converted to credit',
         expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
       });
@@ -823,14 +832,14 @@ router.post('/admin/pending/:bookingId/convert-credit', authenticateToken, requi
 
     logger.info('TFC booking converted to credit', {
       bookingId,
-      creditAmount: creditAmount || booking.amount,
+      creditAmount: creditAmount || updatedBooking.amount,
       convertedBy: req.user!.id
     });
 
     res.json({
       success: true,
       message: 'Booking converted to credit successfully',
-      data: booking
+      data: updatedBooking
     });
   } catch (error) {
     logger.error('Error converting TFC booking to credit:', error);
@@ -857,7 +866,7 @@ router.post('/admin/pending/bulk-mark-paid', authenticateToken, requireRole(['ad
         },
         data: {
           status: 'confirmed',
-          confirmedAt: new Date()
+          paymentStatus: 'paid'
         }
       });
     });
