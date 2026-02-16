@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { 
-  ChartBarIcon, 
-  DocumentArrowDownIcon, 
+import {
+  ChartBarIcon,
+  DocumentArrowDownIcon,
   TableCellsIcon,
   CurrencyPoundIcon,
   BuildingOfficeIcon,
@@ -211,7 +211,7 @@ const MasterReports: React.FC = () => {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
+
       toast.success(`${format.toUpperCase()} report downloaded successfully`);
     } catch (error) {
       console.error(`Error downloading ${format} report:`, error);
@@ -431,15 +431,13 @@ const MasterReports: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`group inline-flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.id
+                  className={`group inline-flex items-center py-2 px-1 border-b-2 font-medium text-sm ${activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
-                  <tab.icon className={`mr-2 h-5 w-5 ${
-                    activeTab === tab.id ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                  }`} />
+                  <tab.icon className={`mr-2 h-5 w-5 ${activeTab === tab.id ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                    }`} />
                   {tab.label}
                 </button>
               ))}
@@ -449,301 +447,301 @@ const MasterReports: React.FC = () => {
           {/* Tab Content */}
           {activeTab === 'summary' && (
             <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Financial Overview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Total Revenue</span>
-                      <span className="font-semibold text-green-600">{formatCurrency(reportData.summary.totalRevenue)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Franchise Fees</span>
-                      <span className="font-semibold text-blue-600">{formatCurrency(reportData.summary.totalFranchiseFees)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Total Refunds</span>
-                      <span className="font-semibold text-red-600">{formatCurrency(reportData.summary.totalRefunds)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Total Credits</span>
-                      <span className="font-semibold text-orange-600">{formatCurrency(reportData.summary.totalCredits)}</span>
-                    </div>
-                    <div className="border-t pt-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Financial Overview</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-900 font-medium">Net Revenue</span>
-                        <span className="font-bold text-green-700">
-                          {formatCurrency(reportData.summary.totalRevenue - reportData.summary.totalFranchiseFees - reportData.summary.totalRefunds)}
+                        <span className="text-gray-600">Total Revenue</span>
+                        <span className="font-semibold text-green-600">{formatCurrency(reportData.summary.totalRevenue)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Franchise Fees</span>
+                        <span className="font-semibold text-blue-600">{formatCurrency(reportData.summary.totalFranchiseFees)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Total Refunds</span>
+                        <span className="font-semibold text-red-600">{formatCurrency(reportData.summary.totalRefunds)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Total Credits</span>
+                        <span className="font-semibold text-orange-600">{formatCurrency(reportData.summary.totalCredits)}</span>
+                      </div>
+                      <div className="border-t pt-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-900 font-medium">Net Revenue</span>
+                          <span className="font-bold text-green-700">
+                            {formatCurrency(reportData.summary.totalRevenue - reportData.summary.totalFranchiseFees - reportData.summary.totalRefunds)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Business Metrics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Total Bookings</span>
+                        <span className="font-semibold">{reportData.summary.totalBookings}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Average Booking Value</span>
+                        <span className="font-semibold">
+                          {formatCurrency(reportData.summary.totalBookings > 0 ? reportData.summary.totalRevenue / reportData.summary.totalBookings : 0)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Venues per Franchise</span>
+                        <span className="font-semibold">
+                          {reportData.summary.totalFranchises > 0 ? (reportData.summary.totalVenues / reportData.summary.totalFranchises).toFixed(1) : 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Bookings per Parent</span>
+                        <span className="font-semibold">
+                          {reportData.summary.totalParents > 0 ? (reportData.summary.totalBookings / reportData.summary.totalParents).toFixed(1) : 0}
                         </span>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Business Metrics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Total Bookings</span>
-                      <span className="font-semibold">{reportData.summary.totalBookings}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Average Booking Value</span>
-                      <span className="font-semibold">
-                        {formatCurrency(reportData.summary.totalBookings > 0 ? reportData.summary.totalRevenue / reportData.summary.totalBookings : 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Venues per Franchise</span>
-                      <span className="font-semibold">
-                        {reportData.summary.totalFranchises > 0 ? (reportData.summary.totalVenues / reportData.summary.totalFranchises).toFixed(1) : 0}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Bookings per Parent</span>
-                      <span className="font-semibold">
-                        {reportData.summary.totalParents > 0 ? (reportData.summary.totalBookings / reportData.summary.totalParents).toFixed(1) : 0}
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-              {/* Revenue Breakdown Pie Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue by Payment Method</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <Pie
-                      data={{
-                        labels: ['Card Payments', 'TFC Payments', 'Credit Payments', 'Other'],
-                        datasets: [{
-                          data: [
-                            reportData.payments?.cardRevenue || 0,
-                            reportData.payments?.tfcRevenue || 0,
-                            reportData.payments?.creditRevenue || 0,
-                            reportData.payments?.otherRevenue || 0
-                          ],
-                          backgroundColor: ['#00806a', '#2C8F7A', '#4CAF50', '#8BC34A'],
-                          borderWidth: 2,
-                          borderColor: '#fff'
-                        }]
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                            labels: {
-                              padding: 20,
-                              usePointStyle: true
-                            }
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                return `${label}: ${formatCurrency(value)} (${percentage}%)`;
+              {/* Charts Section */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                {/* Revenue Breakdown Pie Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Revenue by Payment Method</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <Pie
+                        data={{
+                          labels: ['Card Payments', 'TFC Payments', 'Credit Payments', 'Other'],
+                          datasets: [{
+                            data: [
+                              reportData.payments?.cardRevenue || 0,
+                              reportData.payments?.tfcRevenue || 0,
+                              reportData.payments?.creditRevenue || 0,
+                              reportData.payments?.otherRevenue || 0
+                            ],
+                            backgroundColor: ['#00806a', '#2C8F7A', '#4CAF50', '#8BC34A'],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              position: 'bottom',
+                              labels: {
+                                padding: 20,
+                                usePointStyle: true
                               }
-                            }
-                          }
-                        }
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Franchise Performance Bar Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Franchise Performance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <Bar
-                      data={{
-                        labels: reportData.franchises?.map(f => f.name) || [],
-                        datasets: [{
-                          label: 'Revenue (£)',
-                          data: reportData.franchises?.map(f => f.totalRevenue) || [],
-                          backgroundColor: '#00806a',
-                          borderColor: '#006d5a',
-                          borderWidth: 1
-                        }, {
-                          label: 'Bookings',
-                          data: reportData.franchises?.map(f => f.totalBookings) || [],
-                          backgroundColor: '#2C8F7A',
-                          borderColor: '#00806a',
-                          borderWidth: 1,
-                          yAxisID: 'y1'
-                        }]
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                          y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                              display: true,
-                              text: 'Revenue (£)'
-                            }
-                          },
-                          y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                              display: true,
-                              text: 'Number of Bookings'
                             },
-                            grid: {
-                              drawOnChartArea: false,
-                            },
-                          }
-                        },
-                        plugins: {
-                          legend: {
-                            position: 'top'
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                const label = context.dataset.label || '';
-                                const value = context.parsed.y;
-                                if (label.includes('Revenue')) {
-                                  return `${label}: ${formatCurrency(value)}`;
+                            tooltip: {
+                              callbacks: {
+                                label: function (context) {
+                                  const label = context.label || '';
+                                  const value = context.parsed;
+                                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                  const percentage = ((value / total) * 100).toFixed(1);
+                                  return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                                 }
-                                return `${label}: ${value}`;
                               }
                             }
                           }
-                        }
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Venue Capacity Utilization Chart */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top Venues by Capacity Utilization</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <Bar
-                      data={{
-                        labels: reportData.venues?.slice(0, 10).map(v => v.name) || [],
-                        datasets: [{
-                          label: 'Capacity Utilization (%)',
-                          data: reportData.venues?.slice(0, 10).map(v => v.capacityUtilization) || [],
-                          backgroundColor: '#2C8F7A',
-                          borderColor: '#00806a',
-                          borderWidth: 1
-                        }]
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                          y: {
-                            beginAtZero: true,
-                            max: 100,
-                            title: {
+                {/* Franchise Performance Bar Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Franchise Performance</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <Bar
+                        data={{
+                          labels: reportData.franchises?.map(f => f.name) || [],
+                          datasets: [{
+                            label: 'Revenue (£)',
+                            data: reportData.franchises?.map(f => f.totalRevenue) || [],
+                            backgroundColor: '#00806a',
+                            borderColor: '#006d5a',
+                            borderWidth: 1
+                          }, {
+                            label: 'Bookings',
+                            data: reportData.franchises?.map(f => f.totalBookings) || [],
+                            backgroundColor: '#2C8F7A',
+                            borderColor: '#00806a',
+                            borderWidth: 1,
+                            yAxisID: 'y1'
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                            y: {
+                              type: 'linear',
                               display: true,
-                              text: 'Capacity Utilization (%)'
+                              position: 'left',
+                              title: {
+                                display: true,
+                                text: 'Revenue (£)'
+                              }
+                            },
+                            y1: {
+                              type: 'linear',
+                              display: true,
+                              position: 'right',
+                              title: {
+                                display: true,
+                                text: 'Number of Bookings'
+                              },
+                              grid: {
+                                drawOnChartArea: false,
+                              },
                             }
-                          }
-                        },
-                        plugins: {
-                          legend: {
-                            display: false
                           },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                return `Capacity Utilization: ${context.parsed.y.toFixed(1)}%`;
+                          plugins: {
+                            legend: {
+                              position: 'top'
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function (context) {
+                                  const label = context.dataset.label || '';
+                                  const value = context.parsed.y;
+                                  if (label.includes('Revenue')) {
+                                    return `${label}: ${formatCurrency(value || 0)}`;
+                                  }
+                                  return `${label}: ${value}`;
+                                }
                               }
                             }
                           }
-                        }
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
 
-              {/* Payment Status Distribution */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Payment Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <Pie
-                      data={{
-                        labels: ['Paid', 'Pending', 'Failed', 'Refunded'],
-                        datasets: [{
-                          data: [
-                            reportData.payments?.paidCount || 0,
-                            reportData.payments?.pendingCount || 0,
-                            reportData.payments?.failedCount || 0,
-                            reportData.payments?.refundedCount || 0
-                          ],
-                          backgroundColor: ['#4CAF50', '#FF9800', '#F44336', '#9C27B0'],
-                          borderWidth: 2,
-                          borderColor: '#fff'
-                        }]
-                      }}
-                      options={{
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                            labels: {
-                              padding: 20,
-                              usePointStyle: true
+                {/* Venue Capacity Utilization Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Top Venues by Capacity Utilization</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <Bar
+                        data={{
+                          labels: reportData.venues?.slice(0, 10).map(v => v.name) || [],
+                          datasets: [{
+                            label: 'Capacity Utilization (%)',
+                            data: reportData.venues?.slice(0, 10).map(v => v.capacityUtilization) || [],
+                            backgroundColor: '#2C8F7A',
+                            borderColor: '#00806a',
+                            borderWidth: 1
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                            y: {
+                              beginAtZero: true,
+                              max: 100,
+                              title: {
+                                display: true,
+                                text: 'Capacity Utilization (%)'
+                              }
                             }
                           },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                const label = context.label || '';
-                                const value = context.parsed;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-                                return `${label}: ${value} (${percentage}%)`;
+                          plugins: {
+                            legend: {
+                              display: false
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function (context) {
+                                  return `Capacity Utilization: ${(context.parsed.y || 0).toFixed(1)}%`;
+                                }
                               }
                             }
                           }
-                        }
-                      }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payment Status Distribution */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Payment Status Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <Pie
+                        data={{
+                          labels: ['Paid', 'Pending', 'Failed', 'Refunded'],
+                          datasets: [{
+                            data: [
+                              reportData.payments?.paidCount || 0,
+                              reportData.payments?.pendingCount || 0,
+                              reportData.payments?.failedCount || 0,
+                              reportData.payments?.refundedCount || 0
+                            ],
+                            backgroundColor: ['#4CAF50', '#FF9800', '#F44336', '#9C27B0'],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                          }]
+                        }}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: {
+                            legend: {
+                              position: 'bottom',
+                              labels: {
+                                padding: 20,
+                                usePointStyle: true
+                              }
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function (context) {
+                                  const label = context.label || '';
+                                  const value = context.parsed;
+                                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                  const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
+                                  return `${label}: ${value} (${percentage}%)`;
+                                }
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </>
           )}
 
