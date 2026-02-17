@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
-const FALLBACK_API_BASE_URL = 'https://bookon-api.vercel.app/api/v1';
+const FALLBACK_API_BASE_URL = 'https://test-bookon-frontend-1kt6.vercel.app/api/v1';
 
 const normalizeApiBaseUrl = (rawUrl?: string): string => {
   const candidate = (rawUrl || '').trim() || FALLBACK_API_BASE_URL;
