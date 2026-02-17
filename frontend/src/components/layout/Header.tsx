@@ -35,37 +35,37 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
           {/* Logo */}
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 group">
-              <img 
-                src="https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png" 
-                alt="BookOn Logo" 
-                className="h-8 sm:h-10 w-auto transition-transform group-hover:scale-105" 
+              <img
+                src="https://res.cloudinary.com/dfxypnsvt/image/upload/f_auto,q_auto,w_200/v1757098381/bookonlogo_aq6lq3.png"
+                alt="BookOn Logo"
+                className="h-8 sm:h-10 w-auto transition-transform group-hover:scale-105"
               />
             </Link>
           </div>
 
           {/* Navigation Links - Desktop */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="text-gray-600 hover:text-[#00806a] px-3 py-2 text-sm font-medium transition-colors duration-200"
             >
               Home
             </Link>
-            <Link 
-              to="/venues" 
+            <Link
+              to="/venues"
               className="text-gray-600 hover:text-[#00806a] px-3 py-2 text-sm font-medium transition-colors duration-200"
             >
               Venues
             </Link>
-            <Link 
-              to="/activities" 
+            <Link
+              to="/activities"
               className="text-gray-600 hover:text-[#00806a] px-3 py-2 text-sm font-medium transition-colors duration-200"
             >
               Activities
             </Link>
             {user && (
-              <Link 
-                to="/dashboard" 
+              <Link
+                to="/dashboard"
                 className="text-gray-600 hover:text-[#00806a] px-3 py-2 text-sm font-medium transition-colors duration-200"
               >
                 Dashboard
@@ -105,7 +105,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     </span>
                   )}
                 </Link>
-                
+
                 {/* Profile/Admin Link - Admin users go to /admin, others to /profile */}
                 <Link
                   to={user.role === 'admin' ? '/admin' : '/profile'}
@@ -116,7 +116,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     {user.role === 'admin' ? 'Admin' : user.firstName}
                   </span>
                 </Link>
-                
+
                 <button
                   onClick={handleLogout}
                   className="flex items-center space-x-2 text-gray-600 hover:text-red-600 px-3 py-2 text-sm font-medium transition-colors duration-200"
@@ -191,7 +191,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                 Dashboard
               </Link>
             )}
-            
+
             {/* Mobile auth section */}
             <div className="border-t border-gray-100 pt-3 mt-3">
               {/* Basket Icon for Mobile */}
@@ -225,7 +225,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                       </span>
                     )}
                   </Link>
-                  
+
                   {/* Profile/Admin Link - Admin users go to /admin, others to /profile */}
                   <Link
                     to={user.role === 'admin' ? '/admin' : '/profile'}
@@ -235,7 +235,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout }) => {
                     <UserCircleIcon className="h-5 w-5" />
                     <span>{user.role === 'admin' ? 'Admin' : 'Profile'}</span>
                   </Link>
-                  
+
                   <button
                     onClick={() => {
                       handleLogout();

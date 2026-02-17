@@ -3,8 +3,70 @@ import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
+
+// Rate limiting for notification count endpoint
+const notificationCountLimit = rateLimit({
+  windowMs: 15 * 1000, // 15 seconds
+  max: 5, // Limit each IP to 5 requests per windowMs
+  message: {
+    success: false,
+    error: {
+      message: 'Too many requests for notification count',
+      code: 'RATE_LIMIT_EXCEEDED'
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Get notification count
+router.get('/count', notificationCountLimit, authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    
+    logger.info('Notification count requested', { 
+      user: req.user?.email,
+      userId 
+    });
+
+    const [unreadCount, totalCount] = await Promise.all([
+      safePrismaQuery(async (client) => {
+        return await client.notification.count({
+          where: {
+            userId: userId,
+            read: false
+          }
+        });
+      }),
+      safePrismaQuery(async (client) => {
+        return await client.notification.count({
+          where: {
+            userId: userId
+          }
+        });
+      })
+    ]);
+
+    logger.info('Notification count retrieved', { 
+      unreadCount,
+      totalCount 
+    });
+
+    res.json({
+      success: true,
+      data: {
+        unreadCount,
+        totalCount
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching notification count:', error);
+    throw new AppError('Failed to fetch notification count', 500, 'NOTIFICATION_COUNT_ERROR');
+  }
+}));
 
 // Get notifications
 router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {

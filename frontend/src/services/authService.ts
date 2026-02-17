@@ -94,7 +94,7 @@ class AuthService {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
+
       const response = await fetch(buildApiUrl('/auth/me'), {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -102,9 +102,9 @@ class AuthService {
         },
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       // If token is expired, try to refresh
       if (response.status === 401) {
         console.log('Token expired, attempting refresh...');
@@ -117,7 +117,7 @@ class AuthService {
           return false;
         }
       }
-      
+
       return response.ok;
     } catch (error) {
       console.error('Token verification failed:', error);
@@ -211,15 +211,12 @@ class AuthService {
       }
 
       if (data.success) {
-        toast.success('Registration successful! Please log in with your credentials.');
         return data;
       } else {
         throw new Error(data.message || 'Registration failed. Please try again.');
       }
     } catch (error) {
       console.error('Registration error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Registration failed. Please try again.';
-      toast.error(errorMessage);
       throw error;
     }
   }
@@ -246,11 +243,11 @@ class AuthService {
         const accessToken = data.data.tokens?.accessToken || data.data.token;
         const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
         const user = data.data.user;
-        
+
         if (!accessToken || !refreshToken || !user) {
           throw new Error('Invalid response: missing tokens or user data');
         }
-        
+
         this.setAuth(accessToken, refreshToken, user);
         return data;
       } else {
@@ -312,7 +309,7 @@ class AuthService {
           // Handle both possible response structures
           const accessToken = data.data.tokens?.accessToken || data.data.token;
           const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
-          
+
           if (accessToken && refreshToken) {
             this.setAuth(accessToken, refreshToken, user);
             return accessToken;

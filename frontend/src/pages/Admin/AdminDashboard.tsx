@@ -307,11 +307,6 @@ const AdminDashboard: React.FC = () => {
       
       const endTime = performance.now();
       const loadTime = endTime - startTime;
-      
-      // Log performance metrics
-      console.log(`Dashboard data refreshed in ${loadTime.toFixed(2)}ms`);
-      
-      // Show success message if refresh took longer than expected
       if (loadTime > 1000) {
         console.warn('Dashboard refresh took longer than expected:', loadTime.toFixed(2) + 'ms');
       }
@@ -326,17 +321,6 @@ const AdminDashboard: React.FC = () => {
     try {
       setLoading(true);
       const token = authService.getToken();
-      
-      const user = authService.getUser();
-      console.log('AdminDashboard: Token check', { 
-        hasToken: !!token, 
-        tokenLength: token?.length,
-        isAuthenticated: authService.isAuthenticated(),
-        user: user,
-        userRole: user?.role,
-        userEmail: user?.email,
-        hasAdminRole: authService.hasRole('admin')
-      });
       
       if (!token) {
         console.warn('AdminDashboard: No token found, redirecting to login');

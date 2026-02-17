@@ -86,14 +86,7 @@ const DashboardPage: React.FC = () => {
       const token = authService.getToken();
       const isAuth = authService.isAuthenticated();
       
-      console.log('Auth Debug:', { 
-        token: token ? 'exists' : 'missing', 
-        isAuth,
-        tokenLength: token?.length || 0
-      });
-      
       if (!token || !isAuth) {
-        console.log('No valid authentication, redirecting to login');
         window.location.href = '/login';
         return;
       }
@@ -125,7 +118,9 @@ const DashboardPage: React.FC = () => {
       
       clearTimeout(timeoutId);
       const apiEndTime = performance.now();
-      console.log(`Dashboard API calls completed in ${(apiEndTime - apiStartTime).toFixed(2)}ms`);
+      if (apiEndTime - apiStartTime > 2000) {
+        console.warn(`Dashboard API calls completed in ${(apiEndTime - apiStartTime).toFixed(2)}ms`);
+      }
 
       // Process stats response
       if (statsResponse.status === 'fulfilled' && statsResponse.value.ok) {

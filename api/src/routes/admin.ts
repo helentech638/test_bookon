@@ -404,18 +404,23 @@ router.get('/recent-bookings', authenticateToken, requireAdminOrStaff, asyncHand
         amount: booking.amount,
         bookingDate: booking.activityDate,
         createdAt: booking.createdAt,
+        created_at: booking.createdAt,
+        activity_name: booking.activity?.title || 'Unknown Activity',
+        venue_name: booking.activity?.venue?.name || 'Unknown Venue',
+        customer_name: `${booking.parent?.firstName || ''} ${booking.parent?.lastName || ''}`.trim(),
         user: {
-          id: booking.parent.id,
-          name: `${booking.parent.firstName} ${booking.parent.lastName}`
+          id: booking.parent?.id,
+          name: `${booking.parent?.firstName || ''} ${booking.parent?.lastName || ''}`.trim()
         },
         activity: {
-          id: booking.activity.id,
-          name: booking.activity.title
+          id: booking.activity?.id,
+          name: booking.activity?.title || 'Unknown Activity'
         },
         venue: {
-          id: booking.activity.venue.id,
-          name: booking.activity.venue.name
-        }
+          id: booking.activity?.venue?.id,
+          name: booking.activity?.venue?.name || 'Unknown Venue'
+        },
+        totalAmount: booking.amount
       }))
     });
   } catch (error) {
@@ -1618,7 +1623,7 @@ router.get('/export/registers', authenticateToken, requireAdminOrStaff, asyncHan
       const csvData = registers.map((register: any) => [
         register.date,
         register.venue.name,
-        register.activity.name,
+        register.activity.title,
         register.status,
         '0', // total_children field doesn't exist in current schema
         'N/A', // staff_present field doesn't exist in current schema

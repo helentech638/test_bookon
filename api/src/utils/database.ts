@@ -6,7 +6,7 @@ const getDbConfig = () => {
   // If DATABASE_DIRECT_URL is provided (Supabase), use it directly
   if (process.env['DATABASE_DIRECT_URL']) {
     logger.info('🔌 Using DATABASE_DIRECT_URL for Supabase connection');
-    
+
     // Log the DATABASE_DIRECT_URL (without password for security)
     const dbUrl = process.env['DATABASE_DIRECT_URL'];
     const urlParts = dbUrl.split('@');
@@ -14,12 +14,12 @@ const getDbConfig = () => {
       const hostPart = urlParts[1];
       logger.info(`📊 Database host: ${hostPart}`);
     }
-    
+
     return {
       client: 'pg',
       connection: {
         connectionString: process.env['DATABASE_DIRECT_URL'],
-        ssl: { rejectUnauthorized: false }, // Required for Supabase
+        ssl: process.env['DB_SSL'] === 'false' ? false : { rejectUnauthorized: false },
       },
       pool: {
         min: 0, // Start with 0 connections for serverless
@@ -121,26 +121,26 @@ export const connectDatabase = async (): Promise<void> => {
       hasSSL: !!dbConfig.connection.ssl,
       nodeEnv: process.env['NODE_ENV']
     });
-    
+
     // Test with direct pg connection first
     const { Client } = require('pg');
     const client = new Client({
       connectionString: process.env['DATABASE_DIRECT_URL'] || process.env['DATABASE_URL'],
-      ssl: { rejectUnauthorized: false }
+      ssl: process.env['DB_SSL'] === 'false' ? false : { rejectUnauthorized: false }
     });
-    
+
     await client.connect();
     logger.info('✅ Direct pg connection successful');
-    
+
     const result = await client.query('SELECT version()');
     logger.info(`📊 PostgreSQL version: ${result.rows[0].version}`);
-    
+
     await client.end();
-    
+
     // Now test with Knex
     await db.raw('SELECT 1');
     logger.info('✅ Knex connection established successfully');
-    
+
   } catch (error) {
     logger.error('❌ Database connection failed:', error);
     throw error;
@@ -182,7 +182,7 @@ export const getDatabaseStats = async () => {
       WHERE schemaname = 'public'
       ORDER BY tablename, attname
     `);
-    
+
     return {
       tables: stats.rows.length,
       stats: stats.rows,

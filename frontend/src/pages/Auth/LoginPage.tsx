@@ -16,12 +16,13 @@ const LoginPage = () => {
   // Handle registration success message
   useEffect(() => {
     if (location.state?.message) {
-      toast.success(location.state.message);
+      toast.success(location.state.message, { id: 'register-success' });
       if (location.state.email) {
         setEmail(location.state.email);
       }
+      navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, location.pathname, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,10 +36,10 @@ const LoginPage = () => {
       const success = await login(email, password);
       if (success) {
         toast.success('Login successful!');
-        
+
         // Get user data from localStorage to check role
         const userData = JSON.parse(localStorage.getItem('bookon_user') || '{}');
-        
+
         // Redirect based on user role
         if (userData.role === 'admin') {
           navigate('/admin');
@@ -80,18 +81,18 @@ const LoginPage = () => {
         <div className="hidden lg:flex lg:w-1/2 p-12 flex-col justify-center">
           <div className="max-w-md">
             <div className="flex items-center mb-8">
-              <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-12 w-auto" />
+              <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/f_auto,q_auto,w_200/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-12 w-auto" />
             </div>
-            
+
             <h2 className="text-4xl font-bold mb-6 leading-tight text-teal-600">
               Simple. Seamless. Bookings.
             </h2>
-            
+
             <p className="text-xl text-teal-600 mb-8 leading-relaxed">
-              Streamline your school clubs and activities with our intuitive booking platform. 
+              Streamline your school clubs and activities with our intuitive booking platform.
               Manage schedules, track attendance, and simplify administration.
             </p>
-            
+
             <div className="space-y-4">
               <div className="flex items-center">
                 <CheckCircleIcon className="w-6 h-6 text-teal-600 mr-3 flex-shrink-0" />
@@ -115,7 +116,7 @@ const LoginPage = () => {
             {/* Mobile Logo */}
             <div className="lg:hidden text-center mb-8">
               <div className="flex items-center justify-center mb-4">
-                <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-12 w-auto" />
+                <img src="https://res.cloudinary.com/dfxypnsvt/image/upload/f_auto,q_auto,w_200/v1757098381/bookonlogo_aq6lq3.png" alt="BookOn Logo" className="h-12 w-auto" />
               </div>
               <p className="text-lg text-gray-600">Simple. Seamless. Bookings.</p>
             </div>

@@ -82,7 +82,8 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
 }));
 
 // Get single activity (public - no auth required for viewing)
-router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
+// Restrict to UUID to avoid catching static routes like /upcoming
+router.get('/:id([0-9a-fA-F-]{36})', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -342,64 +343,7 @@ router.get('/upcoming', authenticateToken, asyncHandler(async (req: Request, res
     const activities = await safePrismaQuery(async (client) => {
       return await client.activity.findMany({
         where: {
-          isActive: true,
-          startDate: {
-            gte: new Date() // Only future activities
-          }
-        },
-        include: {
-          venue: {
-            select: {
-              name: true,
-              city: true
-            }
-          }
-        },
-        orderBy: { startDate: 'asc' },
-        take: parseInt(limit as string)
-      });
-    });
-
-    res.json({
-      success: true,
-      data: activities.map(activity => ({
-        id: activity.id,
-        name: activity.title,
-        startDate: activity.startDate,
-        endDate: activity.endDate,
-        startTime: activity.startTime,
-        endTime: activity.endTime,
-        venue: activity.venue.name,
-        capacity: activity.capacity,
-        price: parseFloat(activity.price.toString()),
-        status: activity.status
-      }))
-    });
-  } catch (error) {
-    logger.error('Error fetching upcoming activities:', error);
-    throw new AppError('Failed to fetch upcoming activities', 500, 'UPCOMING_ACTIVITIES_ERROR');
-  }
-}));
-
-
-// Get upcoming activities
-router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
-  try {
-    const { limit = '5' } = req.query;
-    const userId = req.user!.id;
-
-    logger.info('Upcoming activities requested', {
-      user: req.user?.email,
-      limit,
-      userId
-    });
-
-    const upcomingActivities = await safePrismaQuery(async () => {
-      const now = new Date();
-
-      const activities = await prisma.activity.findMany({
-        where: {
-          startDate: { gte: now },
+          startDate: { gte: new Date() },
           status: 'active'
         },
         include: {
@@ -417,37 +361,28 @@ router.get('/upcoming', authenticateToken, requireRole(['admin']), asyncHandler(
             }
           }
         },
-        orderBy: {
-          startDate: 'asc'
-        },
+        orderBy: { startDate: 'asc' },
         take: parseInt(limit as string) || 5
       });
-
-      return activities.map(activity => ({
-        id: activity.id,
-        name: activity.title,
-        description: activity.description,
-        startTime: activity.startDate,
-        endTime: activity.endDate,
-        capacity: activity.capacity,
-        currentBookings: activity.bookings.filter((b: any) => b.status === 'confirmed').length,
-        venue: activity.venue,
-        status: activity.status
-      }));
-    });
-
-    logger.info('Upcoming activities data retrieved', {
-      count: upcomingActivities.length
     });
 
     res.json({
       success: true,
-      data: upcomingActivities
+      data: activities.map(activity => ({
+        id: activity.id,
+        name: activity.title,
+        start_time: activity.startDate,
+        end_time: activity.endDate,
+        venue_name: activity.venue?.name || 'Unknown Venue',
+        capacity: activity.capacity,
+        booked: activity.bookings.filter((b: any) => b.status === 'confirmed').length,
+        waitlist_count: 0,
+        status: activity.status
+      }))
     });
   } catch (error) {
     logger.error('Error fetching upcoming activities:', error);
     throw new AppError('Failed to fetch upcoming activities', 500, 'UPCOMING_ACTIVITIES_ERROR');
   }
 }));
-
 export default router;

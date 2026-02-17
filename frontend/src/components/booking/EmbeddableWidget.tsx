@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
-import { 
+import {
   CalendarIcon,
   MapPinIcon,
   ClockIcon,
@@ -67,9 +67,9 @@ interface EmbeddableWidgetProps {
   onCancel?: () => void;
 }
 
-const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({ 
-  config, 
-  onClose, 
+const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
+  config,
+  onClose,
   isEmbedded = false,
   onSuccess,
   onError,
@@ -88,7 +88,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
     interactions: 0,
     conversions: 0
   });
-  
+
   const widgetRef = useRef<HTMLDivElement>(null);
 
   const steps = [
@@ -137,7 +137,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
     // Track widget view
     trackWidgetEvent('WIDGET_VIEW');
     setWidgetStats(prev => ({ ...prev, views: prev.views + 1 }));
-    
+
     if (config.activityId) {
       fetchActivity();
       fetchChildren();
@@ -193,7 +193,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
   const handlePaymentSuccess = (paymentData: any) => {
     trackWidgetEvent('BOOKING_SUCCESS', paymentData);
     setWidgetStats(prev => ({ ...prev, conversions: prev.conversions + 1 }));
-    
+
     if (onSuccess) {
       onSuccess(paymentData);
     } else {
@@ -203,7 +203,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
 
   const handlePaymentError = (errorMessage: string) => {
     trackWidgetEvent('BOOKING_ERROR', { error: errorMessage });
-    
+
     if (onError) {
       onError(errorMessage);
     } else {
@@ -213,7 +213,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
 
   const handlePaymentCancel = () => {
     trackWidgetEvent('BOOKING_CANCELLED');
-    
+
     if (onCancel) {
       onCancel();
     }
@@ -247,7 +247,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
   }
 
   return (
-    <div 
+    <div
       ref={widgetRef}
       className={`widget-container ${config.theme === 'dark' ? 'dark-theme' : 'light-theme'}`}
       style={{
@@ -261,7 +261,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
       <div className="widget-header">
         {config.showLogo && (
           <div className="widget-logo">
-            <img src={config.logo || 'https://res.cloudinary.com/dfxypnsvt/image/upload/v1757098381/bookonlogo_aq6lq3.png'} alt="Logo" className="h-8 w-auto" />
+            <img src={config.logo || 'https://res.cloudinary.com/dfxypnsvt/image/upload/f_auto,q_auto,w_200/v1757098381/bookonlogo_aq6lq3.png'} alt="Logo" className="h-8 w-auto" />
           </div>
         )}
         <div className="widget-title">
@@ -286,7 +286,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
           <div className="activity-details">
             <h4 className="text-xl font-semibold mb-4">{activity.title}</h4>
             <p className="text-gray-600 mb-4">{activity.description}</p>
-            
+
             <div className="activity-info-grid">
               <div className="info-item">
                 <CalendarIcon className="h-5 w-5 text-green-600" />
@@ -310,7 +310,7 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
               </div>
             </div>
 
-            <Button 
+            <Button
               onClick={() => setCurrentStep(2)}
               className="w-full mt-6"
               disabled={activity.bookedCount >= activity.capacity}
@@ -335,11 +335,10 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
                 {children.map((child) => (
                   <div
                     key={child.id}
-                    className={`child-option p-3 border rounded-lg cursor-pointer transition-colors ${
-                      selectedChild === child.id
+                    className={`child-option p-3 border rounded-lg cursor-pointer transition-colors ${selectedChild === child.id
                         ? 'border-green-500 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                     onClick={() => handleChildSelect(child.id)}
                   >
                     <div className="flex items-center justify-between">
@@ -361,14 +360,14 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
             )}
 
             <div className="flex space-x-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setCurrentStep(1)}
                 className="flex-1"
               >
                 Back
               </Button>
-              <Button 
+              <Button
                 onClick={() => setCurrentStep(3)}
                 disabled={!selectedChild}
                 className="flex-1"
@@ -392,9 +391,9 @@ const EmbeddableWidget: React.FC<EmbeddableWidgetProps> = ({
               onSuccess={handlePaymentSuccess}
               onCancel={handlePaymentCancel}
             />
-            
-            <Button 
-              variant="outline" 
+
+            <Button
+              variant="outline"
               onClick={() => setCurrentStep(2)}
               className="w-full mt-4"
             >

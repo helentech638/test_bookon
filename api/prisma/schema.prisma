@@ -1,59 +1,79 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DATABASE_DIRECT_URL")
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password_hash String?
-  firstName     String
-  lastName      String
-  phone         String?
-  role          String    @default("user")
-  isActive      Boolean   @default(true)
-  emailVerified Boolean   @default(false)
-  verificationToken String?
-  resetToken    String?
-  resetTokenExpiry DateTime?
-  stripeCustomerId String? @unique
-  venueId       String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  lastLoginAt   DateTime?
-
-  // Relations
-  children     Child[]
-  bookings     Booking[]
-  activities   Activity[]
-  venues       Venue[]
-  notifications Notification[]
-  widgetConfigs WidgetConfig[]
-  walletCredits WalletCredit[]
-  auditLogs    AuditLog[]
-  payments     Payment[]
-  templates    Template[]
-  courses      Course[]
-  emailTemplates EmailTemplate[]
-  broadcasts   Broadcast[]
-  emails       Email[]
-  transactions Transaction[]
-  walletTransactions WalletTransaction[]
-  credits      Credit[] @relation("CreditParent")
-  creditsCreated Credit[] @relation("CreditCreator")
-  refunds      Refund[]
-  discounts    Discount[]
+  id                                                     String                         @id @default(uuid())
+  email                                                  String                         @unique
+  password_hash                                          String?
+  firstName                                              String
+  lastName                                               String
+  phone                                                  String?
+  role                                                   String                         @default("user")
+  businessName                                           String?
+  isActive                                               Boolean                        @default(true)
+  emailVerified                                          Boolean                        @default(false)
+  verificationToken                                      String?
+  resetToken                                             String?
+  resetTokenExpiry                                       DateTime?
+  stripeCustomerId                                       String?                        @unique
+  venueId                                                String?
+  createdAt                                              DateTime                       @default(now())
+  updatedAt                                              DateTime                       @updatedAt
+  lastLoginAt                                            DateTime?
+  notificationPreferences                                Json?
+  businessAddress                                        String?
+  businessCity                                           String?
+  businessCountry                                        String?
+  businessDescription                                    String?
+  businessEmail                                          String?
+  businessPhone                                          String?
+  businessPostcode                                       String?
+  businessType                                           String?
+  companyRegistrationNumber                              String?
+  onboardingCompleted                                    Boolean                        @default(false)
+  tradingName                                            String?
+  websiteUrl                                             String?
+  creditBalance                                          Decimal                        @default(0)
+  activities_activities_createdByTousers                 Activity[]                     @relation("activities_createdByTousers")
+  activities                                             Activity[]
+  analytics_events                                       analytics_events[]
+  auditLogs                                              AuditLog[]
+  bookings                                               Booking[]
+  broadcasts                                             Broadcast[]
+  bulk_operations                                        bulk_operations[]
+  children                                               Child[]
+  courses                                                Course[]
+  credit_transactions_credit_transactions_adminIdTousers credit_transactions[]          @relation("credit_transactions_adminIdTousers")
+  credit_transactions_credit_transactions_userIdTousers  credit_transactions[]          @relation("credit_transactions_userIdTousers")
+  creditsCreated                                         Credit[]                       @relation("CreditCreator")
+  credits                                                Credit[]                       @relation("CreditParent")
+  data_access_requests                                   data_access_requests[]
+  discount_codes                                         discount_codes[]
+  discount_usages                                        discount_usages[]
+  discounts                                              Discount[]
+  emailTemplates                                         EmailTemplate[]
+  emails                                                 Email[]
+  gdpr_consents                                          gdpr_consents[]
+  holidays                                               holidays[]
+  notifications                                          Notification[]
+  payments                                               Payment[]
+  promo_code_usages                                      promo_code_usages[]
+  promo_codes                                            promo_codes[]
+  refunds                                                Refund[]
+  register_setups                                        register_setups[]
+  templates                                              Template[]
+  transactions                                           Transaction[]
+  user_notification_preferences                          user_notification_preferences?
+  venues                                                 Venue[]
+  walletCredits                                          WalletCredit[]
+  widgetConfigs                                          WidgetConfig[]
 
   @@index([email])
   @@index([role])
@@ -62,157 +82,202 @@ model User {
 }
 
 model Child {
-  id          String   @id @default(uuid())
-  firstName   String
-  lastName    String
-  dateOfBirth DateTime
-  yearGroup   String?
-  allergies   String?
-  parentId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  parent      User     @relation(fields: [parentId], references: [id])
-  bookings    Booking[]
-  attendance  Attendance[]
+  id                String              @id @default(uuid())
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime
+  yearGroup         String?
+  allergies         String?
+  medicalInfo       String?
+  school            String
+  class             String?
+  parentId          String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  attendance        Attendance[]
+  bookings          Booking[]
+  child_permissions child_permissions[]
+  parent            User                @relation(fields: [parentId], references: [id])
 
   @@map("children")
 }
 
 model Attendance {
-  id            String   @id @default(uuid())
-  registerId    String
-  childId       String
-  bookingId     String?
-  present       Boolean  @default(false)
-  checkInTime   DateTime?
-  checkOutTime  DateTime?
-  notes         String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  register      Register @relation(fields: [registerId], references: [id], onDelete: Cascade)
-  child         Child    @relation(fields: [childId], references: [id])
-  booking       Booking? @relation(fields: [bookingId], references: [id])
+  id           String    @id @default(uuid())
+  registerId   String
+  childId      String
+  bookingId    String
+  present      Boolean   @default(false)
+  checkInTime  DateTime?
+  checkOutTime DateTime?
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  booking      Booking   @relation(fields: [bookingId], references: [id])
+  child        Child     @relation(fields: [childId], references: [id])
+  register     Register  @relation(fields: [registerId], references: [id], onDelete: Cascade)
 
   @@map("attendance")
 }
 
 model Venue {
-  id                    String   @id @default(uuid())
-  name                  String
-  address               String
-  description           String?
-  city                  String?
-  postcode              String?
-  phone                 String?
-  email                 String?
-  capacity              Int?
-  ownerId               String
-  businessAccountId     String?  // Linked business account for Stripe Connect
-  stripeAccountId       String?  // Direct Stripe Connect account ID for this venue
-  inheritFranchiseFee   Boolean  @default(true) // Inherit from business account
-  franchiseFeeType      String?  // percent, fixed (if override)
-  franchiseFeeValue     Decimal? @db.Decimal(10, 2) // Custom fee value (if override)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  // Relations
-  owner                 User           @relation(fields: [ownerId], references: [id])
-  businessAccount       BusinessAccount? @relation(fields: [businessAccountId], references: [id])
-  activities            Activity[]
-  courses               Course[]
-  payouts               Payout[]
-  registers             Register[]
+  id                  String              @id @default(uuid())
+  name                String
+  address             String
+  description         String?
+  city                String?
+  postcode            String?
+  phone               String?
+  email               String?
+  capacity            Int?
+  ownerId             String
+  businessAccountId   String?
+  stripeAccountId     String?
+  inheritFranchiseFee Boolean             @default(true)
+  franchiseFeeType    String?
+  franchiseFeeValue   Decimal?            @db.Decimal(10, 2)
+  isActive            Boolean             @default(true)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  tfcDefaultToCredit  Boolean             @default(true)
+  tfcEnabled          Boolean             @default(true)
+  tfcHoldPeriod       Int                 @default(5)
+  tfcInstructions     String?
+  bookingRules        Json?
+  facilities          String[]            @default([])
+  operatingHours      Json?
+  pricing             Json?
+  activities          Activity[]
+  courses             Course[]
+  notifications       Notification[]
+  payouts             Payout[]
+  session_templates   session_templates[]
+  businessAccount     BusinessAccount?    @relation(fields: [businessAccountId], references: [id])
+  owner               User                @relation(fields: [ownerId], references: [id])
 
   @@map("venues")
 }
 
 model ActivityType {
-  id          String    @id @default(uuid())
-  name        String    @unique
+  id          String     @id @default(uuid())
+  name        String     @unique
   description String?
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   activities  Activity[]
 
   @@map("activity_types")
 }
 
 model Activity {
-  id             String        @id @default(uuid())
-  title          String
-  type           String?
-  activityTypeId String?
-  description    String?
-  startDate      DateTime
-  endDate        DateTime
-  startTime      String
-  endTime        String
-  capacity       Int
-  price          Decimal       @db.Decimal(10, 2)
-  status         String        @default("active") // active, inactive, cancelled
-  venueId        String
-  ownerId        String
-  isActive       Boolean       @default(true)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-
-  // Relations
-  venue          Venue         @relation(fields: [venueId], references: [id])
-  owner          User          @relation(fields: [ownerId], references: [id])
-  activityType   ActivityType? @relation(fields: [activityTypeId], references: [id])
-  bookings       Booking[]
-  registers      Register[]
-  sessions       Session[]
+  id                                String               @id @default(uuid())
+  title                             String
+  description                       String?
+  startDate                         DateTime
+  endDate                           DateTime
+  startTime                         String
+  endTime                           String
+  capacity                          Int
+  price                             Decimal              @db.Decimal(10, 2)
+  status                            String               @default("active")
+  venueId                           String
+  ownerId                           String
+  whatToBring                       String?
+  isActive                          Boolean              @default(true)
+  createdAt                         DateTime             @default(now())
+  updatedAt                         DateTime             @updatedAt
+  createdBy                         String
+  earlyDropoff                      Boolean              @default(false)
+  earlyDropoffPrice                 Decimal?             @db.Decimal(10, 2)
+  latePickup                        Boolean              @default(false)
+  latePickupPrice                   Decimal?             @db.Decimal(10, 2)
+  type                              String?
+  activityTypeId                    String?
+  isWraparoundCare                  Boolean              @default(false)
+  yearGroups                        String[]             @default([])
+  ageRange                          String?
+  bulkDiscount                      Decimal?             @db.Decimal(5, 2)
+  excludeDates                      String[]             @default([])
+  siblingDiscount                   Decimal?             @db.Decimal(5, 2)
+  weeklyDiscount                    Decimal?             @db.Decimal(5, 2)
+  daysOfWeek                        String[]             @default([])
+  holidaySessions                   Boolean              @default(true)
+  proRataBooking                    Boolean              @default(false)
+  earlyDropoffEndTime               String?
+  earlyDropoffStartTime             String?
+  latePickupEndTime                 String?
+  latePickupStartTime               String?
+  imageUrls                         String[]             @default([])
+  durationWeeks                     Int?
+  regularDay                        String?
+  regularTime                       String?
+  courseExcludeDates                String[]             @default([])
+  activityType                      ActivityType?        @relation(fields: [activityTypeId], references: [id])
+  users_activities_createdByTousers User                 @relation("activities_createdByTousers", fields: [createdBy], references: [id])
+  owner                             User                 @relation(fields: [ownerId], references: [id])
+  venue                             Venue                @relation(fields: [venueId], references: [id])
+  bookings                          Booking[]
+  holiday_time_slots                holiday_time_slots[]
+  holidays                          holidays[]
+  session_blocks                    session_blocks[]
+  sessions                          Session[]
 
   @@index([venueId])
   @@index([ownerId])
   @@index([status])
   @@index([startDate])
   @@index([activityTypeId])
+  @@index([createdBy])
   @@map("activities")
 }
 
 model Booking {
-  id         String   @id @default(uuid())
-  activityId String
-  childId    String
-  parentId    String
-  status     String   @default("pending") // pending, confirmed, cancelled, completed, part_paid
-  paymentStatus String @default("pending") // pending, paid, failed, refunded, pending_payment, part_paid
-  paymentMethod String @default("card") // card, tfc, voucher, mixed
-  amount     Decimal  @db.Decimal(10, 2)
-  totalAmount Decimal? @db.Decimal(10, 2)
-  currency   String   @default("GBP")
-  paymentIntentId String? @unique
-  tfcReference String? @unique // Unique TFC payment reference
-  tfcDeadline DateTime? // Payment deadline for TFC
-  tfcInstructions String? // Provider-specific TFC instructions
-  holdPeriod Int? @default(5) // Days to hold booking for TFC payment
-  bookingDate DateTime
-  activityDate DateTime
-  activityTime String
-  notes      String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  activity   Activity @relation(fields: [activityId], references: [id])
-  child      Child    @relation(fields: [childId], references: [id])
-  parent     User     @relation(fields: [parentId], references: [id])
-  credits    WalletCredit[]
-  chargebacks Chargeback[]
-  payments   Payment[]
-  refunds    RefundTransaction[]
-  emails     Email[]
-  transactions Transaction[]
-  credits_new Credit[]
-  refunds_new Refund[]
-  attendance Attendance[]
+  id                     String                   @id @default(uuid())
+  activityId             String
+  childId                String
+  parentId               String
+  amount                 Decimal                  @db.Decimal(10, 2)
+  totalAmount            Decimal?                 @db.Decimal(10, 2)
+  currency               String                   @default("GBP")
+  paymentIntentId        String?                  @unique
+  tfcReference           String?                  @unique
+  tfcDeadline            DateTime?
+  tfcInstructions        String?
+  holdPeriod             Int?                     @default(5)
+  bookingDate            DateTime
+  activityDate           DateTime
+  activityTime           String
+  notes                  String?
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime                 @updatedAt
+  status                 BookingStatus            @default(pending)
+  paymentStatus          PaymentStatus            @default(pending)
+  paymentMethod          PaymentMethod            @default(card)
+  sessionBlockId         String?
+  holidayTimeSlotId      String?
+  earlyDropoffAmount     Decimal?                 @db.Decimal(10, 2)
+  hasEarlyDropoff        Boolean                  @default(false)
+  hasLatePickup          Boolean                  @default(false)
+  latePickupAmount       Decimal?                 @db.Decimal(10, 2)
+  attendance             Attendance[]
+  bank_feed_transactions bank_feed_transactions[]
+  activity               Activity                 @relation(fields: [activityId], references: [id])
+  child                  Child                    @relation(fields: [childId], references: [id])
+  holiday_time_slots     holiday_time_slots?      @relation(fields: [holidayTimeSlotId], references: [id])
+  parent                 User                     @relation(fields: [parentId], references: [id])
+  session_blocks         session_blocks?          @relation(fields: [sessionBlockId], references: [id])
+  chargebacks            Chargeback[]
+  credit_transactions    credit_transactions[]
+  credits_new            Credit[]
+  emails                 Email[]
+  payment_successes      payment_successes[]
+  payments               Payment[]
+  promo_code_usages      promo_code_usages[]
+  refunds                RefundTransaction[]
+  refunds_new            Refund[]
+  transactions           Transaction[]
+  credits                WalletCredit[]
 
   @@index([parentId])
   @@index([parentId, status])
@@ -224,570 +289,897 @@ model Booking {
 }
 
 model Notification {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   userId    String
   venueId   String?
-  type      String   // booking_confirmation, payment_success, payment_failed, etc.
+  type      String
   title     String
   message   String
   data      Json?
-  priority  String   @default("medium") // low, medium, high, urgent
-  channels  Json     @default("[\"in_app\"]") // email, sms, push, in_app
-  status    String   @default("pending") // pending, sent, failed
-  read      Boolean  @default(false)
+  priority  String    @default("medium")
+  channels  Json      @default("[\"in_app\"]")
+  status    String    @default("pending")
+  read      Boolean   @default(false)
   sentAt    DateTime?
   readAt    DateTime?
   error     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  venues    Venue?    @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
 
 model WebhookEvent {
-  id          String   @id @default(uuid())
-  eventType   String   // user.created, booking.updated, etc.
-  source      String   // stripe, external, internal
+  id          String    @id @default(uuid())
+  eventType   String
+  source      String
   data        Json?
-  processed   Boolean  @default(false)
+  processed   Boolean   @default(false)
   processedAt DateTime?
-  retryCount  Int      @default(0)
+  retryCount  Int       @default(0)
   error       String?
-  externalId  String?  // External system ID (e.g., Stripe event ID)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  externalId  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@map("webhook_events")
 }
 
 model WebhookConfig {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   name            String
   url             String
-  events          Json     // Array of events to listen for
+  events          Json
   secret          String
-  active          Boolean  @default(true)
-  retryCount      Int      @default(3)
-  timeoutMs       Int      @default(30000)
+  active          Boolean   @default(true)
+  retryCount      Int       @default(3)
+  timeoutMs       Int       @default(30000)
   headers         Json?
   description     String?
   lastTriggeredAt DateTime?
-  successCount    Int      @default(0)
-  failureCount    Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  successCount    Int       @default(0)
+  failureCount    Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@map("webhook_configs")
 }
 
 model WidgetConfig {
-  id          String   @id @default(uuid())
-  name        String
-  theme       String   @default("light") // light, dark, auto
-  primaryColor String  @default("#00806a")
-  position    String   @default("bottom-right") // bottom-right, bottom-left, top-right, top-left
-  showLogo    Boolean  @default(true)
-  customCSS   String?
-  isActive    Boolean  @default(true)
-  createdBy   String?
-  updatedBy   String?
-  deletedBy   String?
-  deletedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  creator     User?    @relation(fields: [createdBy], references: [id])
+  id           String    @id @default(uuid())
+  name         String
+  theme        String    @default("light")
+  primaryColor String    @default("#00806a")
+  position     String    @default("bottom-right")
+  showLogo     Boolean   @default(true)
+  customCSS    String?
+  isActive     Boolean   @default(true)
+  createdBy    String?
+  updatedBy    String?
+  deletedBy    String?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  creator      User?     @relation(fields: [createdBy], references: [id])
 
   @@map("widget_configs")
 }
 
 model WidgetAnalytics {
-  id        String   @id @default(uuid())
-  eventType String   // WIDGET_VIEW, WIDGET_INTERACTION, BOOKING_SUCCESS, etc.
-  widgetId  String
-  venueId   String?
+  id         String   @id @default(uuid())
+  eventType  String
+  widgetId   String
+  venueId    String?
   activityId String?
-  timestamp DateTime @default(now())
-  eventData Json?
-  userAgent String?
-  ipAddress String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  timestamp  DateTime @default(now())
+  eventData  Json?
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@map("widget_analytics")
 }
 
 model WalletCredit {
-  id          String   @id @default(uuid())
-  parentId    String
-  providerId  String?  // Venue/provider ID for multi-tenant support
-  bookingId   String?  // Source booking if from cancellation
-  amount      Decimal  @db.Decimal(10, 2)
-  usedAmount  Decimal  @default(0) @db.Decimal(10, 2)
-  expiryDate  DateTime
-  source      String   // cancellation, refund, manual, transfer
-  status      String   @default("active") // active, expired, used, cancelled
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  usedAt      DateTime?
-  transactionId String? // Reference to transaction that used this credit
-
-  // Relations
-  parent      User     @relation(fields: [parentId], references: [id], onDelete: Cascade)
-  booking     Booking? @relation(fields: [bookingId], references: [id])
+  id            String    @id @default(uuid())
+  parentId      String
+  providerId    String?
+  bookingId     String?
+  amount        Decimal   @db.Decimal(10, 2)
+  usedAmount    Decimal   @default(0) @db.Decimal(10, 2)
+  expiryDate    DateTime
+  source        String
+  status        String    @default("active")
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  usedAt        DateTime?
+  transactionId String?
+  booking       Booking?  @relation(fields: [bookingId], references: [id])
+  parent        User      @relation(fields: [parentId], references: [id], onDelete: Cascade)
 
   @@map("wallet_credits")
 }
 
-model WalletTransaction {
-  id          String   @id @default(uuid())
-  userId      String
-  amount      Decimal  @db.Decimal(10, 2)
-  type        String   // credit, debit
-  description String?
-  reference   String?
-  status      String   @default("completed") // pending, completed, failed
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user        User     @relation(fields: [userId], references: [id])
-
-  @@map("wallet_transactions")
-}
-
 model RefundTransaction {
-  id          String   @id @default(uuid())
-  paymentId   String
-  bookingId   String
-  amount      Decimal  @db.Decimal(10, 2)
-  method      String   // card, credit, bank_transfer
-  fee         Decimal  @default(0) @db.Decimal(10, 2)
-  reason      String   // cancellation, provider_cancelled, refund_request
-  status      String   @default("pending") // pending, processed, failed, cancelled
-  processedAt DateTime?
-  adminId     String?  // Admin who processed the refund
-  auditTrail  Json?    // Store detailed audit information
-  stripeRefundId String? // Stripe refund ID if applicable
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  booking     Booking  @relation(fields: [bookingId], references: [id])
-  payment     Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  id             String    @id @default(uuid())
+  paymentId      String
+  bookingId      String
+  amount         Decimal   @db.Decimal(10, 2)
+  method         String
+  fee            Decimal   @default(0) @db.Decimal(10, 2)
+  reason         String
+  status         String    @default("pending")
+  processedAt    DateTime?
+  adminId        String?
+  auditTrail     Json?
+  stripeRefundId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  booking        Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payment        Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
   @@map("refund_transactions")
 }
 
 model Payment {
-  id                    String   @id @default(uuid())
+  id                    String              @id @default(uuid())
   bookingId             String
   userId                String
-  stripePaymentIntentId String?  @unique
-  amount                Decimal  @db.Decimal(10, 2)
-  currency              String   @default("GBP")
-  status                String   @default("pending") // pending, completed, failed, refunded, cancelled
-  paymentMethod         String   @default("stripe") // stripe, tfc, voucher, mixed
-  stripeAccountId       String?  // For Connect payments
-  refundedAmount        Decimal? @db.Decimal(10, 2) @default(0)
+  stripePaymentIntentId String?             @unique
+  amount                Decimal             @db.Decimal(10, 2)
+  currency              String              @default("GBP")
+  status                String              @default("pending")
+  paymentMethod         String              @default("stripe")
+  stripeAccountId       String?
+  refundedAmount        Decimal?            @default(0) @db.Decimal(10, 2)
   refundedAt            DateTime?
   completedAt           DateTime?
   failedAt              DateTime?
   failureReason         String?
-  metadata              Json?    // Store additional payment data
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  // Relations
-  booking               Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metadata              Json?
+  isActive              Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  booking               Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   refunds               RefundTransaction[]
 
   @@map("payments")
 }
 
 model ProviderSettings {
-  id                    String   @id @default(uuid())
-  providerId            String   @unique // Venue ID
-  tfcEnabled            Boolean  @default(false)
-  tfcHoldPeriod         Int      @default(5) // Days to hold TFC bookings
-  tfcInstructions       String?  // Custom TFC instructions
-  tfcPayeeName          String?  // Provider's TFC payee name
-  tfcPayeeReference     String?  // Provider's TFC reference
-  tfcSortCode           String?  // Provider's sort code
-  tfcAccountNumber      String?  // Provider's account number
-  defaultRefundMethod    String   @default("credit") // credit, cash, parent_choice
-  adminFeeAmount        Decimal  @default(2.00) @db.Decimal(10, 2)
-  creditExpiryMonths    Int      @default(12)
-  cancellationPolicy    Json?    // Store cancellation rules as JSON
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                      String   @id @default(uuid())
+  providerId              String   @unique
+  tfcEnabled              Boolean  @default(false)
+  tfcHoldPeriod           Int      @default(5)
+  tfcInstructions         String?
+  tfcPayeeName            String?
+  tfcPayeeReference       String?
+  tfcSortCode             String?
+  tfcAccountNumber        String?
+  defaultRefundMethod     String   @default("credit")
+  adminFeeAmount          Decimal  @default(2.00) @db.Decimal(10, 2)
+  creditExpiryMonths      Int      @default(12)
+  cancellationPolicy      Json?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  requirePaymentAtBooking Boolean  @default(false)
 
-        @@map("provider_settings")
-    }
+  @@map("provider_settings")
+}
 
-    model Chargeback {
-      id              String    @id @default(uuid())
-      bookingId       String
-      chargebackId    String    @unique
-      amount          Decimal   @db.Decimal(10, 2)
-      reason          String
-      status          String    @default("pending") // pending, won, lost
-      receivedAt      DateTime
-      evidenceDueDate DateTime?
-      resolvedAt      DateTime?
-      resolvedBy      String?
-      resolutionNotes String?
-      adminId         String
-      createdAt       DateTime  @default(now())
-      updatedAt       DateTime  @updatedAt
+model Chargeback {
+  id              String    @id @default(uuid())
+  bookingId       String
+  chargebackId    String    @unique
+  amount          Decimal   @db.Decimal(10, 2)
+  reason          String
+  status          String    @default("pending")
+  receivedAt      DateTime
+  evidenceDueDate DateTime?
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  resolutionNotes String?
+  adminId         String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  booking         Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-      // Relations
-      booking         Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  @@map("chargebacks")
+}
 
-      @@map("chargebacks")
-    }
+model AuditLog {
+  id         String   @id @default(uuid())
+  entityType String
+  entityId   String
+  action     String
+  userId     String
+  userRole   String
+  changes    Json?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
 
-    model AuditLog {
-      id          String   @id @default(uuid())
-      entityType  String   // booking, user, venue, etc.
-      entityId    String
-      action      String   // created, updated, deleted, etc.
-      userId      String
-      userRole    String
-      changes     Json?    // Store the changes made
-      metadata    Json?    // Additional metadata
-      ipAddress   String?
-      userAgent   String?
-      timestamp   DateTime @default(now())
+  @@map("audit_logs")
+}
 
-      // Relations
-      user        User     @relation(fields: [userId], references: [id])
+model Payout {
+  id             String    @id @default(uuid())
+  venueId        String
+  amount         Decimal   @db.Decimal(10, 2)
+  currency       String    @default("GBP")
+  status         String    @default("pending")
+  stripePayoutId String?
+  scheduledDate  DateTime?
+  completedDate  DateTime?
+  failureReason  String?
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  venue          Venue     @relation(fields: [venueId], references: [id])
 
-      @@map("audit_logs")
-    }
+  @@map("payouts")
+}
 
-    model Payout {
-      id          String   @id @default(uuid())
-      venueId     String
-      amount      Decimal  @db.Decimal(10, 2)
-      currency    String   @default("GBP")
-      status      String   @default("pending") // pending, processing, completed, failed
-      stripePayoutId String? // Stripe payout ID
-      scheduledDate DateTime?
-      completedDate DateTime?
-      failureReason String?
-      metadata    Json?
-      createdAt   DateTime @default(now())
-      updatedAt   DateTime @updatedAt
+model Register {
+  id            String       @id @default(uuid())
+  sessionId     String
+  date          DateTime
+  status        String       @default("active")
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  displayFields Json?
+  attendance    Attendance[]
+  session       Session      @relation(fields: [sessionId], references: [id])
 
-      // Relations
-      venue       Venue    @relation(fields: [venueId], references: [id])
+  @@map("registers")
+}
 
-      @@map("payouts")
-    }
+model Template {
+  id              String   @id @default(uuid())
+  name            String
+  type            String
+  years           String
+  description     String?
+  whatToBring     String?
+  defaultPrice    Decimal? @db.Decimal(10, 2)
+  defaultCapacity Int?
+  flags           Json
+  tags            String[]
+  imageUrl        String?
+  status          String   @default("active")
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  courses         Course[]
+  creator         User     @relation(fields: [createdBy], references: [id])
 
-    model Register {
-      id          String   @id @default(uuid())
-      venueId     String
-      activityId  String
-      sessionId   String?
-      date        DateTime
-      capacity    Int      @default(20)
-      presentCount Int     @default(0)
-      totalCount  Int      @default(0)
-      status      String   @default("active") // active, completed, cancelled
-      notes       String?
-      createdAt   DateTime @default(now())
-      updatedAt   DateTime @updatedAt
-      lastUpdated DateTime @default(now())
+  @@map("templates")
+}
 
-      // Relations
-      venue       Venue    @relation(fields: [venueId], references: [id])
-      activity    Activity @relation(fields: [activityId], references: [id])
-      session     Session? @relation(fields: [sessionId], references: [id])
-      attendance  Attendance[]
+model BusinessAccount {
+  id                String   @id @default(uuid())
+  name              String
+  stripeAccountId   String   @unique
+  stripeAccountType String
+  status            String
+  franchiseFeeType  String   @default("percent")
+  franchiseFeeValue Decimal  @db.Decimal(10, 2)
+  vatMode           String   @default("inclusive")
+  adminFeeAmount    Decimal? @db.Decimal(10, 2)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  venues            Venue[]
 
-      @@map("registers")
-    }
+  @@map("business_accounts")
+}
 
+model Course {
+  id         String    @id @default(uuid())
+  templateId String?
+  venueId    String
+  name       String
+  type       String
+  years      String
+  price      Decimal   @db.Decimal(10, 2)
+  capacity   Int
+  startDate  DateTime
+  endDate    DateTime
+  weekday    String?
+  time       String?
+  extras     Json?
+  status     String    @default("draft")
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  creator    User      @relation(fields: [createdBy], references: [id])
+  template   Template? @relation(fields: [templateId], references: [id])
+  venue      Venue     @relation(fields: [venueId], references: [id])
 
-    model Template {
-      id              String   @id @default(uuid())
-      name            String
-      type            String   // after_school, breakfast, holiday, other
-      years           String   // Y1-Y2, Y3-Y4, etc.
-      description     String?
-      whatToBring     String?  // What to bring instructions
-      defaultPrice    Decimal? @db.Decimal(10, 2) // Nullable for "Set defaults" warning
-      defaultCapacity Int?     // Nullable for "Set defaults" warning
-      flags           Json     // { photo_consent_required: bool, medical_reminder: bool }
-      tags            String[] // Array of tags
-      imageUrl        String?  // Image URL
-      status          String   @default("active") // active, archived
-      createdBy       String
-      createdAt       DateTime @default(now())
-      updatedAt       DateTime @updatedAt
+  @@map("courses")
+}
 
-      // Relations
-      creator         User     @relation(fields: [createdBy], references: [id])
-      courses         Course[] // Courses created from this template
+model Session {
+  id                 String               @id @default(uuid())
+  activityId         String
+  date               DateTime
+  startTime          String
+  endTime            String
+  status             String               @default("scheduled")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  bookingsCount      Int                  @default(0)
+  capacity           Int                  @default(0)
+  holiday_time_slots holiday_time_slots[]
+  registers          Register[]
+  session_blocks     session_blocks[]
+  activity           Activity             @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
-      @@map("templates")
-    }
+  @@map("sessions")
+}
 
-    model BusinessAccount {
-      id                String   @id @default(uuid())
-      name              String
-      stripeAccountId   String   @unique
-      stripeAccountType String   // express, standard
-      status            String   // onboarded, action_required, rejected
-      franchiseFeeType  String   @default("percent") // percent, fixed
-      franchiseFeeValue Decimal  @db.Decimal(10, 2)
-      vatMode           String   @default("inclusive") // inclusive, exclusive
-      adminFeeAmount    Decimal? @db.Decimal(10, 2) // Optional admin fee
-      isActive          Boolean  @default(true)
-      createdAt         DateTime @default(now())
-      updatedAt         DateTime @updatedAt
+model EmailTemplate {
+  id               String   @id @default(uuid())
+  name             String
+  trigger          String
+  subjectTemplate  String
+  bodyHtmlTemplate String
+  bodyTextTemplate String?
+  active           Boolean  @default(true)
+  brandOverrides   Json?
+  placeholders     String[]
+  createdBy        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  creator          User     @relation(fields: [createdBy], references: [id])
+  emails           Email[]
 
-      // Relations
-      venues            Venue[]
+  @@map("email_templates")
+}
 
-      @@map("business_accounts")
-    }
+model Broadcast {
+  id            String    @id @default(uuid())
+  title         String
+  subject       String
+  bodyHtml      String
+  bodyText      String?
+  audienceQuery Json
+  channels      String[]
+  scheduledFor  DateTime?
+  sentAt        DateTime?
+  status        String    @default("draft")
+  createdBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  creator       User      @relation(fields: [createdBy], references: [id])
+  emails        Email[]
 
-    model Course {
-      id              String   @id @default(uuid())
-      templateId      String?  // Nullable for manual courses
-      venueId         String
-      name            String
-      type            String   // after_school, breakfast, holiday, other
-      years           String   // Y1-Y2, Y3-Y4, etc.
-      price           Decimal  @db.Decimal(10, 2) // Per venue override
-      capacity        Int      // Per venue override
-      startDate       DateTime
-      endDate         DateTime
-      weekday         String?  // Day of week for recurring
-      time            String?  // Time string (e.g., "15:30-16:30")
-      extras          Json?    // { early_dropoff: bool, late_pickup: bool } for holiday only
-      status          String   @default("draft") // draft, published, archived
-      createdBy       String
-      createdAt       DateTime @default(now())
-      updatedAt       DateTime @updatedAt
+  @@map("broadcasts")
+}
 
-      // Relations
-      template        Template? @relation(fields: [templateId], references: [id])
-      venue           Venue     @relation(fields: [venueId], references: [id])
-      creator         User      @relation(fields: [createdBy], references: [id])
-      sessions        Session[]
+model Email {
+  id                String         @id @default(uuid())
+  broadcastId       String?
+  templateId        String?
+  parentId          String
+  bookingId         String?
+  toEmail           String
+  toName            String
+  messageType       String
+  subject           String
+  channel           String         @default("email")
+  providerMessageId String?
+  sentAt            DateTime?
+  lastStatus        String         @default("pending")
+  lastStatusAt      DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  events            EmailEvent[]
+  booking           Booking?       @relation(fields: [bookingId], references: [id])
+  broadcast         Broadcast?     @relation(fields: [broadcastId], references: [id])
+  parent            User           @relation(fields: [parentId], references: [id])
+  template          EmailTemplate? @relation(fields: [templateId], references: [id])
 
-      @@map("courses")
-    }
+  @@map("emails")
+}
 
-    model Session {
-      id          String    @id @default(uuid())
-      courseId    String?
-      activityId  String?
-      date        DateTime
-      startTime   String    // Time string (e.g., "15:30")
-      endTime     String    // Time string (e.g., "16:30")
-      capacity    Int?
-      bookingsCount Int     @default(0)
-      status      String    @default("scheduled") // scheduled, cancelled, completed
-      createdAt   DateTime  @default(now())
-      updatedAt   DateTime  @updatedAt
+model EmailEvent {
+  id              String   @id @default(uuid())
+  emailId         String
+  eventType       String
+  providerEventId String?
+  meta            Json?
+  occurredAt      DateTime
+  createdAt       DateTime @default(now())
+  email           Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
 
-      // Relations
-      course      Course?   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-      activity    Activity? @relation(fields: [activityId], references: [id], onDelete: Cascade)
-      registers   Register[]
+  @@map("email_events")
+}
 
-      @@map("sessions")
-    }
+model Transaction {
+  id              String    @id @default(uuid())
+  parentId        String
+  bookingId       String?
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("GBP")
+  paymentMethod   String
+  status          String    @default("pending")
+  stripePaymentId String?
+  tfcReference    String?
+  description     String?
+  metadata        Json?
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  refunds         Refund[]
+  booking         Booking?  @relation(fields: [bookingId], references: [id])
+  parent          User      @relation(fields: [parentId], references: [id])
 
-    // Communications Tables
-    model EmailTemplate {
-      id              String   @id @default(uuid())
-      name            String
-      trigger         String   // booking_confirmation, booking_reminder, cancellation, etc.
-      subjectTemplate String
-      bodyHtmlTemplate String
-      bodyTextTemplate String?
-      active          Boolean  @default(true)
-      brandOverrides  Json?    // { logo_url, primary_color, secondary_color }
-      placeholders    String[] // Available placeholders like {ParentName}, {ChildName}
-      createdBy       String
-      createdAt       DateTime @default(now())
-      updatedAt       DateTime @updatedAt
+  @@map("transactions")
+}
 
-      // Relations
-      creator         User     @relation(fields: [createdBy], references: [id])
-      emails          Email[]
+model Discount {
+  id           String    @id @default(uuid())
+  name         String
+  code         String    @unique
+  type         String
+  value        Decimal   @db.Decimal(10, 2)
+  minAmount    Decimal?  @db.Decimal(10, 2)
+  maxUses      Int?
+  usedCount    Int       @default(0)
+  validFrom    DateTime
+  validUntil   DateTime?
+  applicableTo String[]
+  venueIds     String[]
+  activityIds  String[]
+  active       Boolean   @default(true)
+  createdBy    String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  creator      User      @relation(fields: [createdBy], references: [id])
 
-      @@map("email_templates")
-    }
+  @@map("discounts")
+}
 
-    model Broadcast {
-      id            String   @id @default(uuid())
-      title         String
-      subject       String
-      bodyHtml      String
-      bodyText      String?
-      audienceQuery Json     // { type: "all" | "venue" | "activity" | "year_group", filters: {...} }
-      channels      String[] // ["email", "sms", "in_app"]
-      scheduledFor  DateTime?
-      sentAt        DateTime?
-      status        String   @default("draft") // draft, scheduled, sending, sent, failed
-      createdBy     String
-      createdAt     DateTime @default(now())
-      updatedAt     DateTime @updatedAt
+model Credit {
+  id          String    @id @default(uuid())
+  parentId    String
+  amount      Decimal   @db.Decimal(10, 2)
+  usedAmount  Decimal   @default(0) @db.Decimal(10, 2)
+  source      String
+  description String?
+  expiresAt   DateTime?
+  status      String    @default("active")
+  bookingId   String?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  usedAt      DateTime?
+  booking     Booking?  @relation(fields: [bookingId], references: [id])
+  creator     User?     @relation("CreditCreator", fields: [createdBy], references: [id])
+  parent      User      @relation("CreditParent", fields: [parentId], references: [id])
 
-      // Relations
-      creator       User     @relation(fields: [createdBy], references: [id])
-      emails        Email[]
+  @@map("credits")
+}
 
-      @@map("broadcasts")
-    }
+model Refund {
+  id             String      @id @default(uuid())
+  transactionId  String
+  parentId       String
+  bookingId      String?
+  amount         Decimal     @db.Decimal(10, 2)
+  method         String
+  reason         String
+  status         String      @default("processing")
+  stripeRefundId String?
+  processedAt    DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  booking        Booking?    @relation(fields: [bookingId], references: [id])
+  parent         User        @relation(fields: [parentId], references: [id])
+  transaction    Transaction @relation(fields: [transactionId], references: [id])
 
-    model Email {
-      id                String   @id @default(uuid())
-      broadcastId       String?
-      templateId        String?
-      parentId          String
-      bookingId         String?
-      toEmail           String
-      toName            String
-      messageType       String   // booking_confirmation, broadcast, etc.
-      subject           String
-      channel           String   @default("email") // email, sms, in_app
-      providerMessageId String?  // ESP message ID
-      sentAt            DateTime?
-      lastStatus        String   @default("pending") // pending, sent, delivered, opened, clicked, bounced, unsubscribed
-      lastStatusAt      DateTime?
-      createdAt         DateTime @default(now())
-      updatedAt         DateTime @updatedAt
+  @@map("refunds")
+}
 
-      // Relations
-      broadcast         Broadcast?     @relation(fields: [broadcastId], references: [id])
-      template          EmailTemplate? @relation(fields: [templateId], references: [id])
-      parent            User           @relation(fields: [parentId], references: [id])
-      booking           Booking?       @relation(fields: [bookingId], references: [id])
-      events            EmailEvent[]
+model analytics_events {
+  id         String   @id
+  eventType  String
+  userId     String
+  entityType String
+  entityId   String
+  properties Json
+  timestamp  DateTime @default(now())
+  users      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-      @@map("emails")
-    }
+  @@index([entityType])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([userId])
+}
 
-    model EmailEvent {
-      id                String   @id @default(uuid())
-      emailId           String
-      eventType         String   // delivered, opened, clicked, bounced, unsubscribed
-      providerEventId   String?  // ESP event ID
-      meta              Json?    // Additional data like bounce reason, link URL
-      occurredAt        DateTime
-      createdAt         DateTime @default(now())
+model bank_feed_transactions {
+  id               String    @id
+  bankReference    String    @unique
+  amount           Decimal   @db.Decimal(10, 2)
+  currency         String    @default("GBP")
+  paymentReference String?
+  description      String?
+  transactionDate  DateTime
+  bankAccount      String?
+  status           String    @default("pending")
+  matchedBookingId String?
+  matchedAt        DateTime?
+  processedAt      DateTime?
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime
+  bookings         Booking?  @relation(fields: [matchedBookingId], references: [id])
 
-      // Relations
-      email             Email    @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  @@index([paymentReference])
+  @@index([status])
+  @@index([transactionDate])
+}
 
-      @@map("email_events")
-    }
+model bulk_operations {
+  id             String    @id
+  type           String
+  status         String    @default("pending")
+  totalItems     Int       @default(0)
+  processedItems Int       @default(0)
+  failedItems    Int       @default(0)
+  userId         String
+  parameters     Json?
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime
+  completedAt    DateTime?
+  users          User      @relation(fields: [userId], references: [id])
+}
 
-    // Finance Tables
-    model Transaction {
-      id              String   @id @default(uuid())
-      parentId        String
-      bookingId       String?
-      amount          Decimal  @db.Decimal(10, 2)
-      currency        String   @default("GBP")
-      paymentMethod   String   // card, tfc, credit, mixed
-      status          String   @default("pending") // pending, paid, failed, refunded
-      stripePaymentId String?
-      tfcReference    String?
-      description     String?
-      metadata        Json?    // Additional transaction data
-      processedAt     DateTime?
-      createdAt       DateTime @default(now())
-      updatedAt       DateTime @updatedAt
+model child_permissions {
+  id                        String   @id
+  childId                   String
+  consentToWalkHome         Boolean  @default(false)
+  consentToPhotography      Boolean  @default(false)
+  consentToFirstAid         Boolean  @default(false)
+  consentToEmergencyContact Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime
+  children                  Child    @relation(fields: [childId], references: [id], onDelete: Cascade)
+}
 
-      // Relations
-      parent          User     @relation(fields: [parentId], references: [id])
-      booking         Booking? @relation(fields: [bookingId], references: [id])
-      refunds         Refund[]
+model credit_transactions {
+  id                                       String   @id
+  userId                                   String
+  amount                                   Decimal  @db.Decimal(10, 2)
+  type                                     String
+  reason                                   String
+  adminId                                  String?
+  createdAt                                DateTime @default(now())
+  bookingId                                String?
+  users_credit_transactions_adminIdTousers User?    @relation("credit_transactions_adminIdTousers", fields: [adminId], references: [id])
+  bookings                                 Booking? @relation(fields: [bookingId], references: [id])
+  users_credit_transactions_userIdTousers  User     @relation("credit_transactions_userIdTousers", fields: [userId], references: [id], onDelete: Cascade)
 
-      @@map("transactions")
-    }
+  @@index([bookingId])
+  @@index([createdAt])
+  @@index([userId])
+}
 
-    model Discount {
-      id              String   @id @default(uuid())
-      name            String
-      code            String   @unique
-      type            String   // percentage, fixed_amount
-      value           Decimal  @db.Decimal(10, 2)
-      minAmount       Decimal? @db.Decimal(10, 2)
-      maxUses         Int?
-      usedCount       Int      @default(0)
-      validFrom       DateTime
-      validUntil      DateTime?
-      applicableTo    String[] // venues, activities, all
-      venueIds        String[]
-      activityIds     String[]
-      active          Boolean  @default(true)
-      createdBy       String
-      createdAt       DateTime @default(now())
-      updatedAt       DateTime @updatedAt
+model data_access_audit {
+  id           String   @id
+  userId       String
+  childId      String
+  dataAccessed String[]
+  purpose      String
+  accessedBy   String
+  timestamp    DateTime @default(now())
 
-      // Relations
-      creator         User     @relation(fields: [createdBy], references: [id])
+  @@index([childId])
+  @@index([purpose])
+  @@index([timestamp])
+  @@index([userId])
+}
 
-      @@map("discounts")
-    }
+model data_access_requests {
+  id          String    @id
+  userId      String
+  childId     String?
+  requestType String
+  description String
+  status      String    @default("pending")
+  response    String?
+  requestedAt DateTime  @default(now())
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  users       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    model Credit {
-      id              String   @id @default(uuid())
-      parentId        String
-      amount          Decimal  @db.Decimal(10, 2)
-      usedAmount      Decimal  @default(0) @db.Decimal(10, 2)
-      source          String   // manual, refund, cancellation, policy
-      description     String?
-      expiresAt       DateTime?
-      status          String   @default("active") // active, expired, used, cancelled
-      bookingId       String?  // Source booking if from cancellation
-      createdBy       String?
-      createdAt       DateTime @default(now())
-      updatedAt       DateTime @updatedAt
-      usedAt          DateTime?
+  @@index([requestType])
+  @@index([status])
+  @@index([userId])
+}
 
-      // Relations
-      parent          User     @relation("CreditParent", fields: [parentId], references: [id])
-      booking         Booking? @relation(fields: [bookingId], references: [id])
-      creator         User?    @relation("CreditCreator", fields: [createdBy], references: [id])
+model discount_codes {
+  id                String            @id
+  code              String            @unique
+  type              String
+  value             Decimal           @db.Decimal(10, 2)
+  description       String?
+  minAmount         Decimal?          @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?          @db.Decimal(10, 2)
+  maxUsesPerUser    Int?
+  startDate         DateTime
+  endDate           DateTime
+  isActive          Boolean           @default(true)
+  createdBy         String
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime
+  users             User              @relation(fields: [createdBy], references: [id])
+  discount_usages   discount_usages[]
 
-      @@map("credits")
-    }
+  @@index([code])
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
 
-    model Refund {
-      id              String   @id @default(uuid())
-      transactionId   String
-      parentId        String
-      bookingId       String?
-      amount          Decimal  @db.Decimal(10, 2)
-      method          String   // original_payment, credit
-      reason          String
-      status          String   @default("processing") // processing, refunded, failed
-      stripeRefundId  String?
-      processedAt     DateTime?
-      createdAt       DateTime @default(now())
-      updatedAt       DateTime @updatedAt
+model discount_usages {
+  id             String         @id
+  discountCodeId String
+  userId         String
+  bookingId      String?
+  discountAmount Decimal        @db.Decimal(10, 2)
+  appliedAt      DateTime       @default(now())
+  discount_codes discount_codes @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  users          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-      // Relations
-      transaction     Transaction @relation(fields: [transactionId], references: [id])
-      parent          User        @relation(fields: [parentId], references: [id])
-      booking         Booking?    @relation(fields: [bookingId], references: [id])
+  @@index([appliedAt])
+  @@index([discountCodeId])
+  @@index([userId])
+}
 
-      @@map("refunds")
-    }
+model gdpr_consents {
+  id                      String    @id
+  childId                 String
+  parentId                String
+  medicalInfoConsent      Boolean   @default(false)
+  allergiesConsent        Boolean   @default(false)
+  photoPermissionConsent  Boolean   @default(false)
+  walkHomeAloneConsent    Boolean   @default(false)
+  emergencyContactConsent Boolean   @default(false)
+  schoolInfoConsent       Boolean   @default(false)
+  personalDetailsConsent  Boolean   @default(false)
+  consentDate             DateTime  @default(now())
+  expiryDate              DateTime?
+  purpose                 String
+  legalBasis              String
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime
+  users                   User      @relation(fields: [parentId], references: [id], onDelete: Cascade)
+
+  @@index([childId])
+  @@index([consentDate])
+  @@index([parentId])
+  @@index([purpose])
+}
+
+model holiday_time_slots {
+  id            String    @id
+  activityId    String
+  name          String
+  startTime     String
+  endTime       String
+  price         Decimal   @db.Decimal(10, 2)
+  capacity      Int       @default(0)
+  bookingsCount Int       @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  sessionId     String?
+  bookings      Booking[]
+  activities    Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  sessions      Session?  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@index([sessionId])
+}
+
+model holidays {
+  id          String   @id
+  activityId  String
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  type        String   @default("custom")
+  description String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  activities  Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  users       User     @relation(fields: [createdBy], references: [id])
+
+  @@index([activityId])
+  @@index([endDate])
+  @@index([startDate])
+}
+
+model payment_successes {
+  id              String   @id
+  bookingId       String
+  paymentIntentId String   @unique
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("GBP")
+  paymentMethod   String
+  receiptSent     Boolean  @default(false)
+  calendarAdded   Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  bookings        Booking  @relation(fields: [bookingId], references: [id])
+}
+
+model promo_code_usages {
+  id             String      @id
+  promoCodeId    String
+  bookingId      String
+  userId         String
+  discountAmount Decimal     @db.Decimal(10, 2)
+  createdAt      DateTime    @default(now())
+  bookings       Booking     @relation(fields: [bookingId], references: [id])
+  promo_codes    promo_codes @relation(fields: [promoCodeId], references: [id])
+  users          User        @relation(fields: [userId], references: [id])
+}
+
+model promo_codes {
+  id                String              @id
+  code              String              @unique
+  name              String
+  description       String?
+  type              String
+  value             Decimal             @db.Decimal(10, 2)
+  minAmount         Decimal?            @db.Decimal(10, 2)
+  maxUses           Int?
+  usedCount         Int                 @default(0)
+  validFrom         DateTime
+  validUntil        DateTime?
+  applicableTo      String[]
+  venueIds          String[]
+  activityIds       String[]
+  active            Boolean             @default(true)
+  createdBy         String
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime
+  promo_code_usages promo_code_usages[]
+  users             User                @relation(fields: [createdBy], references: [id])
+}
+
+model register_setups {
+  id                 String   @id
+  name               String
+  description        String
+  defaultCapacity    Int      @default(20)
+  allowWaitlist      Boolean  @default(true)
+  autoConfirm        Boolean  @default(false)
+  requireApproval    Boolean  @default(false)
+  cancellationPolicy String?
+  refundPolicy       String?
+  isActive           Boolean  @default(true)
+  createdBy          String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime
+  users              User     @relation(fields: [createdBy], references: [id])
+}
+
+model scheduled_notifications {
+  id           String   @id
+  userId       String
+  type         String
+  title        String
+  message      String
+  data         Json?
+  priority     String   @default("medium")
+  scheduledFor DateTime
+  status       String   @default("pending")
+  venueId      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+
+  @@index([scheduledFor])
+  @@index([status])
+  @@index([userId])
+}
+
+model session_blocks {
+  id            String    @id
+  sessionId     String
+  activityId    String
+  name          String
+  startTime     String
+  endTime       String
+  capacity      Int       @default(0)
+  price         Decimal   @db.Decimal(10, 2)
+  bookingsCount Int       @default(0)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  bookings      Booking[]
+  activities    Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  sessions      Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@index([sessionId])
+}
+
+model session_templates {
+  id          String   @id
+  name        String
+  description String?
+  venueId     String?
+  blocks      Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  venues      Venue?   @relation(fields: [venueId], references: [id])
+}
+
+model user_notification_preferences {
+  id                        String   @id
+  userId                    String   @unique
+  inAppEnabled              Boolean  @default(true)
+  emailEnabled              Boolean  @default(true)
+  smsEnabled                Boolean  @default(false)
+  pushEnabled               Boolean  @default(true)
+  bookingCreatedEnabled     Boolean  @default(true)
+  bookingUpdatedEnabled     Boolean  @default(true)
+  bookingCancelledEnabled   Boolean  @default(true)
+  bookingTransferredEnabled Boolean  @default(true)
+  paymentSuccessEnabled     Boolean  @default(true)
+  paymentFailedEnabled      Boolean  @default(true)
+  activityReminderEnabled   Boolean  @default(true)
+  systemAlertEnabled        Boolean  @default(true)
+  quietHoursEnabled         Boolean  @default(false)
+  quietHoursStart           String   @default("22:00")
+  quietHoursEnd             String   @default("08:00")
+  frequency                 String   @default("immediate")
+  language                  String   @default("en")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime
+  users                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  cancelled
+  completed
+  tfc_pending
+  expired
+  waiting_list
+}
+
+enum PaymentMethod {
+  card
+  tfc
+  wallet
+  cash
+  bank_transfer
+  none
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+  pending_payment
+  part_paid
+  cancelled
+  not_required
+}

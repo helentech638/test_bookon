@@ -27,30 +27,42 @@ router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: R
   }
   
   try {
-    // Use a single optimized query with raw SQL for better performance
+    // Use Prisma queries instead of raw SQL for better reliability
     const dashboardData = await safePrismaQuery(async (client) => {
-      // Single query to get all stats at once - updated for Course schema
-      const result = await client.$queryRaw`
-        SELECT 
-          COUNT(*) as total_bookings,
-          COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed_bookings,
-          COALESCE(SUM(CASE WHEN status = 'confirmed' THEN amount ELSE 0 END), 0) as total_spent,
-          COUNT(CASE WHEN status IN ('pending', 'confirmed') THEN 1 END) as upcoming_activities,
-          EXTRACT(DAYS FROM NOW() - u.created_at) as member_since_days
-        FROM "Booking" b
-        JOIN "User" u ON u.id = b."parentId"
-        WHERE b."parentId" = ${userId}
-      ` as any[];
+      // Get user info
+      const user = await client.user.findUnique({
+        where: { id: userId },
+        select: { createdAt: true, lastLoginAt: true }
+      });
 
-      const stats = result[0] || {};
+      // Get booking statistics - optimized with single query
+      const bookingStats = await client.booking.groupBy({
+        by: ['status'],
+        where: { parentId: userId },
+        _count: { id: true },
+        _sum: { amount: true }
+      });
+
+      // Calculate totals from grouped results
+      const totalBookings = bookingStats.reduce((sum, stat) => sum + stat._count.id, 0);
+      const confirmedBookings = bookingStats.find(s => s.status === 'confirmed')?._count.id || 0;
+      const upcomingBookings = bookingStats
+        .filter(s => ['pending', 'confirmed'].includes(s.status))
+        .reduce((sum, stat) => sum + stat._count.id, 0);
+      const totalSpent = bookingStats
+        .filter(s => s.status === 'confirmed')
+        .reduce((sum, stat) => sum + Number(stat._sum.amount || 0), 0);
+
+      // Calculate member since days
+      const memberSince = user ? Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24)) : 0;
       
       return {
-        totalBookings: parseInt(stats.total_bookings) || 0,
-        confirmedBookings: parseInt(stats.confirmed_bookings) || 0,
-        totalSpent: parseFloat(stats.total_spent) || 0,
-        upcomingActivities: parseInt(stats.upcoming_activities) || 0,
-        memberSince: parseInt(stats.member_since_days) || 0,
-        lastLogin: new Date().toISOString()
+        totalBookings: totalBookings || 0,
+        confirmedBookings: confirmedBookings || 0,
+        totalSpent: parseFloat(String(totalSpent || 0)),
+        upcomingActivities: upcomingBookings || 0,
+        memberSince: memberSince,
+        lastLogin: user?.lastLoginAt?.toISOString() || new Date().toISOString()
       };
     });
 
@@ -78,14 +90,40 @@ router.get('/profile', authenticateToken, asyncHandler(async (req: Request, res:
   const userId = req.user!.id;
   
   try {
-    // Use cached user data from token instead of database query
+    // Fetch real user data from database
+    const user = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { 
+          id: true, 
+          email: true, 
+          firstName: true,
+          lastName: true,
+          role: true, 
+          isActive: true,
+          phone: true,
+          createdAt: true,
+          updatedAt: true,
+          lastLoginAt: true
+        }
+      });
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    // Format the response to match frontend expectations
     const userData = {
-      user: {
-        id: userId,
-        email: req.user!.email,
-        role: req.user!.role,
-        memberSince: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000)
-      }
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.isActive,
+      phone: user.phone,
+      memberSince: user.createdAt.toISOString(),
+      lastLogin: user.lastLoginAt?.toISOString() || user.updatedAt.toISOString()
     };
 
     res.json({
@@ -215,7 +253,7 @@ router.get('/recent-activity', authenticateToken, asyncHandler(async (req: Reque
         type: 'payment',
         id: booking.id,
         title: `Payment: ${booking.activity.title}`,
-        subtitle: `£${parseFloat(String(booking.amount || '0')).toFixed(2)}`,
+        subtitle: `Â£${parseFloat(String(booking.amount || '0')).toFixed(2)}`,
         status: booking.paymentStatus,
         date: booking.createdAt
       }
@@ -236,32 +274,37 @@ router.get('/recent-activities', authenticateToken, asyncHandler(async (req: Req
   try {
     const userId = req.user!.id;
     
-    // Use optimized query with raw SQL for better performance
+    // Optimized query with minimal data fetching
     const recentActivities = await safePrismaQuery(async (client) => {
-      const activities = await client.$queryRaw`
-        SELECT 
-          b.id,
-          b.status,
-          b.created_at as timestamp,
-          a.title as title,
-          a.status as type,
-          v.name as venue
-        FROM "Booking" b
-        JOIN "Activity" a ON a.id = b."activityId"
-        JOIN "Venue" v ON v.id = a."venueId"
-        WHERE b."parentId" = ${userId}
-        ORDER BY b.created_at DESC
-        LIMIT 10
-      ` as any[];
+      const bookings = await client.booking.findMany({
+        where: { parentId: userId },
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          activity: {
+            select: {
+              title: true,
+              venue: {
+                select: {
+                  name: true
+                }
+              }
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5 // Reduced from 10 to 5 for faster loading
+      });
 
-      return activities.map((booking: any) => ({
+      return bookings.map((booking: any) => ({
         id: booking.id,
         type: 'booking',
-        title: booking.title,
-        description: `${booking.type} course`,
-        venue: booking.venue,
+        title: booking.activity.title,
+        description: `${booking.status} activity`,
+        venue: booking.activity.venue.name,
         status: booking.status,
-        timestamp: booking.timestamp
+        timestamp: booking.createdAt
       }));
     });
 
@@ -308,13 +351,13 @@ router.get('/bookings', authenticateToken, asyncHandler(async (req: Request, res
   }
 }));
 
-// Get dashboard snapshot data
-router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
+// Get admin dashboard snapshot data
+router.get('/admin-snapshot', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { range = 'today' } = req.query;
     const userId = req.user!.id;
     
-    logger.info('Dashboard snapshot requested', { 
+    logger.info('Admin dashboard snapshot requested', { 
       user: req.user?.email,
       range,
       userId 
@@ -338,40 +381,68 @@ router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(
     }
 
     const snapshotData = await safePrismaQuery(async () => {
-      // Get basic stats
-      const [totalBookings, totalRevenue, totalActivities, totalVenues] = await Promise.all([
-        prisma.booking.count({
-          where: {
-            createdAt: { gte: startDate, lte: endDate }
+      // Get activities running today
+      const activitiesRunning = await prisma.activity.count({
+        where: {
+          startDate: { lte: endDate },
+          endDate: { gte: startDate },
+          status: 'active'
+        }
+      });
+
+      // Get attendees today (confirmed bookings for today's activities)
+      const attendeesToday = await prisma.booking.count({
+        where: {
+          status: 'confirmed',
+          activity: {
+            startDate: { lte: endDate },
+            endDate: { gte: startDate }
           }
-        }),
-        prisma.booking.aggregate({
-          where: {
-            createdAt: { gte: startDate, lte: endDate },
-            status: 'confirmed'
-          },
-          _sum: { amount: true }
-        }),
-        prisma.activity.count({
-          where: {
-            createdAt: { gte: startDate, lte: endDate }
-          }
-        }),
-        prisma.venue.count()
-      ]);
+        }
+      });
+
+      // Get total parents registered
+      const parentsRegistered = await prisma.user.count({
+        where: {
+          role: 'parent'
+        }
+      });
+
+      // Get payments total for the period
+      const paymentsData = await prisma.booking.aggregate({
+        where: {
+          createdAt: { gte: startDate, lte: endDate },
+          status: 'confirmed'
+        },
+        _sum: { amount: true }
+      });
+
+      // Get refunds total for the period
+      const refundsData = await prisma.booking.aggregate({
+        where: {
+          createdAt: { gte: startDate, lte: endDate },
+          status: 'cancelled'
+        },
+        _sum: { amount: true }
+      });
+
+      // Get credits total (mock for now - would need credits table)
+      const creditsTotal = 0; // TODO: Implement credits system
 
       return {
-        totalBookings,
-        totalRevenue: totalRevenue._sum.amount || 0,
-        totalActivities,
-        totalVenues,
-        dateRange: { startDate, endDate }
+        activities_running: activitiesRunning,
+        attendees_today: attendeesToday,
+        parents_registered: parentsRegistered,
+        payments_total: paymentsData._sum.amount || 0,
+        refunds_total: refundsData._sum.amount || 0,
+        credits_total: creditsTotal
       };
     });
 
-    logger.info('Dashboard snapshot data retrieved', { 
-      totalBookings: snapshotData.totalBookings,
-      totalRevenue: snapshotData.totalRevenue
+    logger.info('Admin dashboard snapshot data retrieved', { 
+      activities_running: snapshotData.activities_running,
+      attendees_today: snapshotData.attendees_today,
+      parents_registered: snapshotData.parents_registered
     });
 
     res.json({
@@ -379,8 +450,8 @@ router.get('/snapshot', authenticateToken, requireRole(['admin']), asyncHandler(
       data: snapshotData
     });
   } catch (error) {
-    logger.error('Error fetching dashboard snapshot:', error);
-    throw new AppError('Failed to fetch dashboard snapshot', 500, 'DASHBOARD_SNAPSHOT_ERROR');
+    logger.error('Error fetching admin dashboard snapshot:', error);
+    throw new AppError('Failed to fetch admin dashboard snapshot', 500, 'ADMIN_SNAPSHOT_ERROR');
   }
 }));
 

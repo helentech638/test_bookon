@@ -9,6 +9,7 @@ import { redis } from '../utils/redis';
 import { logger, logSecurity } from '../utils/logger';
 import { prisma } from '../utils/prisma';
 import { prismaDirect } from '../utils/prismaDirect';
+import businessOnboardingRouter from './businessOnboarding';
 
 const router = Router();
 
@@ -1128,5 +1129,8 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
     });
   }
 }));
+
+// Business onboarding routes
+router.use('/', businessOnboardingRouter);
 
 export default router;

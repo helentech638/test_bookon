@@ -93,17 +93,25 @@ const BusinessDashboard: React.FC = () => {
         return;
       }
 
-      // Set a timeout for the request
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs: number) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          return await fetch(url, {
+            ...options,
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      };
 
       // Check onboarding status first
-      const onboardingResponse = await fetch(buildApiUrl('/auth/business-profile'), {
+      const onboardingResponse = await fetchWithTimeout(buildApiUrl('/auth/business-profile'), {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
-        signal: controller.signal
-      });
+      }, 15000);
 
       if (onboardingResponse.ok) {
         const onboardingData = await onboardingResponse.json();
@@ -115,15 +123,27 @@ const BusinessDashboard: React.FC = () => {
       }
 
       // Fetch business dashboard data
-      const response = await fetch(buildApiUrl('/dashboard/business'), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
+      let response: Response;
+      try {
+        response = await fetchWithTimeout(buildApiUrl('/dashboard/business'), {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }, 25000);
+      } catch (err) {
+        // One retry for slow local/dev environments
+        if (err instanceof Error && err.name === 'AbortError') {
+          response = await fetchWithTimeout(buildApiUrl('/dashboard/business'), {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }, 35000);
+        } else {
+          throw err;
+        }
+      }
 
       if (!response.ok) {
         throw new Error('Failed to fetch dashboard data');
@@ -145,8 +165,8 @@ const BusinessDashboard: React.FC = () => {
       
       // If it's a timeout or network error, show a more helpful message
       if (error instanceof Error && error.name === 'AbortError') {
-        setError('Dashboard is taking longer than expected to load. Please try refreshing the page.');
-        toast.error('Dashboard loading timeout - please refresh');
+        setError('Dashboard request timed out. Please try again.');
+        toast.error('Dashboard request timed out');
       } else {
         setError(error instanceof Error ? error.message : 'Failed to load dashboard');
         toast.error('Failed to load dashboard data');
