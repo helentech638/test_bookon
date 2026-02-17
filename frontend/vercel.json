@@ -12,7 +12,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://test-bookon-frontend-1kt6.vercel.app/api/$1"
+      "dest": "https://bookon-api.vercel.app/api/$1"
     },
     {
       "src": "/assets/(.*)",
