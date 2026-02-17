@@ -44,15 +44,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return;
       }
 
-      // Verify token with backend by making a simple verification call
-      const response = await fetch('https://bookon-api.vercel.app/api/verify-token', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // Verify token using centralized auth service (uses configured API base URL)
+      const isValid = await authService.verifyToken();
 
-      if (response.ok) {
+      if (isValid) {
         // Token is valid, get user data
         const userData = localStorage.getItem('bookon_user');
         if (userData) {
@@ -61,13 +56,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         // Token is invalid, clear auth data
         console.log('Token invalid, clearing auth data');
-        authService.logout();
+        authService.clearAuth();
         setUser(null);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       // Clear auth data on error
-      authService.logout();
+      authService.clearAuth();
       setUser(null);
     } finally {
       setIsLoading(false);

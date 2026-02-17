@@ -1,4 +1,5 @@
 // Utility functions for authentication management
+import { buildApiUrl } from '../config/api';
 
 export const clearAllAuthData = () => {
   // Clear all authentication-related data
@@ -29,7 +30,7 @@ export const checkTokenValidity = async (token: string): Promise<boolean> => {
   if (!token) return false;
   
   try {
-    const response = await fetch('https://bookon-api.vercel.app/api/v1/dashboard/profile', {
+    const response = await fetch(buildApiUrl('/dashboard/profile'), {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',

@@ -1,8 +1,25 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
+const FALLBACK_API_BASE_URL = 'https://bookon-api.vercel.app/api/v1';
+
+const normalizeApiBaseUrl = (rawUrl?: string): string => {
+  const candidate = (rawUrl || '').trim() || FALLBACK_API_BASE_URL;
+  const withoutTrailingSlash = candidate.replace(/\/+$/, '');
+
+  if (/\/api\/v1$/i.test(withoutTrailingSlash)) {
+    return withoutTrailingSlash;
+  }
+
+  return `${withoutTrailingSlash}/api/v1`;
+};
+
+const resolvedApiBaseUrl = normalizeApiBaseUrl(
+  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL
+);
+
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app/api/v1',
+  BASE_URL: resolvedApiBaseUrl,
   ENDPOINTS: {
     AUTH: {
       LOGIN: '/auth/login',

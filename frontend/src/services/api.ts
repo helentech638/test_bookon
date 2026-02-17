@@ -1,9 +1,15 @@
 // Centralized API service for consistent URL handling
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+import { API_CONFIG } from '../config/api';
+
+const API_BASE_URL = API_CONFIG.BASE_URL;
 
 export const api = {
   // Helper function to build full API URLs
   url: (endpoint: string) => {
+    if (/^https?:\/\//i.test(endpoint)) {
+      return endpoint;
+    }
+
     // Remove leading slash if present to avoid double slashes
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
     return `${API_BASE_URL}/${cleanEndpoint}`;

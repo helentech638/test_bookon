@@ -13,6 +13,7 @@ import { AuthErrorBoundary } from './components/AuthErrorBoundary';
 
 // Utils
 import { clearAllAuthData } from './utils/authUtils';
+import { authService } from './services/authService';
 
 // Layout components
 import Layout from './components/layout/Layout';
@@ -1092,14 +1093,9 @@ function App() {
       const token = localStorage.getItem('bookon_token');
       if (token) {
         try {
-          const response = await fetch('https://bookon-api.vercel.app/api/verify-token', {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (!response.ok) {
+          const isValid = await authService.verifyToken();
+
+          if (!isValid) {
             console.log('Global auth check failed, clearing auth data');
             clearAllAuthData();
           }
