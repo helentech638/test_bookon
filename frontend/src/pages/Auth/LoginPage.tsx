@@ -34,25 +34,26 @@ const LoginPage = () => {
     setIsLoading(true);
     try {
       const success = await login(email, password);
-      if (success) {
-        toast.success('Login successful!');
+      if (!success) {
+        throw new Error('Login failed. Please check your credentials.');
+      }
 
-        // Get user data from localStorage to check role
-        const userData = JSON.parse(localStorage.getItem('bookon_user') || '{}');
+      toast.success('Login successful!');
 
-        // Redirect based on user role
-        if (userData.role === 'admin') {
-          navigate('/admin');
-        } else if (userData.role === 'business') {
-          navigate('/business/dashboard');
-        } else {
-          navigate('/dashboard'); // Default for parent role
-        }
+      // Get user data from localStorage to check role
+      const userData = JSON.parse(localStorage.getItem('bookon_user') || '{}');
+
+      // Redirect based on user role
+      if (userData.role === 'admin') {
+        navigate('/admin');
+      } else if (userData.role === 'business') {
+        navigate('/business/dashboard');
       } else {
-        toast.error('Login failed. Please check your credentials.');
+        navigate('/dashboard'); // Default for parent role
       }
     } catch (error) {
-      toast.error('Login failed. Please check your credentials.');
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please check your credentials.';
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

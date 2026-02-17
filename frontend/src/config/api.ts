@@ -2,8 +2,20 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 const FALLBACK_API_BASE_URL = 'https://bookon-api.vercel.app/api/v1';
 
+const isLocalApiUrl = (url: string): boolean => {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
+};
+
 const normalizeApiBaseUrl = (rawUrl?: string): string => {
-  const candidate = (rawUrl || '').trim() || FALLBACK_API_BASE_URL;
+  const rawCandidate = (rawUrl || '').trim();
+  const isBrowser = typeof window !== 'undefined';
+  const isLocalRuntime =
+    isBrowser && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+
+  const candidate =
+    !rawCandidate || (isLocalApiUrl(rawCandidate) && !isLocalRuntime)
+      ? FALLBACK_API_BASE_URL
+      : rawCandidate;
   const withoutTrailingSlash = candidate.replace(/\/+$/, '');
 
   if (/\/api\/v1$/i.test(withoutTrailingSlash)) {

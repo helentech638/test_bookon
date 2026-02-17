@@ -38,8 +38,12 @@ export interface AuthResponse {
   success: boolean;
   data: {
     user: User;
-    token: string;
-    refreshToken: string;
+    token?: string;
+    refreshToken?: string;
+    tokens?: {
+      accessToken: string;
+      refreshToken: string;
+    };
   };
   message: string;
 }
@@ -48,6 +52,14 @@ class AuthService {
   private tokenKey = 'bookon_token';
   private refreshTokenKey = 'bookon_refresh_token';
   private userKey = 'bookon_user';
+
+  private async parseJsonSafely<T>(response: Response): Promise<T | null> {
+    try {
+      return (await response.json()) as T;
+    } catch {
+      return null;
+    }
+  }
 
   // Get stored token
   getToken(): string | null {
@@ -193,27 +205,34 @@ class AuthService {
         body: JSON.stringify(credentials),
       });
 
-      const data = await response.json();
+      const data = await this.parseJsonSafely<AuthResponse & {
+        error?: { message?: string };
+        errors?: Array<{ msg?: string }>;
+      }>(response);
 
       if (!response.ok) {
         // Handle specific error cases
         if (response.status === 400) {
           // Extract detailed error message from validation
-          const errorMessage = data.message || data.error || data.errors?.[0]?.msg || 'Invalid registration data';
+          const errorMessage =
+            data?.message ||
+            data?.error?.message ||
+            data?.errors?.[0]?.msg ||
+            'Invalid registration data';
           throw new Error(errorMessage);
         } else if (response.status === 409) {
           throw new Error('Email already exists. Please use a different email or try logging in.');
         } else if (response.status === 500) {
           throw new Error('Server error. Please try again later.');
         } else {
-          throw new Error(data.message || 'Registration failed. Please try again.');
+          throw new Error(data?.message || 'Registration failed. Please try again.');
         }
       }
 
-      if (data.success) {
+      if (data?.success) {
         return data;
       } else {
-        throw new Error(data.message || 'Registration failed. Please try again.');
+        throw new Error(data?.message || 'Registration failed. Please try again.');
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -232,13 +251,15 @@ class AuthService {
         body: JSON.stringify(credentials),
       });
 
-      const data = await response.json();
+      const data = await this.parseJsonSafely<AuthResponse & {
+        error?: { message?: string };
+      }>(response);
 
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Login failed');
+        throw new Error(data?.error?.message || data?.message || 'Login failed');
       }
 
-      if (data.success && data.data) {
+      if (data?.success && data.data) {
         // Handle the backend response structure
         const accessToken = data.data.tokens?.accessToken || data.data.token;
         const refreshToken = data.data.tokens?.refreshToken || data.data.refreshToken;
@@ -251,11 +272,10 @@ class AuthService {
         this.setAuth(accessToken, refreshToken, user);
         return data;
       } else {
-        throw new Error(data.message || 'Login failed');
+        throw new Error(data?.message || 'Login failed');
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error(error instanceof Error ? error.message : 'Login failed');
       throw error;
     }
   }
