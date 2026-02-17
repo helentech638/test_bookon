@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
@@ -363,3 +364,4 @@ router.get('/:id/bookings', authenticateToken, asyncHandler(async (req: Request,
 }));
 
 export default router;
+

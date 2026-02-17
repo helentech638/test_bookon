@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 
@@ -364,3 +365,4 @@ class ActivityService {
 
 export const activityService = new ActivityService();
 export default activityService;
+

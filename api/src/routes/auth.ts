@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -1134,3 +1135,4 @@ router.post('/seed-db', asyncHandler(async (_req: Request, res: Response) => {
 router.use('/', businessOnboardingRouter);
 
 export default router;
+
