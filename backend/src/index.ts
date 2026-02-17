@@ -110,24 +110,65 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS configuration - simplified for deployment
-app.use(cors({
-  origin: [
-    'http://localhost:3001',
-    'http://localhost:5173',
-    'https://bookon-frontend.vercel.app',
-    'https://bookon.app',
-    'https://bookon55.vercel.app',
-    process.env['FRONTEND_URL'] || 'http://localhost:3001'
-  ],
+const defaultAllowedOrigins = [
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:5173',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  'https://bookon-frontend.vercel.app',
+  'https://bookon55.vercel.app',
+  'https://bookon.app',
+];
+
+const configuredOrigins = (process.env['CORS_ORIGINS'] || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set(
+  [
+    ...defaultAllowedOrigins,
+    ...configuredOrigins,
+    process.env['FRONTEND_URL'] || '',
+  ].filter(Boolean)
+);
+
+const isAllowedOrigin = (origin?: string): boolean => {
+  // Allow non-browser requests (no Origin header).
+  if (!origin) return true;
+  if (allowedOrigins.has(origin)) return true;
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return true;
+  return false;
+};
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    logger.warn(`Blocked CORS origin: ${origin || 'unknown'}`);
+    callback(new Error('Origin not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'x-refresh-token'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'x-refresh-token',
+    'X-Refresh-Token',
+  ],
   optionsSuccessStatus: 200,
-}));
+};
 
-// Handle preflight requests explicitly
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
