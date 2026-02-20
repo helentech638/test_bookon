@@ -10,7 +10,7 @@ const router = Router();
 router.get('/transactions', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { search, paymentMethod, status, page = 1, limit = 20, startDate, endDate } = req.query;
-  
+
   try {
     // Check if user has business access
     const userInfo = await safePrismaQuery(async (client) => {
@@ -176,17 +176,17 @@ router.get('/transactions', authenticateToken, asyncHandler(async (req: Request,
       paymentMethod: transaction.paymentMethod,
       status: transaction.status,
       date: transaction.createdAt.toISOString().split('T')[0],
-      time: transaction.createdAt.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      time: transaction.createdAt.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
       }),
       createdAt: transaction.createdAt
     }));
 
-    logger.info('Business transactions fetched successfully', { 
-      userId, 
+    logger.info('Business transactions fetched successfully', {
+      userId,
       count: formattedTransactions.length,
-      totalCount 
+      totalCount
     });
 
     res.json({
@@ -213,7 +213,7 @@ router.get('/transactions', authenticateToken, asyncHandler(async (req: Request,
 router.get('/summary', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { range = 'today' } = req.query;
-  
+
   try {
     // Check if user has business access
     const userInfo = await safePrismaQuery(async (client) => {
@@ -353,7 +353,7 @@ router.get('/summary', authenticateToken, asyncHandler(async (req: Request, res:
 // Get business discounts
 router.get('/discounts', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  
+
   try {
     // Check if user has business access
     const userInfo = await safePrismaQuery(async (client) => {
@@ -421,7 +421,7 @@ router.get('/discounts', authenticateToken, asyncHandler(async (req: Request, re
 // Get business credits
 router.get('/credits', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  
+
   try {
     // Check if user has business access
     const userInfo = await safePrismaQuery(async (client) => {
@@ -485,10 +485,10 @@ router.get('/credits', authenticateToken, asyncHandler(async (req: Request, res:
           parentName: `${credit.parent.firstName} ${credit.parent.lastName}`,
           parentEmail: credit.parent.email,
           amount: Number(credit.amount),
-          balance: Number(credit.balance),
-          reason: credit.reason,
+          balance: Number(credit.amount) - Number(credit.usedAmount),
+          reason: credit.description || credit.source,
           activity: credit.booking?.activity?.title,
-          expiresAt: credit.expiresAt,
+          expiresAt: credit.expiryDate,
           createdAt: credit.createdAt
         }))
       }
@@ -503,7 +503,7 @@ router.get('/credits', authenticateToken, asyncHandler(async (req: Request, res:
 // Get business refunds
 router.get('/refunds', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
-  
+
   try {
     // Check if user has business access
     const userInfo = await safePrismaQuery(async (client) => {
@@ -586,7 +586,7 @@ router.get('/refunds', authenticateToken, asyncHandler(async (req: Request, res:
 router.get('/reports', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const { range = 'month' } = req.query;
-  
+
   try {
     // Check if user has business access
     const userInfo = await safePrismaQuery(async (client) => {
@@ -656,7 +656,7 @@ router.get('/reports', authenticateToken, asyncHandler(async (req: Request, res:
         _count: true
       });
 
-      const totalDiscounts = await client.promoCodeUsage.aggregate({
+      const totalDiscounts = await client.promo_code_usages.aggregate({
         where: {
           booking: {
             activity: {
@@ -689,16 +689,16 @@ router.get('/reports', authenticateToken, asyncHandler(async (req: Request, res:
       // Generate revenue trend data for the last 7 days
       const revenueTrend = [];
       const today = new Date();
-      
+
       for (let i = 6; i >= 0; i--) {
         const date = new Date(today);
         date.setDate(today.getDate() - i);
-        
+
         // Generate sample data - in real implementation, this would query actual daily revenue
         const baseAmount = Number(totalRevenue._sum.amount || 0) / 7;
         const variation = (Math.random() - 0.5) * 0.4; // ±20% variation
         const dailyAmount = Math.max(0, baseAmount * (1 + variation));
-        
+
         revenueTrend.push({
           date: date.toISOString().split('T')[0],
           amount: Math.round(dailyAmount)

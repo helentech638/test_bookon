@@ -13,7 +13,7 @@ router.post('/validate', authenticateToken, asyncHandler(async (req: Request, re
   const userId = req.user!.id;
 
   try {
-    const promoCode = await prisma.promoCode.findUnique({
+    const promoCode = await prisma.promo_codes.findUnique({
       where: { code: code.toUpperCase() }
     });
 
@@ -26,9 +26,9 @@ router.post('/validate', authenticateToken, asyncHandler(async (req: Request, re
 
     // Check if code is active and valid
     const now = new Date();
-    if (!promoCode.active || 
-        promoCode.validFrom > now || 
-        (promoCode.validUntil && promoCode.validUntil < now)) {
+    if (!promoCode.active ||
+      promoCode.validFrom > now ||
+      (promoCode.validUntil && promoCode.validUntil < now)) {
       return res.json({
         success: false,
         message: 'Promo code is not valid'
@@ -52,9 +52,9 @@ router.post('/validate', authenticateToken, asyncHandler(async (req: Request, re
     }
 
     // Check if applicable to activity
-    if (promoCode.applicableTo.includes('activities') && 
-        promoCode.activityIds.length > 0 && 
-        !promoCode.activityIds.includes(activityId)) {
+    if (promoCode.applicableTo.includes('activities') &&
+      promoCode.activityIds.length > 0 &&
+      !promoCode.activityIds.includes(activityId)) {
       return res.json({
         success: false,
         message: 'Promo code is not applicable to this activity'
@@ -94,7 +94,7 @@ router.post('/apply', authenticateToken, asyncHandler(async (req: Request, res: 
   const userId = req.user!.id;
 
   try {
-    const promoCode = await prisma.promoCode.findUnique({
+    const promoCode = await prisma.promo_codes.findUnique({
       where: { code: code.toUpperCase() }
     });
 
@@ -103,7 +103,7 @@ router.post('/apply', authenticateToken, asyncHandler(async (req: Request, res: 
     }
 
     // Check if already used for this booking
-    const existingUsage = await prisma.promoCodeUsage.findFirst({
+    const existingUsage = await prisma.promo_code_usages.findFirst({
       where: {
         promoCodeId: promoCode.id,
         bookingId
@@ -131,9 +131,9 @@ router.post('/apply', authenticateToken, asyncHandler(async (req: Request, res: 
 
     // Validate promo code for this booking
     const now = new Date();
-    if (!promoCode.active || 
-        promoCode.validFrom > now || 
-        (promoCode.validUntil && promoCode.validUntil < now)) {
+    if (!promoCode.active ||
+      promoCode.validFrom > now ||
+      (promoCode.validUntil && promoCode.validUntil < now)) {
       throw new AppError('Promo code is not valid', 400, 'PROMO_CODE_INVALID');
     }
 
@@ -156,7 +156,7 @@ router.post('/apply', authenticateToken, asyncHandler(async (req: Request, res: 
     discountAmount = Math.min(discountAmount, booking.amount);
 
     // Create usage record
-    const usage = await prisma.promoCodeUsage.create({
+    const usage = await prisma.promo_code_usages.create({
       data: {
         promoCodeId: promoCode.id,
         bookingId,
@@ -166,7 +166,7 @@ router.post('/apply', authenticateToken, asyncHandler(async (req: Request, res: 
     });
 
     // Update promo code usage count
-    await prisma.promoCode.update({
+    await prisma.promo_codes.update({
       where: { id: promoCode.id },
       data: { usedCount: { increment: 1 } }
     });
@@ -212,7 +212,7 @@ router.post('/', authenticateToken, requireAdminOrStaff, asyncHandler(async (req
   const userId = req.user!.id;
 
   try {
-    const promoCode = await prisma.promoCode.create({
+    const promoCode = await prisma.promo_codes.create({
       data: {
         code: code.toUpperCase(),
         name,
@@ -243,7 +243,7 @@ router.post('/', authenticateToken, requireAdminOrStaff, asyncHandler(async (req
 // Admin: Get all promo codes
 router.get('/', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const promoCodes = await prisma.promoCode.findMany({
+    const promoCodes = await prisma.promo_codes.findMany({
       include: {
         creator: {
           select: {
@@ -253,7 +253,7 @@ router.get('/', authenticateToken, requireAdminOrStaff, asyncHandler(async (req:
             email: true
           }
         },
-        usages: {
+        promo_code_usages: {
           include: {
             user: {
               select: {
@@ -293,7 +293,7 @@ router.put('/:id', authenticateToken, requireAdminOrStaff, asyncHandler(async (r
   const updateData = req.body;
 
   try {
-    const promoCode = await prisma.promoCode.update({
+    const promoCode = await prisma.promo_codes.update({
       where: { id },
       data: {
         ...updateData,
@@ -318,7 +318,7 @@ router.delete('/:id', authenticateToken, requireAdminOrStaff, asyncHandler(async
   const { id } = req.params;
 
   try {
-    await prisma.promoCode.delete({
+    await prisma.promo_codes.delete({
       where: { id }
     });
 

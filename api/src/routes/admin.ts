@@ -24,6 +24,79 @@ const requireAdminOrStaff = (req: Request, _res: Response, next: Function) => {
   next();
 };
 
+// Get all system settings
+router.get('/settings', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    // For now, return mock settings
+    // In production, these would come from database or environment variables
+    const settings = {
+      siteName: 'BookOn Platform',
+      siteDescription: 'Professional activity booking platform',
+      siteUrl: 'https://bookon.com',
+      adminEmail: 'admin@bookon.com',
+      supportEmail: 'support@bookon.com',
+      sessionTimeout: 24,
+      maxLoginAttempts: 5,
+      passwordMinLength: 8,
+      requireTwoFactor: false,
+      allowRegistration: true,
+      emailNotifications: true,
+      smsNotifications: false,
+      pushNotifications: true,
+      notificationFrequency: 'immediate',
+      defaultCurrency: 'GBP',
+      stripeEnabled: true,
+      stripePublishableKey: process.env['STRIPE_PUBLISHABLE_KEY'] || '',
+      paypalEnabled: false,
+      paypalClientId: '',
+      tfcEnabled: true,
+      tfcDefaultHoldPeriod: 5,
+      tfcAutoCancelEnabled: true,
+      tfcReminderDays: 2,
+      maintenanceMode: false,
+      debugMode: false,
+      logLevel: 'info',
+      backupFrequency: 'daily',
+      apiRateLimit: 1000,
+      apiTimeout: 30,
+      webhookRetryAttempts: 3,
+      dbConnectionPool: 10,
+      dbQueryTimeout: 30,
+      dbBackupRetention: 30
+    };
+
+    res.json({
+      success: true,
+      data: settings
+    });
+  } catch (error) {
+    logger.error('Error fetching system settings:', error);
+    throw new AppError('Failed to fetch system settings', 500, 'SETTINGS_ERROR');
+  }
+}));
+
+// Update system settings
+router.put('/settings', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const settings = req.body;
+
+    // For now, just log the update
+    logger.info('Admin updated system settings', {
+      adminUserId: req.user!.id,
+      settingsCount: Object.keys(settings).length
+    });
+
+    res.json({
+      success: true,
+      message: 'Settings updated successfully'
+    });
+  } catch (error) {
+    logger.error('Error updating system settings:', error);
+    throw new AppError('Failed to update system settings', 500, 'SETTINGS_UPDATE_ERROR');
+  }
+}));
+
+
 // Get admin statistics
 router.get('/stats', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
   try {
@@ -105,7 +178,12 @@ router.get('/venues', authenticateToken, requireAdminOrStaff, asyncHandler(async
         name: venue.name,
         description: venue.description,
         address: venue.address,
+        city: venue.city,
         capacity: venue.capacity,
+        businessAccountId: venue.businessAccountId,
+        inheritFranchiseFee: venue.inheritFranchiseFee,
+        franchiseFeeType: venue.franchiseFeeType,
+        franchiseFeeValue: venue.franchiseFeeValue ? Number(venue.franchiseFeeValue) : undefined,
         isActive: venue.isActive,
         createdAt: venue.createdAt,
         updatedAt: venue.updatedAt
@@ -999,6 +1077,35 @@ router.post('/generate-invoice', authenticateToken, requireAdminOrStaff, asyncHa
   }
 }));
 
+// Get bulk operations list
+router.get('/bulk-operations', authenticateToken, requireAdminOrStaff, asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    // For now, return mock data as there is no bulk operation model in database
+    const bulkOperations = [
+      {
+        id: '1',
+        type: 'user_update',
+        status: 'completed',
+        totalItems: 5,
+        processedItems: 5,
+        failedItems: 0,
+        createdAt: new Date(Date.now() - 3600000).toISOString(),
+        completedAt: new Date(Date.now() - 3500000).toISOString()
+      }
+    ];
+
+    res.json({
+      success: true,
+      data: {
+        bulkOperations: bulkOperations
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching bulk operations:', error);
+    throw new AppError('Failed to fetch bulk operations', 500, 'BULK_OPERATIONS_ERROR');
+  }
+}));
+
 // Advanced Admin Tools - Bulk Operations
 router.post('/bulk-user-update', authenticateToken, requireAdminOrStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
@@ -1144,7 +1251,7 @@ router.get('/audit-logs', authenticateToken, requireAdminOrStaff, asyncHandler(a
 
     res.json({
       success: true,
-      data: logs,
+      data: { auditLogs: logs },
       pagination: {
         page: parseInt(page as string),
         limit: parseInt(limit as string),

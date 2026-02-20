@@ -6,6 +6,38 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
+// Get all communications (broadcasts summary)
+router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const broadcasts = await safePrismaQuery(async (client) => {
+      return await client.broadcast.findMany({
+        where: req.user?.role === 'business' ? { createdBy: req.user.id } : {},
+        orderBy: { createdAt: 'desc' },
+        take: 100
+      });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        communications: broadcasts.map(b => ({
+          id: b.id,
+          type: b.channels?.includes('sms') ? 'sms' : (b.channels?.includes('push') ? 'notification' : 'email'),
+          subject: b.subject || b.title,
+          content: b.bodyText || b.bodyHtml?.replace(/<[^>]*>/g, '').substring(0, 100) || '',
+          recipients: 0, // In a real app, count matching users
+          sentAt: b.status === 'sent' ? b.updatedAt : null,
+          status: b.status,
+          createdAt: b.createdAt
+        }))
+      }
+    });
+  } catch (error) {
+    logger.error('Error fetching communications summary:', error);
+    throw new AppError('Failed to fetch communications', 500, 'COMMUNICATIONS_FETCH_ERROR');
+  }
+}));
+
 // Email Templates Management
 router.get('/templates', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
@@ -42,7 +74,7 @@ router.get('/templates', authenticateToken, asyncHandler(async (req: Request, re
 
     res.json({
       success: true,
-      data: templates,
+      data: { templates },
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -224,7 +256,7 @@ router.get('/broadcasts', authenticateToken, asyncHandler(async (req: Request, r
 
     res.json({
       success: true,
-      data: broadcasts,
+      data: { broadcasts },
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -305,7 +337,7 @@ router.get('/emails', authenticateToken, asyncHandler(async (req: Request, res: 
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { toEmail: { contains: search as string, mode: 'insensitive' } },
@@ -313,11 +345,11 @@ router.get('/emails', authenticateToken, asyncHandler(async (req: Request, res: 
         { subject: { contains: search as string, mode: 'insensitive' } }
       ];
     }
-    
+
     if (messageType) where.messageType = messageType;
     if (status) where.lastStatus = status;
     if (parentId) where.parentId = parentId;
-    
+
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) where.createdAt.gte = new Date(dateFrom as string);
@@ -358,7 +390,7 @@ router.get('/emails', authenticateToken, asyncHandler(async (req: Request, res: 
 
     res.json({
       success: true,
-      data: emails,
+      data: { emails },
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -385,8 +417,8 @@ router.get('/emails/:id', authenticateToken, asyncHandler(async (req: Request, r
             select: { firstName: true, lastName: true, email: true }
           },
           booking: {
-            select: { 
-              id: true, 
+            select: {
+              id: true,
               activity: { select: { title: true } },
               child: { select: { firstName: true, lastName: true } }
             }
@@ -448,10 +480,10 @@ router.post('/emails/:id/mark-read', authenticateToken, asyncHandler(async (req:
 router.get('/stats', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { period = '30d' } = req.query;
-    
+
     let dateFilter: any = {};
     const now = new Date();
-    
+
     switch (period) {
       case '7d':
         dateFilter.gte = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

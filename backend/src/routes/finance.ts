@@ -24,7 +24,7 @@ router.get('/transactions', authenticateToken, asyncHandler(async (req: Request,
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { parent: { firstName: { contains: search as string, mode: 'insensitive' } } },
@@ -33,11 +33,11 @@ router.get('/transactions', authenticateToken, asyncHandler(async (req: Request,
         { description: { contains: search as string, mode: 'insensitive' } }
       ];
     }
-    
+
     if (status) where.status = status;
     if (paymentMethod) where.paymentMethod = paymentMethod;
     if (parentId) where.parentId = parentId;
-    
+
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) where.createdAt.gte = new Date(dateFrom as string);
@@ -53,8 +53,8 @@ router.get('/transactions', authenticateToken, asyncHandler(async (req: Request,
               select: { firstName: true, lastName: true, email: true }
             },
             booking: {
-              select: { 
-                id: true, 
+              select: {
+                id: true,
                 activity: { select: { title: true } },
                 child: { select: { firstName: true, lastName: true } }
               }
@@ -218,8 +218,8 @@ router.get('/credits', authenticateToken, asyncHandler(async (req: Request, res:
               select: { firstName: true, lastName: true, email: true }
             },
             booking: {
-              select: { 
-                id: true, 
+              select: {
+                id: true,
                 activity: { select: { title: true } }
               }
             },
@@ -322,7 +322,7 @@ router.get('/refunds', authenticateToken, asyncHandler(async (req: Request, res:
     const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
-    
+
     if (search) {
       where.OR = [
         { parent: { firstName: { contains: search as string, mode: 'insensitive' } } },
@@ -331,11 +331,11 @@ router.get('/refunds', authenticateToken, asyncHandler(async (req: Request, res:
         { reason: { contains: search as string, mode: 'insensitive' } }
       ];
     }
-    
+
     if (status) where.status = status;
     if (method) where.method = method;
     if (parentId) where.parentId = parentId;
-    
+
     if (dateFrom || dateTo) {
       where.createdAt = {};
       if (dateFrom) where.createdAt.gte = new Date(dateFrom as string);
@@ -354,8 +354,8 @@ router.get('/refunds', authenticateToken, asyncHandler(async (req: Request, res:
               select: { id: true, amount: true, paymentMethod: true }
             },
             booking: {
-              select: { 
-                id: true, 
+              select: {
+                id: true,
                 activity: { select: { title: true } },
                 child: { select: { firstName: true, lastName: true } }
               }
@@ -416,8 +416,8 @@ router.post('/refunds', authenticateToken, requireRole(['admin']), asyncHandler(
             select: { id: true, amount: true, paymentMethod: true }
           },
           booking: {
-            select: { 
-              id: true, 
+            select: {
+              id: true,
               activity: { select: { title: true } }
             }
           }
@@ -447,10 +447,10 @@ router.post('/refunds', authenticateToken, requireRole(['admin']), asyncHandler(
 router.get('/reports', authenticateToken, requireRole(['admin']), asyncHandler(async (req: Request, res: Response) => {
   try {
     const { period = '30d', groupBy = 'day' } = req.query;
-    
+
     let dateFilter: any = {};
     const now = new Date();
-    
+
     switch (period) {
       case '7d':
         dateFilter.gte = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -568,26 +568,26 @@ router.get('/reports', authenticateToken, requireRole(['admin']), asyncHandler(a
 router.get('/reporting', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { 
+    const {
       range = 'month',
       startDate,
       endDate,
       venueId,
       businessAccountId
     } = req.query;
-    
-    logger.info('Finance reporting requested', { 
+
+    logger.info('Finance reporting requested', {
       user: req.user?.email,
       range,
       venueId,
       businessAccountId,
-      userId 
+      userId
     });
 
     // Calculate date range
     let dateFilter: any = {};
     const now = new Date();
-    
+
     switch (range) {
       case 'today':
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -693,7 +693,7 @@ router.get('/reporting', authenticateToken, asyncHandler(async (req: Request, re
 
     // Daily revenue (last 30 days)
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const recentTransactions = transactions.filter(t => 
+    const recentTransactions = transactions.filter(t =>
       new Date(t.createdAt) >= thirtyDaysAgo
     );
 
@@ -716,7 +716,7 @@ router.get('/reporting', authenticateToken, asyncHandler(async (req: Request, re
       id: t.id,
       amount: parseFloat(t.amount.toString()),
       status: t.status,
-      method: t.method,
+      method: t.paymentMethod,
       createdAt: t.createdAt,
       venue: t.booking?.activity?.venue?.name || 'Unknown',
       businessAccount: t.booking?.activity?.venue?.businessAccount?.name || 'Unknown',
@@ -759,8 +759,8 @@ router.get('/export/:type', authenticateToken, requireRole(['admin']), asyncHand
             },
             include: {
               parent: { select: { firstName: true, lastName: true, email: true } },
-              booking: { 
-                select: { 
+              booking: {
+                select: {
                   activity: { select: { title: true } },
                   child: { select: { firstName: true, lastName: true } }
                 }
@@ -786,8 +786,8 @@ router.get('/export/:type', authenticateToken, requireRole(['admin']), asyncHand
             include: {
               parent: { select: { firstName: true, lastName: true, email: true } },
               transaction: { select: { id: true, amount: true } },
-              booking: { 
-                select: { 
+              booking: {
+                select: {
                   activity: { select: { title: true } }
                 }
               }
@@ -825,10 +825,10 @@ router.get('/export/:type', authenticateToken, requireRole(['admin']), asyncHand
 // Helper function to convert data to CSV
 function convertToCSV(data: any[]): string {
   if (data.length === 0) return '';
-  
+
   const headers = Object.keys(data[0]);
   const csvRows = [headers.join(',')];
-  
+
   for (const row of data) {
     const values = headers.map(header => {
       const value = row[header];
@@ -838,7 +838,7 @@ function convertToCSV(data: any[]): string {
     });
     csvRows.push(values.join(','));
   }
-  
+
   return csvRows.join('\n');
 }
 
@@ -847,11 +847,11 @@ router.get('/summary', authenticateToken, requireRole(['admin']), asyncHandler(a
   try {
     const { range = 'today' } = req.query;
     const userId = req.user!.id;
-    
-    logger.info('Finance summary requested', { 
+
+    logger.info('Finance summary requested', {
       user: req.user?.email,
       range,
-      userId 
+      userId
     });
 
     // Calculate date range
@@ -917,7 +917,7 @@ router.get('/summary', authenticateToken, requireRole(['admin']), asyncHandler(a
       };
     });
 
-    logger.info('Finance summary data retrieved', { 
+    logger.info('Finance summary data retrieved', {
       income: financeData.income,
       refunds: financeData.refunds,
       credits: financeData.credits

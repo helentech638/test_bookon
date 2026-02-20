@@ -1,14 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireStaff } from '../middleware/auth';
 import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import FranchiseFeeService from '../services/franchiseFeeService';
 
 const router = Router();
 
-// Get all business accounts
-router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+// Get all business accounts (Admin only for setup)
+router.get('/', authenticateToken, requireStaff, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
 
@@ -20,14 +20,6 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
     const businessAccounts = await safePrismaQuery(async (client) => {
       return await client.businessAccount.findMany({
         include: {
-          venues: {
-            select: {
-              id: true,
-              name: true,
-              address: true,
-              city: true
-            }
-          },
           _count: {
             select: {
               venues: true

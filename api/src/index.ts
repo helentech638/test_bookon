@@ -51,6 +51,9 @@ import financeReportingRoutes from './routes/finance-reporting';
 import communicationsRoutes from './routes/communications';
 import financeRoutes from './routes/finance';
 import healthRoutes from './routes/health';
+import businessActivitiesRoutes from './routes/businessActivities';
+import businessNotificationsRoutes from './routes/businessNotifications';
+import businessFinanceRoutes from './routes/businessFinance';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -67,6 +70,8 @@ import { initializeWebSocket } from './services/websocketService';
 
 // Load environment variables
 dotenv.config();
+
+import masterReportsRoutes from './routes/master-reports';
 
 const app = express();
 const server = createServer(app);
@@ -152,7 +157,7 @@ app.options('*', cors(corsOptions));
 // Rate limiting
 const limiter = rateLimit({
   windowMs: parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000'), // 15 minutes
-  max: process.env['NODE_ENV'] === 'development' ? 1000 : parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100'), // limit each IP to 1000 requests in development
+  max: process.env['NODE_ENV'] === 'development' ? 5000 : parseInt(process.env['RATE_LIMIT_MAX_REQUESTS'] || '100'),
   message: {
     error: 'Too many requests from this IP, please try again later.',
     retryAfter: Math.ceil(parseInt(process.env['RATE_LIMIT_WINDOW_MS'] || '900000') / 1000),
@@ -164,8 +169,8 @@ const limiter = rateLimit({
 // Speed limiting
 const speedLimiter = slowDown({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  delayAfter: 50, // allow 50 requests per 15 minutes, then...
-  delayMs: 500, // begin adding 500ms of delay per request above 50
+  delayAfter: process.env['NODE_ENV'] === 'development' ? 1000 : 50, // allow 1000 requests in dev before slowing down
+  delayMs: 500,
 });
 
 app.use('/api/', limiter);
@@ -227,6 +232,13 @@ app.get('/api/test', (_req, res) => {
     message: 'Backend API is working!',
     timestamp: new Date().toISOString(),
     environment: process.env['NODE_ENV'] || 'development'
+  });
+});
+
+app.get('/api/v1', (_req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'BookOn API v1 is running'
   });
 });
 
@@ -372,11 +384,15 @@ app.use('/api/v1/children', childrenRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/dashboard', businessDashboardRoutes);
 app.use('/api/v1/activities', activitiesRoutes);
+app.use('/api/v1/business/activities', businessActivitiesRoutes);
+app.use('/api/v1/business/notifications', businessNotificationsRoutes);
+app.use('/api/v1/business/finance', businessFinanceRoutes);
 app.use('/api/v1/activity-types', activityTypesRoutes);
 app.use('/api/v1/venues', venuesRoutes);
 app.use('/api/v1/bookings', bookingsRoutes);
 app.use('/api/v1/payments', paymentsRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/master-reports', masterReportsRoutes);
 app.use('/api/v1/widget', widgetRoutes);
 app.use('/api/v1/widget-config', widgetConfigRoutes);
 app.use('/api/v1/registers', registersRoutes);
@@ -390,20 +406,17 @@ app.use('/api/v1/provider-settings', providerSettingsRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/edge-cases', edgeCaseRoutes);
 app.use('/api/v1/data-retention', dataRetentionRoutes);
-app.use('/api/v1/dashboard', dashboardSnapshotRoutes);
-app.use('/api/v1/activities', upcomingActivitiesRoutes);
-app.use('/api/v1/finance', financeSummaryRoutes);
-app.use('/api/v1/notifications', notificationsRoutes);
+app.use('/api/v1/health', healthRoutes);
 app.use('/api/v1/templates', templatesRoutes);
 app.use('/api/v1/courses', coursesRoutes);
 app.use('/api/v1/business-accounts', businessAccountsRoutes);
 app.use('/api/v1/finance', financeReportingRoutes);
-app.use('/api/v1/communications', communicationsRoutes);
+app.use('/api/v1/business/communications', communicationsRoutes);
 app.use('/api/v1/finance', financeRoutes);
-app.use('/api/v1/health', healthRoutes);
-app.use('/api/v1/webhooks', webhooksRoutes);
-app.use('/api/v1/registers', registersRoutes);
-app.use('/api/v1/tfc', tfcRoutes);
+app.use('/api/v1/dashboard/snapshots', dashboardSnapshotRoutes);
+app.use('/api/v1/activities/upcoming', upcomingActivitiesRoutes);
+app.use('/api/v1/finance/summary', financeSummaryRoutes);
+
 
 // Webhook endpoint for Stripe
 app.use('/api/v1/webhooks/stripe', express.raw({ type: 'application/json' }));

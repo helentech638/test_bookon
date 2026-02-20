@@ -163,7 +163,7 @@ const FinancePage: React.FC = () => {
       });
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
 
       const response = await fetch(buildApiUrl(`/business/finance/transactions?${queryParams}`), {
         headers: {

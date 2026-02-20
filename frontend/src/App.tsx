@@ -1096,10 +1096,22 @@ function App() {
           const isValid = await authService.verifyToken();
 
           if (!isValid) {
+            // Only clear if not caused by a network/timeout issue
+            const lastVerifyError = (window as any).__lastVerifyError;
+            if (lastVerifyError && lastVerifyError.name === 'AbortError') {
+              // Network timeout - keep auth data, don't log out user
+              console.log('Global auth check timed out, keeping existing auth data');
+              return;
+            }
             console.log('Global auth check failed, clearing auth data');
             clearAllAuthData();
           }
         } catch (error) {
+          // Don't clear auth on network errors or timeouts
+          if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TypeError')) {
+            console.log('Global auth check network error, keeping existing auth data');
+            return;
+          }
           console.log('Global auth check error, clearing auth data');
           clearAllAuthData();
         }

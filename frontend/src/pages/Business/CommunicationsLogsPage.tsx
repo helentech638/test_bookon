@@ -3,8 +3,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import BusinessLayout from '../../components/layout/BusinessLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { 
-  DocumentTextIcon, 
+import {
+  DocumentTextIcon,
   MagnifyingGlassIcon,
   EnvelopeIcon,
   ChatBubbleLeftRightIcon,
@@ -16,6 +16,8 @@ import {
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { authService } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface EmailLog {
   id: string;
@@ -47,70 +49,35 @@ const CommunicationsLogsPage: React.FC = () => {
   const fetchEmailLogs = async () => {
     try {
       setLoading(true);
-      // Mock data for now - replace with actual API call
-      const mockLogs: EmailLog[] = [
-        {
-          id: '1',
-          type: 'email',
-          recipient: 'john.doe@example.com',
-          subject: 'Welcome to Our Service!',
-          content: 'Welcome to our platform! We\'re excited to have you on board.',
-          status: 'opened',
-          sentAt: '2024-01-19T10:00:00Z',
-          deliveredAt: '2024-01-19T10:01:00Z',
-          openedAt: '2024-01-19T10:15:00Z'
+      const token = authService.getToken();
+      if (!token) return;
+
+      const response = await fetch(buildApiUrl('/business/communications/emails'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-        {
-          id: '2',
-          type: 'email',
-          recipient: 'jane.smith@example.com',
-          subject: 'Your Booking is Confirmed',
-          content: 'Your booking has been confirmed. We look forward to seeing you!',
-          status: 'delivered',
-          sentAt: '2024-01-19T11:00:00Z',
-          deliveredAt: '2024-01-19T11:01:00Z'
-        },
-        {
-          id: '3',
-          type: 'sms',
-          recipient: '+44 7123 456789',
-          content: 'Reminder: Your activity starts in 1 hour. See you soon!',
-          status: 'sent',
-          sentAt: '2024-01-19T14:00:00Z'
-        },
-        {
-          id: '4',
-          type: 'email',
-          recipient: 'invalid@email.com',
-          subject: 'Monthly Newsletter',
-          content: 'Check out our latest activities and updates...',
-          status: 'bounced',
-          sentAt: '2024-01-19T15:00:00Z',
-          errorMessage: 'Invalid email address'
-        },
-        {
-          id: '5',
-          type: 'push',
-          recipient: 'user_device_123',
-          content: 'We\'ve added new features to make booking easier!',
-          status: 'clicked',
-          sentAt: '2024-01-19T16:00:00Z',
-          deliveredAt: '2024-01-19T16:00:00Z',
-          clickedAt: '2024-01-19T16:05:00Z'
-        },
-        {
-          id: '6',
-          type: 'email',
-          recipient: 'mike.brown@example.com',
-          subject: 'Payment Received - Thank You!',
-          content: 'We have received your payment. Thank you for your booking!',
-          status: 'failed',
-          sentAt: '2024-01-19T17:00:00Z',
-          errorMessage: 'SMTP server timeout'
-        }
-      ];
-      
-      setLogs(mockLogs);
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch logs');
+
+      const data = await response.json();
+      if (data.success) {
+        const transformedLogs: EmailLog[] = (data.data.emails || []).map((email: any) => ({
+          id: email.id,
+          type: email.messageType || 'email',
+          recipient: email.toEmail,
+          subject: email.subject,
+          content: email.bodyHtml?.replace(/<[^>]*>/g, '').substring(0, 100) || '',
+          status: email.lastStatus,
+          sentAt: email.createdAt,
+          deliveredAt: email.deliveredAt,
+          openedAt: email.openedAt,
+          clickedAt: email.clickedAt,
+          errorMessage: email.error
+        }));
+        setLogs(transformedLogs);
+      }
     } catch (error) {
       console.error('Error fetching email logs:', error);
       toast.error('Failed to load email logs');
@@ -121,11 +88,11 @@ const CommunicationsLogsPage: React.FC = () => {
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = log.recipient.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (log.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.content.toLowerCase().includes(searchTerm.toLowerCase());
+      (log.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === 'all' || log.type === typeFilter;
     const matchesStatus = statusFilter === 'all' || log.status === statusFilter;
-    
+
     // Date filter logic
     let matchesDate = true;
     if (dateFilter !== 'all') {
@@ -134,7 +101,7 @@ const CommunicationsLogsPage: React.FC = () => {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
       const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      
+
       switch (dateFilter) {
         case 'today':
           matchesDate = logDate >= today;
@@ -150,7 +117,7 @@ const CommunicationsLogsPage: React.FC = () => {
           break;
       }
     }
-    
+
     return matchesSearch && matchesType && matchesStatus && matchesDate;
   });
 
@@ -243,7 +210,7 @@ const CommunicationsLogsPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Email Logs</h1>
             <p className="text-gray-600 mt-1">View and track all your communication logs</p>
           </div>
-          <Button 
+          <Button
             variant="outline"
             onClick={handleExportLogs}
             className="flex items-center gap-2"
@@ -359,8 +326,8 @@ const CommunicationsLogsPage: React.FC = () => {
               </select>
             </div>
             <div className="flex items-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSearchTerm('');
                   setTypeFilter('all');
@@ -390,11 +357,10 @@ const CommunicationsLogsPage: React.FC = () => {
                           {getStatusIcon(log.status)}
                           <span className="ml-1">{log.status}</span>
                         </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          log.type === 'email' ? 'bg-blue-100 text-blue-800' :
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${log.type === 'email' ? 'bg-blue-100 text-blue-800' :
                           log.type === 'sms' ? 'bg-green-100 text-green-800' :
-                          'bg-purple-100 text-purple-800'
-                        }`}>
+                            'bg-purple-100 text-purple-800'
+                          }`}>
                           {log.type.toUpperCase()}
                         </span>
                       </div>
