@@ -355,7 +355,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
           description: activityData.description,
           venue: { connect: { id: activityData.venueId } },
           owner: { connect: { id: userId } },
-          createdBy: userId,
+          creator: { connect: { id: userId } },
           startDate: new Date(activityData.startDate),
           endDate: new Date(activityData.endDate),
           startTime: activityData.startTime,
@@ -391,7 +391,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
 
       // Handle session blocks for wraparound care
       if (activityData.sessionBlocks && activityData.sessionBlocks.length > 0) {
-        await client.session_blocks.createMany({
+        await client.sessionBlock.createMany({
           data: activityData.sessionBlocks.map((block: any) => ({
             activityId: activity.id,
             name: block.name,
@@ -405,7 +405,7 @@ router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Respo
 
       // Handle custom time slots for holiday club
       if (activityData.customTimeSlots && activityData.customTimeSlots.length > 0) {
-        await client.holiday_time_slots.createMany({
+        await client.holidayTimeSlot.createMany({
           data: activityData.customTimeSlots.map((slot: any) => ({
             activityId: activity.id,
             name: slot.name,
