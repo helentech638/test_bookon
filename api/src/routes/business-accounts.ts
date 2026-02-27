@@ -7,10 +7,11 @@ import FranchiseFeeService from '../services/franchiseFeeService';
 
 const router = Router();
 
-// Get all business accounts (Admin only for setup)
-router.get('/', authenticateToken, requireStaff, asyncHandler(async (req: Request, res: Response) => {
+// Get all business accounts for the user (or all if admin)
+router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
+    const userRole = req.user!.role;
 
     logger.info('Business accounts requested', {
       user: req.user?.email,
@@ -18,7 +19,13 @@ router.get('/', authenticateToken, requireStaff, asyncHandler(async (req: Reques
     });
 
     const businessAccounts = await safePrismaQuery(async (client) => {
+      // If user is admin/staff, they can see all. Otherwise, they only see accounts they own or are associated with venues they own.
+      const whereClause = userRole === 'admin' || userRole === 'staff'
+        ? {}
+        : { venues: { some: { ownerId: userId } } };
+
       return await client.businessAccount.findMany({
+        where: whereClause,
         include: {
           _count: {
             select: {

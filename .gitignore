@@ -144,3 +144,7 @@ storybook-static/
 .local/
 .vercel
 .env*.local
+
+# Documentation files
+CORS_FIX_SUMMARY.md
+FAVICON_FIX_SUMMARY.md

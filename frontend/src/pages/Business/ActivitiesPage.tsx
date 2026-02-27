@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
+import {
   PlusIcon,
   CalendarDaysIcon,
   ClockIcon,
@@ -72,7 +72,7 @@ const ActivitiesPage: React.FC = () => {
     try {
       setLoading(true);
       const token = authService.getToken();
-      
+
       if (!token) {
         navigate('/login');
         return;
@@ -88,7 +88,7 @@ const ActivitiesPage: React.FC = () => {
       });
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
       const response = await fetch(buildApiUrl(`/business/activities?${queryParams}`), {
         headers: {
@@ -105,7 +105,7 @@ const ActivitiesPage: React.FC = () => {
       }
 
       const data = await response.json();
-      
+
       // Debug logging for Course/Program activities
       console.log('Business activities API response:', data);
       console.log('Course/Program activities from business API:', data.data?.activities?.filter((a: any) => a.type === 'course/program').map((a: any) => ({
@@ -115,7 +115,7 @@ const ActivitiesPage: React.FC = () => {
         regularDay: a.regularDay,
         regularTime: a.regularTime
       })));
-      
+
       if (data.success) {
         setActivities(data.data.activities || []);
         setVenues(data.data.venues || []);
@@ -167,7 +167,7 @@ const ActivitiesPage: React.FC = () => {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast.success('Activity deleted successfully');
         fetchActivities(); // Refresh the list
@@ -205,7 +205,7 @@ const ActivitiesPage: React.FC = () => {
           </div>
           <div className="flex space-x-3">
             <Button
-              onClick={() => {/* Navigate to templates */}}
+              onClick={() => {/* Navigate to templates */ }}
               className="bg-gray-600 hover:bg-gray-700 text-white"
             >
               <CalendarDaysIcon className="w-4 h-4 mr-2" />
@@ -233,7 +233,7 @@ const ActivitiesPage: React.FC = () => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
               />
             </div>
-            <select 
+            <select
               value={filters.type}
               onChange={(e) => handleFilterChange('type', e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
@@ -244,7 +244,7 @@ const ActivitiesPage: React.FC = () => {
               <option value="Breakfast">Breakfast</option>
               <option value="Other">Other</option>
             </select>
-            <select 
+            <select
               value={filters.venue}
               onChange={(e) => handleFilterChange('venue', e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
@@ -254,7 +254,7 @@ const ActivitiesPage: React.FC = () => {
                 <option key={venue.id} value={venue.id}>{venue.name}</option>
               ))}
             </select>
-            <select 
+            <select
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
@@ -294,7 +294,7 @@ const ActivitiesPage: React.FC = () => {
                   <UserGroupIcon className="w-4 h-4 mr-2 text-teal-600" />
                   <span className="font-medium">{activity.booked}/{activity.capacity} children</span>
                 </div>
-                
+
                 {/* Total Sessions for Course/Program */}
                 {activity.type === 'course/program' && activity.durationWeeks && (
                   <div className="flex items-center text-sm text-gray-700">
@@ -314,18 +314,17 @@ const ActivitiesPage: React.FC = () => {
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
-                  <div 
-                    className={`h-3 rounded-full transition-all duration-500 ease-out ${
-                      activity.booked > activity.capacity
-                        ? 'bg-gradient-to-r from-red-500 to-red-600' 
-                        : activity.booked / activity.capacity > 0.8 
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600' 
-                        : activity.booked / activity.capacity > 0.6 
-                        ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' 
-                        : 'bg-gradient-to-r from-teal-500 to-teal-600'
-                    }`}
-                    style={{ 
-                      width: `${Math.min((activity.booked / activity.capacity) * 100, 100)}%` 
+                  <div
+                    className={`h-3 rounded-full transition-all duration-500 ease-out ${activity.booked > activity.capacity
+                      ? 'bg-gradient-to-r from-red-500 to-red-600'
+                      : activity.booked / activity.capacity > 0.8
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600'
+                        : activity.booked / activity.capacity > 0.6
+                          ? 'bg-gradient-to-r from-yellow-500 to-yellow-600'
+                          : 'bg-gradient-to-r from-teal-500 to-teal-600'
+                      }`}
+                    style={{
+                      width: `${Math.min((activity.booked / activity.capacity) * 100, 100)}%`
                     }}
                   ></div>
                   {/* Overcapacity indicator */}

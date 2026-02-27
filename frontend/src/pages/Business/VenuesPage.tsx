@@ -3,10 +3,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import BusinessLayout from '../../components/layout/BusinessLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { 
-  BuildingOfficeIcon, 
-  PlusIcon, 
-  PencilIcon, 
+import {
+  BuildingOfficeIcon,
+  PlusIcon,
+  PencilIcon,
   TrashIcon,
   EyeIcon,
   MagnifyingGlassIcon,
@@ -43,11 +43,15 @@ const VenuesPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
-    fetchVenues();
-  }, []);
+    if (user?.id) {
+      fetchVenues();
+    }
+  }, [user?.id]);
 
   const fetchVenues = async () => {
     try {
+      if (!user?.id) return;
+
       setLoading(true);
       const token = authService.getToken();
       if (!token) {
@@ -56,9 +60,9 @@ const VenuesPage: React.FC = () => {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
-      const response = await fetch(buildApiUrl('/business/venues'), {
+      const response = await fetch(buildApiUrl(`/venues?ownerId=${user.id}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -75,7 +79,7 @@ const VenuesPage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         // Transform API data to match our interface
-        const transformedVenues: Venue[] = (data.data.venues || []).map((venue: any) => ({
+        const transformedVenues: Venue[] = (data.data || []).map((venue: any) => ({
           id: venue.id,
           name: venue.name,
           address: venue.address || '',
@@ -107,12 +111,12 @@ const VenuesPage: React.FC = () => {
 
   const filteredVenues = venues.filter(venue => {
     const matchesSearch = venue.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         venue.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         venue.city.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && venue.isActive) ||
-                         (statusFilter === 'inactive' && !venue.isActive);
-    
+      venue.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      venue.city.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'active' && venue.isActive) ||
+      (statusFilter === 'inactive' && !venue.isActive);
+
     return matchesSearch && matchesStatus;
   });
 
@@ -125,7 +129,7 @@ const VenuesPage: React.FC = () => {
           return;
         }
 
-        const response = await fetch(buildApiUrl(`/business/venues/${venueId}`), {
+        const response = await fetch(buildApiUrl(`/venues/${venueId}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -174,9 +178,9 @@ const VenuesPage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         const updatedVenue = data.data;
-        setVenues(prev => prev.map(v => 
-          v.id === venueId ? { 
-            ...v, 
+        setVenues(prev => prev.map(v =>
+          v.id === venueId ? {
+            ...v,
             isActive: updatedVenue.isActive,
             updatedAt: updatedVenue.updatedAt
           } : v
@@ -222,7 +226,7 @@ const VenuesPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Venues</h1>
             <p className="text-gray-600 mt-1">Manage your business venues and locations</p>
           </div>
-          <Button 
+          <Button
             className="flex items-center gap-2"
             onClick={() => navigate('/business/venue-setup')}
           >
@@ -253,6 +257,7 @@ const VenuesPage: React.FC = () => {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                title="Filter by status"
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
@@ -260,8 +265,8 @@ const VenuesPage: React.FC = () => {
               </select>
             </div>
             <div className="flex items-end">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setSearchTerm('');
                   setStatusFilter('all');
@@ -284,11 +289,10 @@ const VenuesPage: React.FC = () => {
                   <div>
                     <h3 className="font-semibold text-gray-900">{venue.name}</h3>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        venue.isActive 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${venue.isActive
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                        }`}>
                         {venue.isActive ? 'Active' : 'Inactive'}
                       </span>
                       <span className="text-xs text-gray-500">Capacity: {venue.capacity}</span>
@@ -305,14 +309,14 @@ const VenuesPage: React.FC = () => {
                     <p>{venue.city}, {venue.postcode}</p>
                   </div>
                 </div>
-                
+
                 {venue.phone && (
                   <div className="flex items-center gap-2">
                     <PhoneIcon className="h-4 w-4 text-gray-400" />
                     <span className="text-sm text-gray-600">{venue.phone}</span>
                   </div>
                 )}
-                
+
                 {venue.email && (
                   <div className="flex items-center gap-2">
                     <EnvelopeIcon className="h-4 w-4 text-gray-400" />
@@ -325,7 +329,7 @@ const VenuesPage: React.FC = () => {
                 <p className="text-sm font-medium text-gray-700 mb-2">Facilities:</p>
                 <div className="flex flex-wrap gap-1">
                   {(venue.facilities || []).map((facility, index) => (
-                    <span 
+                    <span
                       key={index}
                       className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
                     >
@@ -343,15 +347,16 @@ const VenuesPage: React.FC = () => {
                   Updated {new Date(venue.updatedAt).toLocaleDateString()}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button className="p-1 text-gray-400 hover:text-gray-600">
+                  <button className="p-1 text-gray-400 hover:text-gray-600" title="View details">
                     <EyeIcon className="h-4 w-4" />
                   </button>
-                  <button className="p-1 text-gray-400 hover:text-blue-600">
+                  <button className="p-1 text-gray-400 hover:text-blue-600" title="Edit venue">
                     <PencilIcon className="h-4 w-4" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleDeleteVenue(venue.id)}
                     className="p-1 text-gray-400 hover:text-red-600"
+                    title="Delete venue"
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>
@@ -366,7 +371,7 @@ const VenuesPage: React.FC = () => {
             <BuildingOfficeIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No venues found</h3>
             <p className="text-gray-600 mb-4">
-              {searchTerm || statusFilter !== 'all' 
+              {searchTerm || statusFilter !== 'all'
                 ? 'Try adjusting your search criteria'
                 : 'Get started by adding your first venue'
               }

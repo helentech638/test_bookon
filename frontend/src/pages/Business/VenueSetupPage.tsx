@@ -5,8 +5,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
-import { 
-  BuildingOfficeIcon, 
+import {
+  BuildingOfficeIcon,
   PlusIcon,
   PencilIcon,
   TrashIcon,
@@ -127,7 +127,7 @@ const VenueSetupPage: React.FC = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const response = await fetch(buildApiUrl('/business/venue-setup'), {
+      const response = await fetch(buildApiUrl(`/venues?ownerId=${user?.id || ''}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -144,7 +144,7 @@ const VenueSetupPage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         // Transform API data to match our interface
-        const transformedSetups: VenueSetup[] = (data.data.venueSetups || []).map((setup: any) => ({
+        const transformedSetups: VenueSetup[] = (data.data || []).map((setup: any) => ({
           id: setup.id,
           name: setup.name,
           address: setup.address,
@@ -175,7 +175,7 @@ const VenueSetupPage: React.FC = () => {
           createdAt: setup.createdAt,
           updatedAt: setup.updatedAt
         }));
-        
+
         setVenueSetups(transformedSetups);
       } else {
         throw new Error(data.message || 'Failed to fetch venue setups');
@@ -223,10 +223,10 @@ const VenueSetupPage: React.FC = () => {
         return;
       }
 
-      const url = editingSetup 
-        ? buildApiUrl(`/business/venue-setup/${editingSetup.id}`)
-        : buildApiUrl('/business/venue-setup');
-      
+      const url = editingSetup
+        ? buildApiUrl(`/venues/${editingSetup.id}`)
+        : buildApiUrl('/venues');
+
       const method = editingSetup ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -291,7 +291,7 @@ const VenueSetupPage: React.FC = () => {
           return;
         }
 
-        const response = await fetch(buildApiUrl(`/business/venue-setup/${setupId}`), {
+        const response = await fetch(buildApiUrl(`/venues/${setupId}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -354,15 +354,15 @@ const VenueSetupPage: React.FC = () => {
   };
 
   const filteredSetups = venueSetups.filter(setup => {
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       setup.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       setup.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
       setup.city.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || 
+
+    const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'active' && setup.isActive) ||
       (statusFilter === 'inactive' && !setup.isActive);
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -383,8 +383,8 @@ const VenueSetupPage: React.FC = () => {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-          <h1 className="text-3xl font-bold text-gray-900">Venue Setup</h1>
-          <p className="text-gray-600 mt-1">Configure your venues and their settings</p>
+              <h1 className="text-3xl font-bold text-gray-900">Venue Setup</h1>
+              <p className="text-gray-600 mt-1">Configure your venues and their settings</p>
             </div>
             {currentView !== 'list' && (
               <Button
@@ -408,21 +408,19 @@ const VenueSetupPage: React.FC = () => {
             <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
               <button
                 onClick={() => setCurrentView('list')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  currentView === 'list'
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${currentView === 'list'
                     ? 'border-[#00806a] text-[#00806a]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 Venue List
               </button>
               <button
                 onClick={() => setCurrentView('create')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  currentView === 'create'
+                className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${currentView === 'create'
                     ? 'border-[#00806a] text-[#00806a]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 Create New Venue
               </button>
@@ -433,131 +431,131 @@ const VenueSetupPage: React.FC = () => {
         {/* Content based on current view */}
         {currentView === 'list' && (
           <>
-        {/* Actions */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search venue setups..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
-              />
-              <BuildingOfficeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            {/* Actions */}
+            <div className="mb-6 flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search venue setups..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
+                  />
+                  <BuildingOfficeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full sm:w-48"
+                >
+                  <option value="all">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </Select>
+                <Button
+                  onClick={handleCreateNew}
+                  className="flex items-center justify-center gap-2 w-full sm:w-auto"
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  <span className="hidden sm:inline">New Venue Setup</span>
+                  <span className="sm:hidden">New Venue</span>
+                </Button>
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-            <Select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full sm:w-48"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </Select>
-            <Button
-              onClick={handleCreateNew}
-              className="flex items-center justify-center gap-2 w-full sm:w-auto"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span className="hidden sm:inline">New Venue Setup</span>
-              <span className="sm:hidden">New Venue</span>
-            </Button>
-          </div>
-        </div>
 
-        {/* Venue Setups Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {filteredSetups.map((setup) => (
-            <Card key={setup.id} className="bg-white p-4 sm:p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="p-2 bg-[#00806a] rounded-lg flex-shrink-0">
-                    <BuildingOfficeIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+            {/* Venue Setups Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {filteredSetups.map((setup) => (
+                <Card key={setup.id} className="bg-white p-4 sm:p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="p-2 bg-[#00806a] rounded-lg flex-shrink-0">
+                        <BuildingOfficeIcon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-gray-900 truncate">{setup.name}</h3>
+                        <p className="text-sm text-gray-500 truncate">{setup.city}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEdit(setup)}
+                        className="p-1 sm:p-2"
+                      >
+                        <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(setup.id)}
+                        className="text-red-600 hover:text-red-700 p-1 sm:p-2"
+                      >
+                        <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-gray-900 truncate">{setup.name}</h3>
-                    <p className="text-sm text-gray-500 truncate">{setup.city}</p>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <MapPinIcon className="h-4 w-4" />
+                      <span>{setup.address}, {setup.postcode}</span>
+                    </div>
+                    {setup.phone && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <PhoneIcon className="h-4 w-4" />
+                        <span>{setup.phone}</span>
+                      </div>
+                    )}
+                    {setup.email && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <EnvelopeIcon className="h-4 w-4" />
+                        <span>{setup.email}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <CheckCircleIcon className="h-4 w-4" />
+                      <span>Capacity: {setup.capacity ? `${setup.capacity} people` : 'Set per activity'}</span>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEdit(setup)}
-                    className="p-1 sm:p-2"
-                  >
-                    <PencilIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${setup.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                      <span className="text-sm text-gray-600">
+                        {setup.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(setup.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {filteredSetups.length === 0 && (
+              <div className="text-center py-12">
+                <BuildingOfficeIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No venue setups found</h3>
+                <p className="text-gray-500 mb-4">
+                  {searchTerm || statusFilter !== 'all'
+                    ? 'Try adjusting your search or filter criteria.'
+                    : 'Get started by creating your first venue setup.'
+                  }
+                </p>
+                {!searchTerm && statusFilter === 'all' && (
+                  <Button onClick={handleCreateNew}>
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Create Venue Setup
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDelete(setup.id)}
-                    className="text-red-600 hover:text-red-700 p-1 sm:p-2"
-                  >
-                    <TrashIcon className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPinIcon className="h-4 w-4" />
-                  <span>{setup.address}, {setup.postcode}</span>
-                </div>
-                {setup.phone && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <PhoneIcon className="h-4 w-4" />
-                    <span>{setup.phone}</span>
-                  </div>
                 )}
-                {setup.email && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <EnvelopeIcon className="h-4 w-4" />
-                    <span>{setup.email}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <CheckCircleIcon className="h-4 w-4" />
-                  <span>Capacity: {setup.capacity ? `${setup.capacity} people` : 'Set per activity'}</span>
-                </div>
               </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${setup.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                  <span className="text-sm text-gray-600">
-                    {setup.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-                <div className="text-sm text-gray-500">
-                  {new Date(setup.createdAt).toLocaleDateString()}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {filteredSetups.length === 0 && (
-          <div className="text-center py-12">
-            <BuildingOfficeIcon className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No venue setups found</h3>
-            <p className="text-gray-500 mb-4">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filter criteria.'
-                : 'Get started by creating your first venue setup.'
-              }
-            </p>
-            {!searchTerm && statusFilter === 'all' && (
-              <Button onClick={handleCreateNew}>
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Create Venue Setup
-              </Button>
             )}
-          </div>
-        )}
           </>
         )}
 
@@ -568,270 +566,270 @@ const VenueSetupPage: React.FC = () => {
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
                   {editingSetup ? 'Edit Venue Setup' : 'Create New Venue Setup'}
-                  </h2>
+                </h2>
                 <p className="text-gray-600">
                   {editingSetup ? 'Update your venue configuration' : 'Set up a new venue with all necessary details'}
                 </p>
-                </div>
+              </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Basic Information */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Venue Name *
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Capacity
-                      </label>
-                      <Input
-                        type="number"
-                        value={formData.capacity || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, capacity: e.target.value ? parseInt(e.target.value) : null }))}
-                        min="1"
-                        placeholder="Optional - set per activity"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address *
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.address}
-                        onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        City *
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.city}
-                        onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Postcode *
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.postcode}
-                        onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone
-                      </label>
-                      <Input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Basic Information */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email
+                      Venue Name *
                     </label>
                     <Input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      required
                     />
                   </div>
-
-
-
-                  {/* Business Account & Payment Routing */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Business Account & Payment Routing</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Business Account
-                        </label>
-                        <Select
-                          value={formData.businessAccountId}
-                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ 
-                            ...prev, 
-                            businessAccountId: e.target.value 
-                          }))}
-                        >
-                          <option value="">Select Business Account</option>
-                          {businessAccounts.map(account => (
-                            <option key={account.id} value={account.id}>
-                              {account.name} ({account.status})
-                            </option>
-                          ))}
-                        </Select>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Link this venue to a Stripe Connect business account for payment routing
-                        </p>
-                      </div>
-
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <h4 className="font-medium text-gray-900 mb-3">Franchise Fee Settings</h4>
-                        
-                        <div className="flex items-center mb-3">
-                          <input
-                            type="checkbox"
-                            id="inheritFranchiseFee"
-                            checked={formData.inheritFranchiseFee}
-                            onChange={(e) => setFormData(prev => ({ 
-                              ...prev, 
-                              inheritFranchiseFee: e.target.checked 
-                            }))}
-                            className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                          />
-                          <label htmlFor="inheritFranchiseFee" className="ml-2 block text-sm text-gray-700">
-                            Inherit Business Account franchise fee
-                          </label>
-                        </div>
-
-                        {!formData.inheritFranchiseFee && (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Fee Type
-                              </label>
-                              <Select
-                                value={formData.franchiseFeeType}
-                                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ 
-                                  ...prev, 
-                                  franchiseFeeType: e.target.value as 'percent' | 'fixed' 
-                                }))}
-                              >
-                                <option value="percent">Percentage (%)</option>
-                                <option value="fixed">Fixed Amount (£)</option>
-                              </Select>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Fee Value
-                              </label>
-                              <Input
-                                type="number"
-                                value={formData.franchiseFeeValue}
-                                onChange={(e) => setFormData(prev => ({ 
-                                  ...prev, 
-                                  franchiseFeeValue: parseFloat(e.target.value) || 0 
-                                }))}
-                                min="0"
-                                step={formData.franchiseFeeType === 'percent' ? '0.1' : '0.01'}
-                                placeholder={formData.franchiseFeeType === 'percent' ? 'e.g., 5.0' : 'e.g., 2.50'}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Capacity
+                    </label>
+                    <Input
+                      type="number"
+                      value={formData.capacity || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, capacity: e.target.value ? parseInt(e.target.value) : null }))}
+                      min="1"
+                      placeholder="Optional - set per activity"
+                    />
                   </div>
+                </div>
 
-                  {/* Tax-Free Childcare Settings */}
-                  <div className="border-t pt-6">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Tax-Free Childcare Settings</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Address *
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City *
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Postcode *
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.postcode}
+                      onChange={(e) => setFormData(prev => ({ ...prev, postcode: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone
+                    </label>
+                    <Input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+
+
+
+                {/* Business Account & Payment Routing */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Business Account & Payment Routing</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Business Account
+                      </label>
+                      <Select
+                        value={formData.businessAccountId}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({
+                          ...prev,
+                          businessAccountId: e.target.value
+                        }))}
+                      >
+                        <option value="">Select Business Account</option>
+                        {businessAccounts.map(account => (
+                          <option key={account.id} value={account.id}>
+                            {account.name} ({account.status})
+                          </option>
+                        ))}
+                      </Select>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Link this venue to a Stripe Connect business account for payment routing
+                      </p>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h4 className="font-medium text-gray-900 mb-3">Franchise Fee Settings</h4>
+
+                      <div className="flex items-center mb-3">
                         <input
                           type="checkbox"
-                          id="tfcEnabled"
-                          checked={formData.tfcEnabled}
-                          onChange={(e) => setFormData(prev => ({ 
-                            ...prev, 
-                            tfcEnabled: e.target.checked 
+                          id="inheritFranchiseFee"
+                          checked={formData.inheritFranchiseFee}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            inheritFranchiseFee: e.target.checked
                           }))}
                           className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                         />
-                        <label htmlFor="tfcEnabled" className="ml-2 block text-sm text-gray-700">
-                          Enable Tax-Free Childcare payments
+                        <label htmlFor="inheritFranchiseFee" className="ml-2 block text-sm text-gray-700">
+                          Inherit Business Account franchise fee
                         </label>
                       </div>
 
-                      {formData.tfcEnabled && (
+                      {!formData.inheritFranchiseFee && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Hold Period (days)
+                              Fee Type
+                            </label>
+                            <Select
+                              value={formData.franchiseFeeType}
+                              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({
+                                ...prev,
+                                franchiseFeeType: e.target.value as 'percent' | 'fixed'
+                              }))}
+                            >
+                              <option value="percent">Percentage (%)</option>
+                              <option value="fixed">Fixed Amount (£)</option>
+                            </Select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Fee Value
                             </label>
                             <Input
                               type="number"
-                              value={formData.tfcHoldPeriod}
-                              onChange={(e) => setFormData(prev => ({ 
-                                ...prev, 
-                                tfcHoldPeriod: parseInt(e.target.value) || 5 
+                              value={formData.franchiseFeeValue}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                franchiseFeeValue: parseFloat(e.target.value) || 0
                               }))}
-                              min="1"
-                              max="30"
+                              min="0"
+                              step={formData.franchiseFeeType === 'percent' ? '0.1' : '0.01'}
+                              placeholder={formData.franchiseFeeType === 'percent' ? 'e.g., 5.0' : 'e.g., 2.50'}
                             />
-                            <p className="text-sm text-gray-500 mt-1">
-                              How many days to hold bookings pending payment
-                            </p>
                           </div>
                         </div>
                       )}
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          TFC Instructions (Optional)
-                        </label>
-                        <textarea
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                          value={formData.tfcInstructions}
-                          onChange={(e) => setFormData(prev => ({ 
-                            ...prev, 
-                            tfcInstructions: e.target.value 
-                          }))}
-                          rows={3}
-                          placeholder="Custom instructions for parents using Tax-Free Childcare..."
-                        />
-                        <p className="text-sm text-gray-500 mt-1">
-                          Custom text shown to parents when they select TFC payment
-                        </p>
-                      </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Form Actions */}
-                  <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setCurrentView('list');
-                        setEditingSetup(null);
-                        resetForm();
-                      }}
-                      className="w-full sm:w-auto"
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" className="w-full sm:w-auto">
-                      {editingSetup ? 'Update Venue Setup' : 'Create Venue Setup'}
-                    </Button>
+                {/* Tax-Free Childcare Settings */}
+                <div className="border-t pt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Tax-Free Childcare Settings</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="tfcEnabled"
+                        checked={formData.tfcEnabled}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          tfcEnabled: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="tfcEnabled" className="ml-2 block text-sm text-gray-700">
+                        Enable Tax-Free Childcare payments
+                      </label>
+                    </div>
+
+                    {formData.tfcEnabled && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Hold Period (days)
+                          </label>
+                          <Input
+                            type="number"
+                            value={formData.tfcHoldPeriod}
+                            onChange={(e) => setFormData(prev => ({
+                              ...prev,
+                              tfcHoldPeriod: parseInt(e.target.value) || 5
+                            }))}
+                            min="1"
+                            max="30"
+                          />
+                          <p className="text-sm text-gray-500 mt-1">
+                            How many days to hold bookings pending payment
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        TFC Instructions (Optional)
+                      </label>
+                      <textarea
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                        value={formData.tfcInstructions}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          tfcInstructions: e.target.value
+                        }))}
+                        rows={3}
+                        placeholder="Custom instructions for parents using Tax-Free Childcare..."
+                      />
+                      <p className="text-sm text-gray-500 mt-1">
+                        Custom text shown to parents when they select TFC payment
+                      </p>
+                    </div>
                   </div>
-                </form>
+                </div>
+
+                {/* Form Actions */}
+                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setCurrentView('list');
+                      setEditingSetup(null);
+                      resetForm();
+                    }}
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="w-full sm:w-auto">
+                    {editingSetup ? 'Update Venue Setup' : 'Create Venue Setup'}
+                  </Button>
+                </div>
+              </form>
             </Card>
           </div>
         )}

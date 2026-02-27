@@ -2,20 +2,8 @@ import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 const FALLBACK_API_BASE_URL = 'https://bookon-api.vercel.app/api/v1';
 
-const isLocalApiUrl = (url: string): boolean => {
-  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
-};
-
 const normalizeApiBaseUrl = (rawUrl?: string): string => {
-  const rawCandidate = (rawUrl || '').trim();
-  const isBrowser = typeof window !== 'undefined';
-  const isLocalRuntime =
-    isBrowser && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
-
-  const candidate =
-    !rawCandidate || (isLocalApiUrl(rawCandidate) && !isLocalRuntime)
-      ? FALLBACK_API_BASE_URL
-      : rawCandidate;
+  const candidate = (rawUrl || import.meta.env.VITE_API_URL || FALLBACK_API_BASE_URL).trim();
   const withoutTrailingSlash = candidate.replace(/\/+$/, '');
 
   if (/\/api\/v1$/i.test(withoutTrailingSlash)) {
@@ -153,9 +141,9 @@ const createApiClient = (): AxiosInstance => {
         localStorage.removeItem('bookon_user');
 
         // Show user-friendly message before redirect
-        if (window.confirm('Your session has expired. Please log in again.')) {
+        if (typeof window !== 'undefined' && window.confirm('Your session has expired. Please log in again.')) {
           window.location.href = '/login';
-        } else {
+        } else if (typeof window !== 'undefined') {
           window.location.href = '/login';
         }
       }

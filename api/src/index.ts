@@ -54,6 +54,8 @@ import healthRoutes from './routes/health';
 import businessActivitiesRoutes from './routes/businessActivities';
 import businessNotificationsRoutes from './routes/businessNotifications';
 import businessFinanceRoutes from './routes/businessFinance';
+import uploadRoutes from './routes/upload';
+import path from 'path';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -75,6 +77,13 @@ import masterReportsRoutes from './routes/master-reports';
 
 const app = express();
 const server = createServer(app);
+
+// Debug logging for all requests
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] [DEBUG] ${req.method} ${req.url} - Headers: ${JSON.stringify(req.headers)}`);
+  next();
+});
 const PORT = process.env['PORT'] || 3000;
 
 // Trust proxy for Vercel deployment
@@ -182,6 +191,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Compression middleware
 app.use(compression());
+
+// Static file serving for uploads - allow cross-origin access for images
+app.use('/uploads', (_req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+}, express.static(path.join(process.cwd(), 'public', 'uploads')));
 
 // Logging middleware
 app.use(morgan('combined', {
@@ -383,10 +399,10 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/children', childrenRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/dashboard', businessDashboardRoutes);
-app.use('/api/v1/activities', activitiesRoutes);
 app.use('/api/v1/business/activities', businessActivitiesRoutes);
 app.use('/api/v1/business/notifications', businessNotificationsRoutes);
 app.use('/api/v1/business/finance', businessFinanceRoutes);
+app.use('/api/v1/activities', activitiesRoutes);
 app.use('/api/v1/activity-types', activityTypesRoutes);
 app.use('/api/v1/venues', venuesRoutes);
 app.use('/api/v1/bookings', bookingsRoutes);
@@ -412,10 +428,10 @@ app.use('/api/v1/courses', coursesRoutes);
 app.use('/api/v1/business-accounts', businessAccountsRoutes);
 app.use('/api/v1/finance', financeReportingRoutes);
 app.use('/api/v1/business/communications', communicationsRoutes);
-app.use('/api/v1/finance', financeRoutes);
 app.use('/api/v1/dashboard/snapshots', dashboardSnapshotRoutes);
 app.use('/api/v1/activities/upcoming', upcomingActivitiesRoutes);
 app.use('/api/v1/finance/summary', financeSummaryRoutes);
+app.use('/api/v1/upload', uploadRoutes);
 
 
 // Webhook endpoint for Stripe

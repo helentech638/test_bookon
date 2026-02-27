@@ -227,13 +227,13 @@ const ActivitiesPage: React.FC = () => {
                 venuesRetries--;
                 continue;
               }
-              throw error;
+              break; // exit loop if all retries exhausted
             }
           }
 
           if (venuesResponse && venuesResponse.ok) {
             const venuesData = await venuesResponse.json();
-            if (venuesData.success) {
+            if (venuesData.success && Array.isArray(venuesData.data)) {
               setVenues(venuesData.data);
             } else {
               setVenues([]);
@@ -334,6 +334,7 @@ const ActivitiesPage: React.FC = () => {
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                title="Select category"
               >
                 <option value="">All Categories</option>
                 {categories.slice(1).map(category => (
@@ -345,6 +346,7 @@ const ActivitiesPage: React.FC = () => {
                 value={selectedVenue}
                 onChange={(e) => setSelectedVenue(e.target.value)}
                 className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                title="Select venue"
               >
                 <option value="">All Venues</option>
                 {venueOptions.slice(1).map(venue => (
@@ -415,8 +417,7 @@ const ActivitiesPage: React.FC = () => {
                     <img
                       src={activity.images?.[0] || '/images/default-activity.jpg'}
                       alt={activity.name}
-                      className="w-full h-full object-contain object-center"
-                      style={{ minHeight: '160px' }}
+                      className="w-full h-full object-contain object-center min-h-[160px]"
                       onError={(e) => {
                         e.currentTarget.src = '/images/default-activity.jpg';
                       }}
@@ -827,8 +828,8 @@ const ActivitiesPage: React.FC = () => {
                             Booking Type:
                           </span>
                           <span className={`text-sm font-medium px-2 py-1 rounded-full ${activity.proRataBooking
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-teal-100 text-teal-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-teal-100 text-teal-800'
                             }`}>
                             {activity.proRataBooking ? 'Pro-rata Available' : 'Full Booking Only'}
                           </span>

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
-import { prisma } from '../utils/prisma';
+import { prisma, safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
 import { body, validationResult } from 'express-validator';
 
@@ -21,19 +21,25 @@ const validateVenue = [
 // Get all venues (public - no auth required)
 router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
   try {
-    const { 
-      page = '1', 
-      limit = '10', 
+    const {
+      page = '1',
+      limit = '10',
       city,
-      search
+      search,
+      ownerId
     } = req.query;
 
     const offset = (parseInt(page as string) - 1) * parseInt(limit as string);
-    
+    const limitNum = parseInt(limit as string);
+
     // Build where clause for Prisma
     const whereClause: any = {
       isActive: true
     };
+
+    if (ownerId) {
+      whereClause.ownerId = ownerId as string;
+    }
 
     // Filter by city
     if (city) {
@@ -61,15 +67,16 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
       ];
     }
 
-    // Get total count for pagination
-    const totalCount = await prisma.venue.count({ where: whereClause });
-
-    // Get paginated results
-    const venues = await prisma.venue.findMany({
-      where: whereClause,
-      orderBy: { name: 'asc' },
-      take: parseInt(limit as string),
-      skip: offset
+    const [venues, totalCount] = await safePrismaQuery(async (client) => {
+      return await Promise.all([
+        client.venue.findMany({
+          where: whereClause,
+          orderBy: { name: 'asc' },
+          take: limitNum,
+          skip: offset
+        }),
+        client.venue.count({ where: whereClause })
+      ]);
     });
 
     res.json({
@@ -88,9 +95,9 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
       })),
       pagination: {
         page: parseInt(page as string),
-        limit: parseInt(limit as string),
+        limit: limitNum,
         total: totalCount,
-        pages: Math.ceil(totalCount / parseInt(limit as string))
+        pages: Math.ceil(totalCount / limitNum)
       }
     });
   } catch (error) {
@@ -103,7 +110,7 @@ router.get('/', optionalAuth, asyncHandler(async (req: Request, res: Response) =
 router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     const venue = await prisma.venue.findFirst({
       where: {
         id: id!,
@@ -136,13 +143,12 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: Request, res: Response
   }
 }));
 
-// Create new venue (admin only)
+// Create new venue
 router.post('/', authenticateToken, validateVenue, asyncHandler(async (req: Request, res: Response) => {
   try {
-    // Check if user has permission to create venues
-    if (req.user!.role !== 'admin') {
-      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
-    }
+    // Both admins and business users can create venues
+    // We could add a check for specific roles here if needed, 
+    // but for now any authenticated user can create a venue they own.
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -177,9 +183,9 @@ router.post('/', authenticateToken, validateVenue, asyncHandler(async (req: Requ
       }
     });
 
-    logger.info('Venue created successfully', { 
-      venueId: venue.id, 
-      userId: req.user!.id 
+    logger.info('Venue created successfully', {
+      venueId: venue.id,
+      userId: req.user!.id
     });
 
     res.status(201).json({
@@ -197,15 +203,12 @@ router.post('/', authenticateToken, validateVenue, asyncHandler(async (req: Requ
   }
 }));
 
-// Update venue (admin only)
+// Update venue
 router.put('/:id', authenticateToken, validateVenue, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
-    // Check if user has permission to update venues
-    if (req.user!.role !== 'admin') {
-      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
-    }
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
 
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -222,6 +225,11 @@ router.put('/:id', authenticateToken, validateVenue, asyncHandler(async (req: Re
 
     if (!existingVenue) {
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
+    }
+
+    // Check if user has permission to update this venue
+    if (userRole !== 'admin' && existingVenue.ownerId !== userId) {
+      throw new AppError('Insufficient permissions to update this venue', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
     const {
@@ -253,9 +261,9 @@ router.put('/:id', authenticateToken, validateVenue, asyncHandler(async (req: Re
       }
     });
 
-    logger.info('Venue updated successfully', { 
-      venueId: id, 
-      userId: req.user!.id 
+    logger.info('Venue updated successfully', {
+      venueId: id,
+      userId: req.user!.id
     });
 
     res.json({
@@ -273,15 +281,12 @@ router.put('/:id', authenticateToken, validateVenue, asyncHandler(async (req: Re
   }
 }));
 
-// Delete venue (admin only)
+// Delete venue
 router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
-    // Check if user has permission to delete venues
-    if (req.user!.role !== 'admin') {
-      throw new AppError('Insufficient permissions', 403, 'INSUFFICIENT_PERMISSIONS');
-    }
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
 
     // Check if venue exists
     const existingVenue = await prisma.venue.findFirst({
@@ -293,6 +298,11 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
 
     if (!existingVenue) {
       throw new AppError('Venue not found', 404, 'VENUE_NOT_FOUND');
+    }
+
+    // Check if user has permission to delete this venue
+    if (userRole !== 'admin' && existingVenue.ownerId !== userId) {
+      throw new AppError('Insufficient permissions to delete this venue', 403, 'INSUFFICIENT_PERMISSIONS');
     }
 
     // Check if venue has active activities
@@ -316,9 +326,9 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
       }
     });
 
-    logger.info('Venue deleted successfully', { 
-      venueId: id, 
-      userId: req.user!.id 
+    logger.info('Venue deleted successfully', {
+      venueId: id,
+      userId: req.user!.id
     });
 
     res.json({

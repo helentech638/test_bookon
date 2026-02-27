@@ -3,6 +3,7 @@ import { asyncHandler, AppError } from '../middleware/errorHandler';
 import { authenticateToken } from '../middleware/auth';
 import { safePrismaQuery } from '../utils/prisma';
 import { logger } from '../utils/logger';
+import { activityService } from '../services/activityService';
 
 const router = Router();
 
@@ -55,13 +56,16 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
           venue: {
             select: { id: true, name: true, address: true }
           },
-          bookings: {
-            where: {
-              status: {
-                in: ['confirmed', 'pending']
+          _count: {
+            select: {
+              bookings: {
+                where: {
+                  status: {
+                    in: ['confirmed', 'pending']
+                  }
+                }
               }
-            },
-            select: { id: true }
+            }
           }
         } as any,
         orderBy: { createdAt: 'desc' },
@@ -82,7 +86,7 @@ router.get('/', authenticateToken, asyncHandler(async (req: Request, res: Respon
       venueId: activity.venue?.id,
       time: `${activity.startTime || '09:00'} - ${activity.endTime || '17:00'}`,
       capacity: activity.capacity || 20,
-      booked: activity.bookings?.length || 0,
+      booked: activity._count?.bookings || 0,
       status: activity.status || 'active',
       nextSession: activity.startDate.toISOString().split('T')[0],
       description: activity.description,
@@ -229,5 +233,221 @@ router.get('/:id', authenticateToken, asyncHandler(async (req: Request, res: Res
     throw new AppError('Failed to fetch activity', 500, 'ACTIVITY_ERROR');
   }
 }));
+
+router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const activityId = req.params['id'];
+
+  try {
+    const userInfo = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { role: true }
+      });
+    });
+
+    if (!userInfo || (userInfo.role !== 'business' && userInfo.role !== 'admin')) {
+      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
+    }
+
+    // Admins can delete any activity
+    if (userInfo.role === 'admin') {
+      await activityService.deleteActivity(activityId);
+      return res.json({ success: true, message: 'Activity deleted successfully' });
+    }
+
+    // Business users can only delete their own activities
+    const venues = await safePrismaQuery(async (client) => {
+      return await client.venue.findMany({
+        where: { ownerId: userId },
+        select: { id: true }
+      });
+    });
+
+    const venueIds = venues.map(v => v.id);
+
+    const activity = await safePrismaQuery(async (client) => {
+      return await client.activity.findFirst({
+        where: {
+          id: activityId,
+          venueId: { in: venueIds }
+        }
+      });
+    });
+
+    if (!activity) {
+      throw new AppError('Activity not found or access denied', 404, 'ACTIVITY_NOT_FOUND');
+    }
+
+    await activityService.deleteActivity(activityId);
+
+    res.json({
+      success: true,
+      message: 'Activity deleted successfully'
+    });
+  } catch (error) {
+    logger.error('Error deleting business activity:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to delete activity', 500, 'ACTIVITY_DELETE_ERROR');
+  }
+}));
+
+router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const activityData = req.body;
+
+  logger.info('DEBUG: POST / received', {
+    userId,
+    body: activityData,
+    typeOfVenueId: typeof activityData.venueId
+  });
+
+  try {
+    const userInfo = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { role: true }
+      });
+    });
+
+    if (!userInfo || (userInfo.role !== 'business' && userInfo.role !== 'admin')) {
+      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
+    }
+
+    logger.info('DEBUG: Creating activity', { userId, venueId: activityData.venueId });
+
+    // Verify venue ownership
+    const venue = await safePrismaQuery(async (client) => {
+      const v = await client.venue.findFirst({
+        where: {
+          id: activityData.venueId,
+          ownerId: userId
+        }
+      });
+      return v;
+    });
+
+    if (!venue && userInfo.role !== 'admin') {
+      const allMyVenues = await safePrismaQuery(async (client) => {
+        return await client.venue.findMany({
+          where: { ownerId: userId },
+          select: { id: true, name: true }
+        });
+      });
+
+      logger.warn('DEBUG: Venue not found or access denied', {
+        attemptedVenueId: activityData.venueId,
+        userId,
+        userRole: userInfo.role,
+        myVenues: allMyVenues.map(v => v.id)
+      });
+      throw new AppError('Venue not found or access denied', 403, 'VENUE_OWNERSHIP_ERROR');
+    }
+
+    logger.info('DEBUG: Venue verified successfully', { venueId: venue?.id });
+
+    const result = await safePrismaQuery(async (client) => {
+      // Create activity
+      const activity = await client.activity.create({
+        data: {
+          title: activityData.title,
+          type: activityData.type,
+          description: activityData.description,
+          venue: { connect: { id: activityData.venueId } },
+          owner: { connect: { id: userId } },
+          createdBy: userId,
+          startDate: new Date(activityData.startDate),
+          endDate: new Date(activityData.endDate),
+          startTime: activityData.startTime,
+          endTime: activityData.endTime,
+          capacity: parseInt(activityData.capacity) || 20,
+          price: parseFloat(activityData.price) || 0,
+          isActive: true,
+          status: 'active',
+          // New specialized fields
+          isWraparoundCare: activityData.isWraparoundCare || false,
+          yearGroups: activityData.yearGroups || [],
+          ageRange: activityData.ageRange,
+          whatToBring: activityData.whatToBring,
+          siblingDiscount: activityData.siblingDiscount ? parseFloat(activityData.siblingDiscount) : null,
+          bulkDiscount: activityData.bulkDiscount ? parseFloat(activityData.bulkDiscount) : null,
+          weeklyDiscount: activityData.weeklyDiscount ? parseFloat(activityData.weeklyDiscount) : null,
+          daysOfWeek: activityData.daysOfWeek || [],
+          proRataBooking: activityData.proRataBooking || false,
+          holidaySessions: activityData.holidaySessions !== undefined ? activityData.holidaySessions : true,
+          earlyDropoff: activityData.earlyDropoff || false,
+          earlyDropoffPrice: activityData.earlyDropoffPrice ? parseFloat(activityData.earlyDropoffPrice) : null,
+          earlyDropoffStartTime: activityData.earlyDropoffStartTime,
+          earlyDropoffEndTime: activityData.earlyDropoffEndTime,
+          latePickup: activityData.latePickup || false,
+          latePickupPrice: activityData.latePickupPrice ? parseFloat(activityData.latePickupPrice) : null,
+          latePickupStartTime: activityData.latePickupStartTime,
+          latePickupEndTime: activityData.latePickupEndTime,
+          imageUrls: activityData.imageUrls || [],
+          excludeDates: activityData.excludeDates || [],
+          durationWeeks: activityData.durationWeeks ? parseInt(activityData.durationWeeks) : null,
+        }
+      });
+
+      // Handle session blocks for wraparound care
+      if (activityData.sessionBlocks && activityData.sessionBlocks.length > 0) {
+        await client.session_blocks.createMany({
+          data: activityData.sessionBlocks.map((block: any) => ({
+            activityId: activity.id,
+            name: block.name,
+            startTime: block.startTime,
+            endTime: block.endTime,
+            capacity: parseInt(block.capacity) || activity.capacity,
+            price: parseFloat(block.price) || activity.price,
+          }))
+        });
+      }
+
+      // Handle custom time slots for holiday club
+      if (activityData.customTimeSlots && activityData.customTimeSlots.length > 0) {
+        await client.holiday_time_slots.createMany({
+          data: activityData.customTimeSlots.map((slot: any) => ({
+            activityId: activity.id,
+            name: slot.name,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            capacity: parseInt(slot.capacity) || activity.capacity,
+            price: parseFloat(slot.price) || activity.price,
+          }))
+        });
+      }
+
+      // Generate initial sessions if requested
+      if (activityData.generateSessions) {
+        // We'll let the service handle session generation if needed, 
+        // or just rely on the fact that we have the activity created.
+        // For now, let's keep it simple.
+      }
+
+      return activity;
+    });
+
+    logger.info('Business activity created successfully', { userId, activityId: result.id });
+
+    res.status(201).json({
+      success: true,
+      message: 'Activity created successfully',
+      data: result
+    });
+  } catch (error) {
+    logger.error('Error creating business activity:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to create activity', 500, 'ACTIVITY_CREATE_ERROR');
+  }
+}));
+
+// Catch-all for debugging unmatched routes within this router
+router.all('*', (req, res) => {
+  logger.warn(`Unmatched route within businessActivities router: ${req.method} ${req.url}`);
+  res.status(404).json({
+    success: false,
+    message: `Business Activities route not found: ${req.method} ${req.url}`
+  });
+});
 
 export default router;

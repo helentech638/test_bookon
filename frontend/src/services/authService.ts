@@ -105,7 +105,7 @@ class AuthService {
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort('timeout'), 30000); // 30 second timeout
 
       const response = await fetch(buildApiUrl('/auth/me'), {
         headers: {
@@ -132,12 +132,15 @@ class AuthService {
 
       return response.ok;
     } catch (error) {
-      console.error('Token verification failed:', error);
       // If request timed out or network error, don't invalidate existing session
       // Only return false on explicit auth failures (handled above via response.status)
       if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TypeError')) {
+        // Log locally for debugging but don't show as error in production-like environments
+        console.debug('Token verification silent failure (timeout/network):', error.message);
         return true; // Keep existing session on network/timeout issues
       }
+
+      console.error('Token verification failed:', error);
       return false;
     }
   }

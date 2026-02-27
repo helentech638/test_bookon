@@ -221,6 +221,9 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
             select: {
               name: true
             }
+          },
+          _count: {
+            select: { bookings: true }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -229,22 +232,42 @@ router.get('/activities', authenticateToken, requireAdminOrStaff, asyncHandler(a
 
     logger.info('Successfully fetched activities', { count: activities.length });
 
+    const formatActivityType = (type: string | null): string => {
+      if (!type) return 'Activity';
+      const typeMap: { [key: string]: string } = {
+        'holiday_club': 'Holiday Club',
+        'wraparound_care': 'Wraparound Care',
+        'after_school': 'After School',
+        'sports': 'Sports',
+        'arts_crafts': 'Arts & Crafts',
+        'music': 'Music',
+        'dance': 'Dance',
+        'swimming': 'Swimming',
+        'other': 'Other'
+      };
+      return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    };
+
     res.json({
       success: true,
-      data: activities.map(activity => ({
+      data: activities.map((activity: any) => ({
         id: activity.id,
         name: activity.title,
+        category: formatActivityType(activity.type),
         description: activity.description,
         startDate: activity.startDate,
         endDate: activity.endDate,
         startTime: activity.startTime,
         endTime: activity.endTime,
         capacity: activity.capacity,
+        current_capacity: activity._count?.bookings || 0,
+        max_capacity: activity.capacity,
         price: activity.price,
         status: activity.status,
         isActive: activity.isActive,
         venueId: activity.venueId,
         venueName: activity.venue?.name || 'Unknown Venue',
+        venue_name: activity.venue?.name || 'Unknown Venue',
         createdAt: activity.createdAt,
         updatedAt: activity.updatedAt
       }))

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  CalendarDaysIcon, 
-  MapPinIcon, 
-  ClockIcon, 
-  UserGroupIcon, 
+import {
+  CalendarDaysIcon,
+  MapPinIcon,
+  ClockIcon,
+  UserGroupIcon,
   CurrencyPoundIcon,
   PlusIcon,
   XMarkIcon,
@@ -159,7 +159,7 @@ const CreateActivityPage: React.FC = () => {
     const dates: string[] = [];
     const startDate = new Date(formData.startDate);
     const endDate = new Date(formData.endDate);
-    
+
     // Map day names to numbers (Monday = 1, Sunday = 0)
     const dayMap: { [key: string]: number } = {
       'monday': 1,
@@ -175,7 +175,7 @@ const CreateActivityPage: React.FC = () => {
 
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dayOfWeek = d.getDay();
-      
+
       // If daysOfWeek is specified, only include those days
       if (selectedDays.length > 0) {
         if (selectedDays.includes(dayOfWeek)) {
@@ -196,10 +196,12 @@ const CreateActivityPage: React.FC = () => {
   const individualDates = generateIndividualDates();
 
   useEffect(() => {
-    fetchVenues();
-    fetchActivityTypes();
-    fetchSessionTemplates();
-  }, []);
+    if (user) {
+      fetchVenues();
+      fetchActivityTypes();
+      fetchSessionTemplates();
+    }
+  }, [user]);
 
   // Auto-set wraparound care when type is selected
   useEffect(() => {
@@ -219,7 +221,11 @@ const CreateActivityPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch(buildApiUrl('/business/venues'), {
+      const url = user?.role === 'business'
+        ? buildApiUrl(`/venues?ownerId=${user.id}`)
+        : buildApiUrl('/venues');
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -232,7 +238,7 @@ const CreateActivityPage: React.FC = () => {
 
       const data = await response.json();
       if (data.success) {
-        setVenues(data.data.venues || []);
+        setVenues(data.data || []);
       } else {
         throw new Error(data.message || 'Failed to fetch venues');
       }
@@ -253,7 +259,7 @@ const CreateActivityPage: React.FC = () => {
         { value: 'wraparound_care', label: 'Wraparound Care' },
         { value: 'course/program', label: 'Course/Program' }
       ];
-      
+
       setActivityTypes(predefinedTypes);
     } catch (error) {
       console.error('Error setting activity types:', error);
@@ -266,7 +272,7 @@ const CreateActivityPage: React.FC = () => {
       const token = authService.getToken();
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('/session-templates'), {
+      const response = await fetch(buildApiUrl('/templates'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -286,7 +292,7 @@ const CreateActivityPage: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    
+
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({ ...prev, [name]: checked }));
@@ -304,7 +310,7 @@ const CreateActivityPage: React.FC = () => {
       const uploadPromises = Array.from(files).map(async (file) => {
         const formData = new FormData();
         formData.append('image', file);
-        
+
         const response = await fetch(buildApiUrl('/upload/image'), {
           method: 'POST',
           headers: {
@@ -312,18 +318,18 @@ const CreateActivityPage: React.FC = () => {
           },
           body: formData
         });
-        
+
         if (!response.ok) throw new Error('Upload failed');
         const result = await response.json();
         return result.data.url;
       });
-      
+
       const uploadedUrls = await Promise.all(uploadPromises);
       setFormData(prev => ({
         ...prev,
         imageUrls: [...prev.imageUrls, ...uploadedUrls]
       }));
-      
+
       toast.success(`${uploadedUrls.length} image(s) uploaded successfully`);
     } catch (error) {
       console.error('Image upload error:', error);
@@ -365,7 +371,7 @@ const CreateActivityPage: React.FC = () => {
   const updateSessionBlock = (index: number, field: keyof SessionBlock, value: string | number) => {
     setFormData(prev => ({
       ...prev,
-      sessionBlocks: prev.sessionBlocks.map((block, i) => 
+      sessionBlocks: prev.sessionBlocks.map((block, i) =>
         i === index ? { ...block, [field]: value } : block
       )
     }));
@@ -379,19 +385,19 @@ const CreateActivityPage: React.FC = () => {
       capacity: block.capacity,
       price: block.price
     }));
-    
+
     setFormData(prev => ({
       ...prev,
       sessionBlocks: blocks
     }));
-    
+
     toast.success(`Applied template: ${template.name}`);
   };
 
   const handleYearGroupChange = (yearGroup: string, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      yearGroups: checked 
+      yearGroups: checked
         ? [...prev.yearGroups, yearGroup]
         : prev.yearGroups.filter(yg => yg !== yearGroup)
     }));
@@ -423,7 +429,7 @@ const CreateActivityPage: React.FC = () => {
   const updateCustomTimeSlot = (index: number, field: keyof CustomTimeSlot, value: string | number) => {
     setFormData(prev => ({
       ...prev,
-      customTimeSlots: prev.customTimeSlots.map((slot, i) => 
+      customTimeSlots: prev.customTimeSlots.map((slot, i) =>
         i === index ? { ...slot, [field]: value } : slot
       )
     }));
@@ -433,7 +439,7 @@ const CreateActivityPage: React.FC = () => {
   const handleDateExclusion = (date: string, excluded: boolean) => {
     setFormData(prev => ({
       ...prev,
-      excludeDates: excluded 
+      excludeDates: excluded
         ? [...prev.excludeDates, date]
         : prev.excludeDates.filter(d => d !== date)
     }));
@@ -442,19 +448,19 @@ const CreateActivityPage: React.FC = () => {
   // Group dates by week for better display
   const groupDatesByWeek = (dates: string[]) => {
     const weeks: { [key: string]: string[] } = {};
-    
+
     dates.forEach(date => {
       const d = new Date(date);
       const weekStart = new Date(d);
       weekStart.setDate(d.getDate() - d.getDay() + 1); // Start of week (Monday)
       const weekKey = weekStart.toISOString().split('T')[0];
-      
+
       if (!weeks[weekKey]) {
         weeks[weekKey] = [];
       }
       weeks[weekKey].push(date);
     });
-    
+
     return Object.entries(weeks).map(([weekStart, dates]) => ({
       weekStart,
       dates: dates.sort()
@@ -485,7 +491,7 @@ const CreateActivityPage: React.FC = () => {
       // Convert lowercase day name to capitalized for indexOf
       const capitalizedDayName = dayName.charAt(0).toUpperCase() + dayName.slice(1);
       const dayOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(capitalizedDayName);
-      
+
       // Find the first occurrence of this day within the date range
       const firstSessionDate = new Date(startDate);
       const daysUntilFirstSession = (dayOfWeek - startDate.getDay() + 7) % 7;
@@ -502,15 +508,15 @@ const CreateActivityPage: React.FC = () => {
 
       while (currentSessionDate <= endDate) {
         const dateString = currentSessionDate.toISOString().split('T')[0];
-        
+
         // Always add to courseDates (for display), but mark as excluded if needed
         courseDates.push({
           week: weekNumber,
           date: new Date(currentSessionDate),
           dateString: dateString,
           dayName: capitalizedDayName,
-          time: formData.startTime && formData.endTime ? 
-            `${formData.startTime} - ${formData.endTime}` : 
+          time: formData.startTime && formData.endTime ?
+            `${formData.startTime} - ${formData.endTime}` :
             'Time to be confirmed',
           isExcluded: formData.courseExcludeDates.includes(dateString)
         });
@@ -558,7 +564,7 @@ const CreateActivityPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title || !formData.type || !formData.venueId || !formData.startDate || !formData.endDate) {
       toast.error('Please fill in all required fields');
       return;
@@ -582,7 +588,7 @@ const CreateActivityPage: React.FC = () => {
         toast.error('Please add at least one session block for wraparound care');
         return;
       }
-      
+
       // Validate session blocks
       for (const block of formData.sessionBlocks) {
         if (!block.name || !block.startTime || !block.endTime || block.capacity <= 0 || block.price <= 0) {
@@ -614,7 +620,7 @@ const CreateActivityPage: React.FC = () => {
         toast.error('Please specify the age range for this activity');
         return;
       }
-      
+
       // Validate custom time slots
       for (const slot of formData.customTimeSlots) {
         if (!slot.name || !slot.startTime || !slot.endTime || slot.price <= 0 || slot.capacity <= 0) {
@@ -636,9 +642,17 @@ const CreateActivityPage: React.FC = () => {
         ...formData,
         imageUrls: formData.imageUrls // Include image URLs in the request
       };
-      
 
-      const response = await fetch(buildApiUrl('/business/activities'), {
+
+      const url = buildApiUrl('/business/activities');
+      console.log('DEBUG: Creating activity', {
+        url,
+        method: 'POST',
+        tokenPreview: token ? `${token.substring(0, 10)}...` : 'NONE',
+        requestData
+      });
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -708,7 +722,7 @@ const CreateActivityPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -722,7 +736,7 @@ const CreateActivityPage: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Activity Type *
@@ -731,6 +745,7 @@ const CreateActivityPage: React.FC = () => {
                   name="type"
                   value={formData.type}
                   onChange={handleInputChange}
+                  title="Activity Type"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
                   required
                 >
@@ -787,7 +802,7 @@ const CreateActivityPage: React.FC = () => {
                   </div>
                 </label>
               </div>
-              
+
               {/* Display uploaded images */}
               {formData.imageUrls.length > 0 && (
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -801,6 +816,7 @@ const CreateActivityPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => removeImage(index)}
+                        title="Remove Image"
                         className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <XMarkIcon className="w-4 h-4" />
@@ -814,7 +830,7 @@ const CreateActivityPage: React.FC = () => {
 
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Venue & Schedule</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -824,6 +840,7 @@ const CreateActivityPage: React.FC = () => {
                   name="venueId"
                   value={formData.venueId}
                   onChange={handleInputChange}
+                  title="Select Venue"
                   className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-transparent"
                   required
                 >
@@ -835,7 +852,7 @@ const CreateActivityPage: React.FC = () => {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Capacity
@@ -864,7 +881,7 @@ const CreateActivityPage: React.FC = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   End Date *
@@ -891,7 +908,7 @@ const CreateActivityPage: React.FC = () => {
                   onChange={handleInputChange}
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   End Time
@@ -909,7 +926,7 @@ const CreateActivityPage: React.FC = () => {
           {/* Days of Week Selection */}
           <div className="bg-white p-4 sm:p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Schedule</h2>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Days of the Week *
@@ -925,7 +942,7 @@ const CreateActivityPage: React.FC = () => {
                         const value = e.target.value;
                         setFormData(prev => ({
                           ...prev,
-                          daysOfWeek: e.target.checked 
+                          daysOfWeek: e.target.checked
                             ? [...prev.daysOfWeek, value]
                             : prev.daysOfWeek.filter(d => d !== value)
                         }));
@@ -951,7 +968,7 @@ const CreateActivityPage: React.FC = () => {
                   Include sessions during holidays
                 </label>
               </div>
-              
+
               <div className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-h-[48px]">
                 <input
                   type="checkbox"
@@ -975,7 +992,7 @@ const CreateActivityPage: React.FC = () => {
                 <p className="text-sm text-gray-600 mb-4">
                   Review and manage individual course sessions. You can remove ANY session from the schedule for holidays, breaks, or other exclusions.
                 </p>
-                
+
                 <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
@@ -998,21 +1015,19 @@ const CreateActivityPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {courseDates.length > 0 ? (
                   <div className="space-y-3">
                     {courseDates.map((courseDate, index) => (
-                      <div key={courseDate.dateString} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                        courseDate.isExcluded 
-                          ? 'bg-red-50 border-red-200 opacity-60' 
-                          : 'bg-white border-gray-200'
-                      }`}>
+                      <div key={courseDate.dateString} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${courseDate.isExcluded
+                        ? 'bg-red-50 border-red-200 opacity-60'
+                        : 'bg-white border-gray-200'
+                        }`}>
                         <div className="flex items-center space-x-4">
-                          <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                            courseDate.isExcluded
-                              ? 'bg-red-200 text-red-800'
-                              : 'bg-[#00806a] text-white'
-                          }`}>
+                          <div className={`px-3 py-1 rounded-full text-sm font-medium ${courseDate.isExcluded
+                            ? 'bg-red-200 text-red-800'
+                            : 'bg-[#00806a] text-white'
+                            }`}>
                             Week {courseDate.week}
                           </div>
                           <div className="text-gray-700">
@@ -1024,7 +1039,7 @@ const CreateActivityPage: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        
+
                         {courseDate.isExcluded ? (
                           <button
                             type="button"
@@ -1044,7 +1059,7 @@ const CreateActivityPage: React.FC = () => {
                         )}
                       </div>
                     ))}
-                    
+
                     <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border">
                       <div className="flex items-center justify-between">
                         <div>
@@ -1088,35 +1103,34 @@ const CreateActivityPage: React.FC = () => {
               <p className="text-sm text-gray-600 mb-4">
                 Review and manage individual session dates. Uncheck any dates you want to exclude (e.g., holidays).
               </p>
-              
+
               <div className="space-y-4">
                 {groupedDates.map((week, weekIndex) => (
                   <div key={week.weekStart} className="border border-gray-200 rounded-lg p-4">
                     <h3 className="font-medium text-gray-900 mb-3">
-                      Week {weekIndex + 1}: {new Date(week.dates[0]).toLocaleDateString('en-GB', { 
-                        day: 'numeric', 
-                        month: 'short' 
-                      })} - {new Date(week.dates[week.dates.length - 1]).toLocaleDateString('en-GB', { 
-                        day: 'numeric', 
-                        month: 'short' 
+                      Week {weekIndex + 1}: {new Date(week.dates[0]).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short'
+                      })} - {new Date(week.dates[week.dates.length - 1]).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short'
                       })}
                     </h3>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                       {week.dates.map((date) => {
                         const isExcluded = formData.excludeDates.includes(date);
                         const dayName = new Date(date).toLocaleDateString('en-GB', { weekday: 'short' });
                         const dayNumber = new Date(date).getDate();
                         const monthName = new Date(date).toLocaleDateString('en-GB', { month: 'short' });
-                        
+
                         return (
                           <label
                             key={date}
-                            className={`flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${
-                              isExcluded
-                                ? 'border-red-300 bg-red-50 text-red-700'
-                                : 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
-                            }`}
+                            className={`flex items-center justify-center p-3 border-2 rounded-lg cursor-pointer transition-colors ${isExcluded
+                              ? 'border-red-300 bg-red-50 text-red-700'
+                              : 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'
+                              }`}
                           >
                             <input
                               type="checkbox"
@@ -1136,7 +1150,7 @@ const CreateActivityPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-              
+
               <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -1146,7 +1160,7 @@ const CreateActivityPage: React.FC = () => {
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-blue-700">
-                      <strong>Total Sessions:</strong> {individualDates.length - formData.excludeDates.length} 
+                      <strong>Total Sessions:</strong> {individualDates.length - formData.excludeDates.length}
                       {formData.excludeDates.length > 0 && (
                         <span className="text-red-600"> (Excluded: {formData.excludeDates.length})</span>
                       )}
@@ -1164,7 +1178,7 @@ const CreateActivityPage: React.FC = () => {
               <div className="bg-white p-6 rounded-lg shadow">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Year Groups</h2>
                 <p className="text-sm text-gray-600 mb-4">Select which year groups this wraparound care activity is suitable for:</p>
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
                   {yearGroups.map((yearGroup) => (
                     <label key={yearGroup} className="flex items-center justify-center p-2 border rounded-md cursor-pointer hover:bg-gray-50">
@@ -1187,6 +1201,7 @@ const CreateActivityPage: React.FC = () => {
                   <div className="flex items-center gap-2">
                     {sessionTemplates.length > 0 && (
                       <select
+                        title="Apply Session Template"
                         onChange={(e) => {
                           const template = sessionTemplates.find(t => t.id === e.target.value);
                           if (template) applySessionTemplate(template);
@@ -1212,9 +1227,9 @@ const CreateActivityPage: React.FC = () => {
                     </Button>
                   </div>
                 </div>
-                
+
                 <p className="text-sm text-gray-600 mb-4">
-                  Configure the different time slots available for this wraparound care activity. 
+                  Configure the different time slots available for this wraparound care activity.
                   Parents will be able to book individual sessions for their children.
                 </p>
 
@@ -1233,12 +1248,13 @@ const CreateActivityPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => removeSessionBlock(index)}
+                            title="Remove Session Block"
                             className="text-red-600 hover:text-red-800"
                           >
                             <XMarkIcon className="w-5 h-5" />
                           </button>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1251,7 +1267,7 @@ const CreateActivityPage: React.FC = () => {
                               className="text-sm"
                             />
                           </div>
-                          
+
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Start Time
@@ -1263,7 +1279,7 @@ const CreateActivityPage: React.FC = () => {
                               className="text-sm"
                             />
                           </div>
-                          
+
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               End Time
@@ -1275,7 +1291,7 @@ const CreateActivityPage: React.FC = () => {
                               className="text-sm"
                             />
                           </div>
-                          
+
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Capacity
@@ -1288,7 +1304,7 @@ const CreateActivityPage: React.FC = () => {
                               className="text-sm"
                             />
                           </div>
-                          
+
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Price (£)
@@ -1303,10 +1319,10 @@ const CreateActivityPage: React.FC = () => {
                             />
                           </div>
                         </div>
-                        
+
                         <div className="mt-2 text-xs text-gray-500">
-                          Duration: {block.startTime} - {block.endTime} | 
-                          Capacity: {block.capacity} children | 
+                          Duration: {block.startTime} - {block.endTime} |
+                          Capacity: {block.capacity} children |
                           Price: £{block.price.toFixed(2)}
                         </div>
                       </div>
@@ -1319,7 +1335,7 @@ const CreateActivityPage: React.FC = () => {
 
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Pricing</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1341,7 +1357,7 @@ const CreateActivityPage: React.FC = () => {
           {(formData.type === 'holiday_club' || formData.type === 'activity' || formData.type === 'course/program') && (
             <div className="bg-white p-6 rounded-lg shadow">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Activity Details</h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1374,120 +1390,120 @@ const CreateActivityPage: React.FC = () => {
                 {formData.type === 'holiday_club' && (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="checkbox"
-                        id="earlyDropoff"
-                        checked={formData.earlyDropoff}
-                        onChange={(e) => setFormData(prev => ({ ...prev, earlyDropoff: e.target.checked }))}
-                        className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-2 accent-teal-600"
-                      />
-                      <label htmlFor="earlyDropoff" className="text-sm font-medium text-gray-700">
-                        Early Drop-off Available
-                      </label>
-                    </div>
-
-                  {formData.earlyDropoff && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Early Drop-off Time
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="earlyDropoff"
+                          checked={formData.earlyDropoff}
+                          onChange={(e) => setFormData(prev => ({ ...prev, earlyDropoff: e.target.checked }))}
+                          className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-2 accent-teal-600"
+                        />
+                        <label htmlFor="earlyDropoff" className="text-sm font-medium text-gray-700">
+                          Early Drop-off Available
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
+                      </div>
+
+                      {formData.earlyDropoff && (
+                        <div className="space-y-3">
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1">Start Time</label>
-                            <Input
-                              name="earlyDropoffStartTime"
-                              type="time"
-                              value={formData.earlyDropoffStartTime}
-                              onChange={handleInputChange}
-                            />
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Early Drop-off Time
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Start Time</label>
+                                <Input
+                                  name="earlyDropoffStartTime"
+                                  type="time"
+                                  value={formData.earlyDropoffStartTime}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">End Time</label>
+                                <Input
+                                  name="earlyDropoffEndTime"
+                                  type="time"
+                                  value={formData.earlyDropoffEndTime}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                            </div>
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1">End Time</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Early Drop-off Price (£)
+                            </label>
                             <Input
-                              name="earlyDropoffEndTime"
-                              type="time"
-                              value={formData.earlyDropoffEndTime}
+                              name="earlyDropoffPrice"
+                              type="number"
+                              value={formData.earlyDropoffPrice}
                               onChange={handleInputChange}
+                              min="0"
+                              step="0.01"
                             />
                           </div>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Early Drop-off Price (£)
-                        </label>
-                        <Input
-                          name="earlyDropoffPrice"
-                          type="number"
-                          value={formData.earlyDropoffPrice}
-                          onChange={handleInputChange}
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="latePickup"
-                      checked={formData.latePickup}
-                      onChange={(e) => setFormData(prev => ({ ...prev, latePickup: e.target.checked }))}
-                      className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-2 accent-teal-600"
-                    />
-                    <label htmlFor="latePickup" className="text-sm font-medium text-gray-700">
-                      Late Pick-up Available
-                    </label>
-                  </div>
-
-                  {formData.latePickup && (
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Late Pick-up Time
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="latePickup"
+                          checked={formData.latePickup}
+                          onChange={(e) => setFormData(prev => ({ ...prev, latePickup: e.target.checked }))}
+                          className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-2 accent-teal-600"
+                        />
+                        <label htmlFor="latePickup" className="text-sm font-medium text-gray-700">
+                          Late Pick-up Available
                         </label>
-                        <div className="grid grid-cols-2 gap-2">
+                      </div>
+
+                      {formData.latePickup && (
+                        <div className="space-y-3">
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1">Start Time</label>
-                            <Input
-                              name="latePickupStartTime"
-                              type="time"
-                              value={formData.latePickupStartTime}
-                              onChange={handleInputChange}
-                            />
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Late Pick-up Time
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Start Time</label>
+                                <Input
+                                  name="latePickupStartTime"
+                                  type="time"
+                                  value={formData.latePickupStartTime}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">End Time</label>
+                                <Input
+                                  name="latePickupEndTime"
+                                  type="time"
+                                  value={formData.latePickupEndTime}
+                                  onChange={handleInputChange}
+                                />
+                              </div>
+                            </div>
                           </div>
                           <div>
-                            <label className="block text-xs text-gray-500 mb-1">End Time</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Late Pick-up Price (£)
+                            </label>
                             <Input
-                              name="latePickupEndTime"
-                              type="time"
-                              value={formData.latePickupEndTime}
+                              name="latePickupPrice"
+                              type="number"
+                              value={formData.latePickupPrice}
                               onChange={handleInputChange}
+                              min="0"
+                              step="0.01"
                             />
                           </div>
                         </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Late Pick-up Price (£)
-                        </label>
-                        <Input
-                          name="latePickupPrice"
-                          type="number"
-                          value={formData.latePickupPrice}
-                          onChange={handleInputChange}
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
                   </>
                 )}
 
@@ -1560,7 +1576,7 @@ const CreateActivityPage: React.FC = () => {
                       Add Slot
                     </Button>
                   </div>
-                  
+
                   {formData.customTimeSlots.length === 0 && (
                     <p className="text-sm text-gray-500 mb-3">
                       Add up to 3 custom time slots for additional session options
@@ -1576,11 +1592,12 @@ const CreateActivityPage: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => removeCustomTimeSlot(index)}
+                          title="Remove Custom Time Slot"
                         >
                           <XMarkIcon className="h-4 w-4" />
                         </Button>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">

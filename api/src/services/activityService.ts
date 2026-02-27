@@ -268,20 +268,65 @@ class ActivityService {
   async deleteActivity(activityId: string) {
     try {
       await safePrismaQuery(async (client) => {
-        // Delete sessions first (cascade should handle this)
-        await client.session.deleteMany({
-          where: { activityId }
+        // Collect IDs of related entities that need manual cleanup
+        const bookings = await client.booking.findMany({
+          where: { activityId },
+          select: { id: true }
+        });
+        const sessions = await client.session.findMany({
+          where: { activityId },
+          select: { id: true }
         });
 
-        // Delete bookings
-        await client.booking.deleteMany({
-          where: { activityId }
-        });
+        const bookingIds = bookings.map(b => b.id);
+        const sessionIds = sessions.map(s => s.id);
 
-        // Delete the activity
-        await client.activity.delete({
-          where: { id: activityId }
-        });
+        // Execute deletions in a transaction to ensure atomicity
+        await client.$transaction([
+          // 1. Delete entities linked to bookings
+          ...(bookingIds.length > 0 ? [
+            client.attendance.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.payment_successes.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.promo_code_usages.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.discount_usages.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.bank_feed_transactions.deleteMany({ where: { matchedBookingId: { in: bookingIds } } }),
+            client.chargeback.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.credit.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.email.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.refund.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.refundTransaction.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.payment.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.transaction.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.credit_transactions.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.walletCredit.deleteMany({ where: { bookingId: { in: bookingIds } } }),
+            client.booking.deleteMany({ where: { activityId } })
+          ] : []),
+
+          // 2. Delete entities linked to sessions
+          ...(sessionIds.length > 0 ? [
+            client.register.deleteMany({ where: { sessionId: { in: sessionIds } } }),
+            client.session_blocks.deleteMany({ where: { sessionId: { in: sessionIds } } }),
+            client.holiday_time_slots.deleteMany({ where: { sessionId: { in: sessionIds } } })
+          ] : []),
+
+          // 3. Delete entities directly linked to activity
+          client.session.deleteMany({ where: { activityId } }),
+          client.session_blocks.deleteMany({ where: { activityId } }),
+          client.holiday_time_slots.deleteMany({ where: { activityId } }),
+          client.holidays.deleteMany({ where: { activityId } }),
+          client.widgetAnalytics.deleteMany({ where: { activityId } }),
+          client.analytics_events.deleteMany({
+            where: {
+              entityId: activityId,
+              entityType: 'Activity'
+            }
+          }),
+
+          // 4. Finally delete the activity itself
+          client.activity.delete({
+            where: { id: activityId }
+          })
+        ]);
       });
 
       logger.info(`Deleted activity ${activityId} and all related data`);
