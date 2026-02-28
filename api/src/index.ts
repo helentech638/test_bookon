@@ -109,6 +109,7 @@ const defaultAllowedOrigins = [
   'http://localhost:3002',
   'http://127.0.0.1:3001',
   'http://127.0.0.1:3002',
+  'https://test-bookon-frontend-1kt6.vercel.app',
   'https://bookon-frontend.vercel.app',
   'https://bookon55.vercel.app',
   'https://bookon.app',
