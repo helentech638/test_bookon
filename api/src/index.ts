@@ -140,14 +140,12 @@ const isAllowedOrigin = (origin?: string): boolean => {
 // CORS configuration - dynamic and robust for Vercel
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
+    // In production, we reflect the origin (works with credentials)
+    // You can restrict this to allowedOrigins later if needed
     if (!origin) return callback(null, true);
-
-    // In production, you might want to restrict this further, 
-    // but for debugging we reflect the origin (works with credentials)
     callback(null, true);
   },
-  credentials: true, // Support credentials even if not currently used
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
@@ -157,22 +155,29 @@ const corsOptions: cors.CorsOptions = {
     'Origin',
     'x-refresh-token',
     'X-Refresh-Token',
+    'X-Api-Version'
   ],
   exposedHeaders: ['Cross-Origin-Resource-Policy', 'Access-Control-Allow-Origin'],
-  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
+  optionsSuccessStatus: 200,
 };
 
 // Apply CORS early
 app.use(cors(corsOptions));
 
-// Explicit preflight handler to ensure OPTIONS requests always return headers
-app.options('*', (req, res) => {
-  const origin = req.get('Origin') || '*';
-  res.setHeader('Access-Control-Allow-Origin', origin);
+// Explicit preflight handler to ENSURE headers are always returned even if middleware is skipped
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, x-refresh-token, X-Refresh-Token');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, x-refresh-token, X-Refresh-Token, X-Api-Version');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
 });
 
 // Rate limiting
@@ -393,14 +398,9 @@ app.get('/', (_req, res) => {
   res.status(200).json({
     message: 'BookOn Backend API',
     status: 'running',
-    timestamp: new Date().toISOString(),
-    endpoints: {
-      ping: '/ping',
-      health: '/health',
-      debug: '/debug',
-      test: '/test',
-      api: '/api/v1'
-    }
+    environment: process.env.NODE_ENV || 'development',
+    vercel: !!process.env.VERCEL,
+    timestamp: new Date().toISOString()
   });
 });
 
