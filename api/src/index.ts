@@ -547,30 +547,39 @@ const startServer = async () => {
     initializeWebSocket(server);
     logger.info('🔌 WebSocket service initialized');
 
-    // Start cron service for automated notifications
-    cronService.start();
-    logger.info('⏰ Cron service started');
+    // Start cron service for automated notifications (Skip on Vercel)
+    if (!process.env.VERCEL) {
+      cronService.start();
+      logger.info('⏰ Cron service started');
+    }
 
-    // Initialize scheduled jobs for TFC and wallet management
-    schedulerService.initializeScheduledJobs();
-    logger.info('⏰ Scheduled jobs initialized');
+    // Initialize scheduled jobs for TFC and wallet management (Skip on Vercel)
+    if (!process.env.VERCEL) {
+      schedulerService.initializeScheduledJobs();
+      logger.info('⏰ Scheduled jobs initialized');
+    }
 
-    // Start HTTP server
-    server.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      logger.info(`🚀 Server running on port ${PORT}`);
-      logger.info(`📊 Environment: ${process.env['NODE_ENV'] || 'development'}`);
-      logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
-      logger.info(`🔍 Debug info: http://localhost:${PORT}/debug`);
-      logger.info(`🧪 Test endpoint: http://localhost:${PORT}/test`);
-      logger.info(`📚 API docs: http://localhost:${PORT}/api/v1/docs`);
-      logger.info(`🔌 WebSocket: ws://localhost:${PORT}`);
-    });
+    // Start HTTP server only if not on Vercel
+    if (!process.env.VERCEL) {
+      server.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+        logger.info(`🚀 Server running on port ${PORT}`);
+        logger.info(`📊 Environment: ${process.env['NODE_ENV'] || 'development'}`);
+        logger.info(`🔗 Health check: http://localhost:${PORT}/health`);
+        logger.info(`🔍 Debug info: http://localhost:${PORT}/debug`);
+        logger.info(`🧪 Test endpoint: http://localhost:${PORT}/test`);
+        logger.info(`📚 API docs: http://localhost:${PORT}/api/v1/docs`);
+        logger.info(`🔌 WebSocket: ws://localhost:${PORT}`);
+      });
+    } else {
+      console.log('⚡ Running in Vercel Serverless environment');
+      logger.info('⚡ Running in Vercel Serverless environment');
+    }
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     logger.error('❌ Failed to start server:', error);
     // Don't exit in production, let Vercel handle it
-    if (process.env['NODE_ENV'] !== 'production') {
+    if (process.env['NODE_ENV'] !== 'production' && !process.env.VERCEL) {
       process.exit(1);
     }
   }
