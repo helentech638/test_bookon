@@ -1,6 +1,9 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
-const FALLBACK_API_BASE_URL = 'https://bookon-api.vercel.app/api/v1';
+// Use relative URL so requests go through the frontend's Vercel proxy rewrite
+// (defined in frontend/vercel.json: /api/* -> https://bookon-api.vercel.app/api/*)
+// This completely eliminates CORS issues since the browser sees same-origin requests.
+const FALLBACK_API_BASE_URL = '/api/v1';
 
 const normalizeApiBaseUrl = (rawUrl?: string): string => {
   const candidate = (rawUrl || import.meta.env.VITE_API_URL || FALLBACK_API_BASE_URL).trim();
