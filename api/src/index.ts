@@ -138,16 +138,8 @@ const isAllowedOrigin = (origin?: string): boolean => {
 };
 
 const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) {
-      callback(null, true);
-      return;
-    }
-
-    logger.warn(`Blocked CORS origin: ${origin || 'unknown'}`);
-    callback(new Error('Origin not allowed by CORS'));
-  },
-  credentials: true,
+  origin: '*', // Temporarily allow all origins for debugging
+  credentials: false, // Set to false when using origin: *
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',

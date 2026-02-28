@@ -14,15 +14,15 @@
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://test-bookon-frontend-1kt6.vercel.app"
+          "value": "*"
         },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
+          "value": "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         },
         {
           "key": "Access-Control-Allow-Headers",
@@ -30,7 +30,7 @@
         },
         {
           "key": "Access-Control-Allow-Credentials",
-          "value": "true"
+          "value": "false"
         }
       ]
     }
