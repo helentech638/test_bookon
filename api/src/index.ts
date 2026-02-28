@@ -137,9 +137,17 @@ const isAllowedOrigin = (origin?: string): boolean => {
   return false;
 };
 
+// CORS configuration - dynamic and robust for Vercel
 const corsOptions: cors.CorsOptions = {
-  origin: '*', // Temporarily allow all origins for debugging
-  credentials: false, // Set to false when using origin: *
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+
+    // In production, you might want to restrict this further, 
+    // but for debugging we reflect the origin (works with credentials)
+    callback(null, true);
+  },
+  credentials: true, // Support credentials even if not currently used
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
@@ -150,11 +158,22 @@ const corsOptions: cors.CorsOptions = {
     'x-refresh-token',
     'X-Refresh-Token',
   ],
-  optionsSuccessStatus: 200,
+  exposedHeaders: ['Cross-Origin-Resource-Policy', 'Access-Control-Allow-Origin'],
+  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
+// Apply CORS early
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+
+// Explicit preflight handler to ensure OPTIONS requests always return headers
+app.options('*', (req, res) => {
+  const origin = req.get('Origin') || '*';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, x-refresh-token, X-Refresh-Token');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // Rate limiting
 const limiter = rateLimit({
