@@ -1,24 +1,29 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
-// Use relative URL so requests go through the frontend's Vercel proxy rewrite
-// (defined in frontend/vercel.json: /api/* -> https://bookon-api.vercel.app/api/*)
-// This completely eliminates CORS issues since the browser sees same-origin requests.
-const FALLBACK_API_BASE_URL = '/api/v1';
+// Determine the API base URL:
+// - In production (on Vercel), ALWAYS use relative '/api/v1' so the frontend's
+//   Vercel proxy rewrite handles routing (eliminates CORS entirely).
+// - In local development, use the env var or fall back to localhost.
+const isLocalDev = typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-const normalizeApiBaseUrl = (rawUrl?: string): string => {
-  const candidate = (rawUrl || import.meta.env.VITE_API_URL || FALLBACK_API_BASE_URL).trim();
-  const withoutTrailingSlash = candidate.replace(/\/+$/, '');
-
-  if (/\/api\/v1$/i.test(withoutTrailingSlash)) {
-    return withoutTrailingSlash;
+const getApiBaseUrl = (): string => {
+  // In local dev, allow env vars to point to a specific backend
+  if (isLocalDev) {
+    const envUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL;
+    if (envUrl) {
+      const trimmed = envUrl.trim().replace(/\/+$/, '');
+      return /\/api\/v1$/i.test(trimmed) ? trimmed : `${trimmed}/api/v1`;
+    }
+    // Default local dev backend
+    return 'http://localhost:3000/api/v1';
   }
 
-  return `${withoutTrailingSlash}/api/v1`;
+  // In production, ALWAYS use relative URL to go through the Vercel proxy
+  return '/api/v1';
 };
 
-const resolvedApiBaseUrl = normalizeApiBaseUrl(
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL
-);
+const resolvedApiBaseUrl = getApiBaseUrl();
 
 // API Configuration
 export const API_CONFIG = {
@@ -168,9 +173,7 @@ export const buildApiUrl = (endpoint: string): string => {
 
 // Helper function to build full API URLs with parameters
 export const buildApiUrlWithParams = (endpoint: string, params: Record<string, string>): string => {
-  const url = new URL(`${API_CONFIG.BASE_URL}${endpoint}`);
-  Object.entries(params).forEach(([key, value]) => {
-    url.searchParams.append(key, value);
-  });
-  return url.toString();
+  const base = `${API_CONFIG.BASE_URL}${endpoint}`;
+  const searchParams = new URLSearchParams(params).toString();
+  return searchParams ? `${base}?${searchParams}` : base;
 };

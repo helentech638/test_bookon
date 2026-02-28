@@ -67,7 +67,7 @@ const PendingPaymentPage: React.FC = () => {
       setLoading(true);
       const token = localStorage.getItem('bookon_token');
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/booking/${bookingId}/status`, {
+      const response = await fetch(`/api/v1/tfc/booking/${bookingId}/status`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -101,7 +101,7 @@ const PendingPaymentPage: React.FC = () => {
 
     try {
       const token = localStorage.getItem('bookon_token');
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/tfc/booking/${booking.id}/resend-instructions`, {
+      const response = await fetch(`/api/v1/tfc/booking/${booking.id}/resend-instructions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

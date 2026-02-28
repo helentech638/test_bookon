@@ -21,6 +21,7 @@ import {
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { authService, User } from '../../services/authService';
+import { buildApiUrl } from '../../config/api';
 
 interface Child {
   id: string;
@@ -53,7 +54,7 @@ const ProfilePage: React.FC = () => {
       const token = authService.getToken();
       if (!token) return;
 
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://bookon-api.vercel.app/api/v1'}/children`, {
+      const response = await fetch(buildApiUrl('/children'), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -281,8 +282,8 @@ const ProfilePage: React.FC = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md ${activeTab === tab.id
-                        ? 'bg-[#00806a] text-white'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      ? 'bg-[#00806a] text-white'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                       }`}
                   >
                     <tab.icon className="w-4 h-4 mr-3" />
@@ -380,8 +381,8 @@ const ProfilePage: React.FC = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 border rounded-md ${isEditing
-                            ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
-                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                          ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
                           }`}
                       />
                     </div>
@@ -397,8 +398,8 @@ const ProfilePage: React.FC = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 border rounded-md ${isEditing
-                            ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
-                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                          ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
                           }`}
                       />
                     </div>
@@ -424,8 +425,8 @@ const ProfilePage: React.FC = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 border rounded-md ${isEditing
-                            ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
-                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                          ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
                           }`}
                       />
                     </div>
@@ -451,8 +452,8 @@ const ProfilePage: React.FC = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 border rounded-md ${isEditing
-                            ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
-                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                          ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
                           }`}
                       />
                     </div>
@@ -468,8 +469,8 @@ const ProfilePage: React.FC = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 border rounded-md ${isEditing
-                            ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
-                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                          ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
                           }`}
                       />
                     </div>
@@ -485,8 +486,8 @@ const ProfilePage: React.FC = () => {
                         onChange={handleInputChange}
                         disabled={!isEditing}
                         className={`w-full px-3 py-2 border rounded-md ${isEditing
-                            ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
-                            : 'border-gray-200 bg-gray-50 text-gray-500'
+                          ? 'border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#00806a] focus:border-[#00806a]'
+                          : 'border-gray-200 bg-gray-50 text-gray-500'
                           }`}
                       />
                     </div>

@@ -80,7 +80,7 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
         }
 
         // First, check if a booking already exists
-        const existingBookingsResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
+        const existingBookingsResponse = await fetch(`/api/v1/bookings`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -99,7 +99,7 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
             actualBookingId = existingBooking.id;
           } else {
             // Create a new booking
-            const bookingResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
+            const bookingResponse = await fetch(`/api/v1/bookings`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
           }
         } else {
           // If we can't fetch existing bookings, try to create a new one
-          const bookingResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/bookings`, {
+          const bookingResponse = await fetch(`/api/v1/bookings`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -163,7 +163,7 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
       }
 
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/create-intent`, {
+      const response = await fetch(`/api/v1/payments/create-intent`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,7 +235,7 @@ const PaymentForm: React.FC<StripePaymentFormProps> = ({
         // Call backend to confirm payment and update database
         const token = localStorage.getItem('bookon_token');
 
-        const confirmResponse = await fetch(`${import.meta.env.VITE_API_URL || 'https://bookon-api.vercel.app'}/api/v1/payments/confirm`, {
+        const confirmResponse = await fetch(`/api/v1/payments/confirm`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
