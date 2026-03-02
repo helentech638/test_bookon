@@ -124,18 +124,20 @@ const VenueSetupPage: React.FC = () => {
         return;
       }
 
+      /*
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      */
 
       const response = await fetch(buildApiUrl(`/venues?ownerId=${user?.id || ''}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        signal: controller.signal
+        // signal: controller.signal
       });
 
-      clearTimeout(timeoutId);
+      // clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Failed to fetch venue setups');
@@ -301,7 +303,9 @@ const VenueSetupPage: React.FC = () => {
 
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to delete venue setup');
+          console.error('DEBUG: Delete venue failed:', errorData);
+          const errorMessage = errorData.error?.message || errorData.message || 'Failed to delete venue setup';
+          throw new Error(errorMessage);
         }
 
         const data = await response.json();
@@ -309,11 +313,12 @@ const VenueSetupPage: React.FC = () => {
           toast.success('Venue setup deleted successfully');
           fetchVenueSetups();
         } else {
-          throw new Error(data.message || 'Failed to delete venue setup');
+          const errorMessage = data.error?.message || data.message || 'Failed to delete venue setup';
+          throw new Error(errorMessage);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting venue setup:', error);
-        toast.error('Failed to delete venue setup');
+        toast.error(error.message || 'Failed to delete venue setup');
       }
     }
   };
@@ -409,8 +414,8 @@ const VenueSetupPage: React.FC = () => {
               <button
                 onClick={() => setCurrentView('list')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${currentView === 'list'
-                    ? 'border-[#00806a] text-[#00806a]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-[#00806a] text-[#00806a]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 Venue List
@@ -418,8 +423,8 @@ const VenueSetupPage: React.FC = () => {
               <button
                 onClick={() => setCurrentView('create')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${currentView === 'create'
-                    ? 'border-[#00806a] text-[#00806a]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-[#00806a] text-[#00806a]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 Create New Venue

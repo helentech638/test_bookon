@@ -292,6 +292,98 @@ router.delete('/:id', authenticateToken, asyncHandler(async (req: Request, res: 
   }
 }));
 
+router.put('/:id', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const activityId = req.params['id'];
+  const activityData = req.body;
+
+  try {
+    const userInfo = await safePrismaQuery(async (client) => {
+      return await client.user.findUnique({
+        where: { id: userId },
+        select: { role: true }
+      });
+    });
+
+    if (!userInfo || (userInfo.role !== 'business' && userInfo.role !== 'admin')) {
+      throw new AppError('Business access required', 403, 'BUSINESS_ACCESS_REQUIRED');
+    }
+
+    // Check if activity exists and belong to user's venue
+    const venues = await safePrismaQuery(async (client) => {
+      return await client.venue.findMany({
+        where: { ownerId: userId },
+        select: { id: true }
+      });
+    });
+
+    const venueIds = venues.map(v => v.id);
+
+    const existingActivity = await safePrismaQuery(async (client) => {
+      return await client.activity.findFirst({
+        where: {
+          id: activityId,
+          venueId: { in: venueIds }
+        }
+      });
+    });
+
+    if (!existingActivity && userInfo.role !== 'admin') {
+      throw new AppError('Activity not found or access denied', 404, 'ACTIVITY_NOT_FOUND');
+    }
+
+    // Update the activity
+    const updatedActivity = await safePrismaQuery(async (client) => {
+      return await client.activity.update({
+        where: { id: activityId },
+        data: {
+          title: activityData.title,
+          type: activityData.type,
+          description: activityData.description,
+          venueId: activityData.venueId,
+          startDate: activityData.startDate ? new Date(activityData.startDate) : undefined,
+          endDate: activityData.endDate ? new Date(activityData.endDate) : undefined,
+          startTime: activityData.startTime,
+          endTime: activityData.endTime,
+          capacity: activityData.capacity !== undefined ? parseInt(activityData.capacity) : undefined,
+          price: activityData.price !== undefined ? parseFloat(activityData.price) : undefined,
+          isWraparoundCare: activityData.isWraparoundCare,
+          yearGroups: activityData.yearGroups,
+          ageRange: activityData.ageRange,
+          whatToBring: activityData.whatToBring,
+          siblingDiscount: activityData.siblingDiscount !== undefined ? parseFloat(activityData.siblingDiscount) : undefined,
+          bulkDiscount: activityData.bulkDiscount !== undefined ? parseFloat(activityData.bulkDiscount) : undefined,
+          weeklyDiscount: activityData.weeklyDiscount !== undefined ? parseFloat(activityData.weeklyDiscount) : undefined,
+          daysOfWeek: activityData.daysOfWeek,
+          proRataBooking: activityData.proRataBooking,
+          holidaySessions: activityData.holidaySessions,
+          earlyDropoff: activityData.earlyDropoff,
+          earlyDropoffPrice: activityData.earlyDropoffPrice !== undefined ? parseFloat(activityData.earlyDropoffPrice) : undefined,
+          earlyDropoffStartTime: activityData.earlyDropoffStartTime,
+          earlyDropoffEndTime: activityData.earlyDropoffEndTime,
+          latePickup: activityData.latePickup,
+          latePickupPrice: activityData.latePickupPrice !== undefined ? parseFloat(activityData.latePickupPrice) : undefined,
+          latePickupStartTime: activityData.latePickupStartTime,
+          latePickupEndTime: activityData.latePickupEndTime,
+          imageUrls: activityData.imageUrls,
+          excludeDates: activityData.excludeDates,
+          durationWeeks: activityData.durationWeeks !== undefined ? parseInt(activityData.durationWeeks) : undefined,
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Activity updated successfully',
+      data: updatedActivity
+    });
+  } catch (error) {
+    logger.error('Error updating business activity:', error);
+    if (error instanceof AppError) throw error;
+    throw new AppError('Failed to update activity', 500, 'ACTIVITY_UPDATE_ERROR');
+  }
+}));
+
 router.post('/', authenticateToken, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user!.id;
   const activityData = req.body;

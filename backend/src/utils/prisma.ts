@@ -9,9 +9,9 @@ const globalForPrisma = globalThis as unknown as {
 const createPrismaClient = () => {
   const isProduction = process.env['NODE_ENV'] === 'production';
   const isDevelopment = process.env['NODE_ENV'] === 'development';
-  
+
   let databaseUrl = process.env['DATABASE_URL'] || '';
-  
+
   // Check if DATABASE_URL is set
   if (!databaseUrl) {
     console.error('\n❌ CRITICAL ERROR: DATABASE_URL environment variable is not set!');
@@ -20,13 +20,13 @@ const createPrismaClient = () => {
     console.error('2. Add your database URL:');
     console.error('   DATABASE_URL="postgresql://username:password@localhost:5432/bookon_dev"');
     console.error('\n📚 See LOCAL_DEVELOPMENT_SETUP.md for complete setup instructions\n');
-    
+
     // For development, we'll create a placeholder client that will error when used
     if (isDevelopment) {
       console.warn('⚠️  Using placeholder Prisma client - database operations will fail until DATABASE_URL is set');
     }
   }
-  
+
   // Modify database URL only for production (serverless optimization)
   if (isProduction && databaseUrl) {
     try {
@@ -36,7 +36,7 @@ const createPrismaClient = () => {
       url.searchParams.set('pgbouncer', 'true');
       url.searchParams.set('connection_limit', '5');
       url.searchParams.set('pool_timeout', '10');
-      url.searchParams.set('sslmode', 'disable');
+      url.searchParams.set('sslmode', 'require');
       url.searchParams.set('connect_timeout', '10');
       url.searchParams.set('statement_timeout', '30000');
       databaseUrl = url.toString();
@@ -44,7 +44,7 @@ const createPrismaClient = () => {
       console.error('⚠️  Failed to parse DATABASE_URL:', error);
     }
   }
-  
+
   return new PrismaClient({
     log: isProduction ? ['error'] : ['error', 'warn'],
     datasources: {
@@ -83,7 +83,7 @@ export const checkDatabaseConnection = async (): Promise<boolean> => {
 export const getDatabaseInfo = () => {
   const dbUrl = process.env['DATABASE_URL'];
   const directUrl = process.env['DATABASE_DIRECT_URL'];
-  
+
   return {
     hasPooledUrl: !!dbUrl,
     hasDirectUrl: !!directUrl,
@@ -107,7 +107,7 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
       error.code === '26000' || // prepared statement does not exist
       error.code === '08P01'    // bind message parameter mismatch
     );
-    
+
     // Check if it's an SSL certificate error
     const isSSLError = error.message && (
       error.message.includes('SELF_SIGNED_CERT_IN_CHAIN') ||
@@ -115,7 +115,7 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
       error.message.includes('SSL') ||
       error.code === 'SELF_SIGNED_CERT_IN_CHAIN'
     );
-    
+
     // Check if it's a connection pool error
     const isConnectionPoolError = error.message && (
       error.message.includes('connection pool') ||
@@ -123,18 +123,18 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
       error.message.includes('connection_limit') ||
       error.message.includes('pool_timeout')
     );
-    
+
     if (isPreparedStatementError || isSSLError || isConnectionPoolError) {
       console.warn('Database connection error detected, retrying with fresh connection...', {
         errorCode: error.code,
         errorMessage: error.message?.substring(0, 100),
-        errorType: isPreparedStatementError ? 'prepared_statement' : 
-                   isSSLError ? 'ssl_certificate' : 'connection_pool'
+        errorType: isPreparedStatementError ? 'prepared_statement' :
+          isSSLError ? 'ssl_certificate' : 'connection_pool'
       });
-      
+
       // Create a fresh Prisma client instance
       const freshClient = createPrismaClient();
-      
+
       try {
         const result = await queryFn(freshClient);
         // Close the fresh client
@@ -145,7 +145,7 @@ export const safePrismaQuery = async <T>(queryFn: (client: PrismaClient) => Prom
         throw retryError;
       }
     }
-    
+
     throw error;
   }
 };

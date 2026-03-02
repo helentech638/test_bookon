@@ -54,6 +54,7 @@ import healthRoutes from './routes/health';
 import businessActivitiesRoutes from './routes/businessActivities';
 import businessNotificationsRoutes from './routes/businessNotifications';
 import businessFinanceRoutes from './routes/businessFinance';
+import businessVenuesRoutes from './routes/businessVenues';
 import uploadRoutes from './routes/upload';
 import path from 'path';
 
@@ -412,6 +413,7 @@ app.use('/api/v1/children', childrenRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
 app.use('/api/v1/dashboard', businessDashboardRoutes);
 app.use('/api/v1/business/activities', businessActivitiesRoutes);
+app.use('/api/v1/business/venues', businessVenuesRoutes);
 app.use('/api/v1/business/notifications', businessNotificationsRoutes);
 app.use('/api/v1/business/finance', businessFinanceRoutes);
 app.use('/api/v1/activities', activitiesRoutes);

@@ -60,9 +60,9 @@ router.post('/business-onboarding', authenticateToken, validateBusinessOnboardin
     const user = await safePrismaQuery(async (client) => {
       return await client.user.findUnique({
         where: { id: userId },
-        select: { 
-          id: true, 
-          role: true, 
+        select: {
+          id: true,
+          role: true,
           businessName: true,
           onboardingCompleted: true
         }
@@ -73,7 +73,7 @@ router.post('/business-onboarding', authenticateToken, validateBusinessOnboardin
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    if (user.role !== 'business') {
+    if (user.role !== 'business' && user.role !== 'admin') {
       throw new AppError('Only business users can complete business onboarding', 403, 'INVALID_ROLE');
     }
 
@@ -115,6 +115,7 @@ router.post('/business-onboarding', authenticateToken, validateBusinessOnboardin
           businessCity: true,
           businessPostcode: true,
           businessCountry: true,
+          role: true,
           onboardingCompleted: true
         }
       });
@@ -155,6 +156,7 @@ router.get('/business-profile', authenticateToken, asyncHandler(async (req: Requ
           email: true,
           firstName: true,
           lastName: true,
+          role: true,
           phone: true,
           businessName: true,
           tradingName: true,
@@ -179,7 +181,7 @@ router.get('/business-profile', authenticateToken, asyncHandler(async (req: Requ
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    if (user.role !== 'business') {
+    if (user.role !== 'business' && user.role !== 'admin') {
       throw new AppError('Only business users can access business profile', 403, 'INVALID_ROLE');
     }
 
@@ -229,8 +231,8 @@ router.put('/business-profile', authenticateToken, validateBusinessOnboarding, a
     const user = await safePrismaQuery(async (client) => {
       return await client.user.findUnique({
         where: { id: userId },
-        select: { 
-          id: true, 
+        select: {
+          id: true,
           role: true,
           onboardingCompleted: true
         }
@@ -241,7 +243,7 @@ router.put('/business-profile', authenticateToken, validateBusinessOnboarding, a
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    if (user.role !== 'business') {
+    if (user.role !== 'business' && user.role !== 'admin') {
       throw new AppError('Only business users can update business profile', 403, 'INVALID_ROLE');
     }
 
@@ -278,6 +280,7 @@ router.put('/business-profile', authenticateToken, validateBusinessOnboarding, a
           businessCity: true,
           businessPostcode: true,
           businessCountry: true,
+          role: true,
           onboardingCompleted: true
         }
       });

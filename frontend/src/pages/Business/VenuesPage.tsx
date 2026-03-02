@@ -59,18 +59,20 @@ const VenuesPage: React.FC = () => {
         return;
       }
 
+      /*
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+      */
 
-      const response = await fetch(buildApiUrl(`/venues?ownerId=${user.id}`), {
+      const response = await fetch(buildApiUrl('/business/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        signal: controller.signal
+        // signal: controller.signal
       });
 
-      clearTimeout(timeoutId);
+      // clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error('Failed to fetch venues');
@@ -79,7 +81,7 @@ const VenuesPage: React.FC = () => {
       const data = await response.json();
       if (data.success) {
         // Transform API data to match our interface
-        const transformedVenues: Venue[] = (data.data || []).map((venue: any) => ({
+        const transformedVenues: Venue[] = (data.data.venues || []).map((venue: any) => ({
           id: venue.id,
           name: venue.name,
           address: venue.address || '',
@@ -129,7 +131,7 @@ const VenuesPage: React.FC = () => {
           return;
         }
 
-        const response = await fetch(buildApiUrl(`/venues/${venueId}`), {
+        const response = await fetch(buildApiUrl(`/business/venues/${venueId}`), {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -137,20 +139,18 @@ const VenuesPage: React.FC = () => {
           },
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to delete venue');
-        }
-
         const data = await response.json();
         if (data.success) {
           setVenues(prev => prev.filter(v => v.id !== venueId));
           toast.success('Venue deleted successfully');
         } else {
-          throw new Error(data.message || 'Failed to delete venue');
+          const errorMessage = data.error?.message || data.message || 'Failed to delete venue';
+          throw new Error(errorMessage);
         }
       } catch (error) {
         console.error('Error deleting venue:', error);
-        toast.error('Failed to delete venue');
+        const errorMessage = error instanceof Error ? error.message : 'Failed to delete venue';
+        toast.error(errorMessage);
       }
     }
   };

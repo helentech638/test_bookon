@@ -222,7 +222,7 @@ const CreateActivityPage: React.FC = () => {
       }
 
       const url = user?.role === 'business'
-        ? buildApiUrl(`/venues?ownerId=${user.id}`)
+        ? buildApiUrl('/business/venues')
         : buildApiUrl('/venues');
 
       const response = await fetch(url, {
@@ -238,7 +238,11 @@ const CreateActivityPage: React.FC = () => {
 
       const data = await response.json();
       if (data.success) {
-        setVenues(data.data || []);
+        // Handle both Array data and Object with venues array
+        const venuesList = Array.isArray(data.data)
+          ? data.data
+          : (data.data?.venues || data.data || []);
+        setVenues(venuesList);
       } else {
         throw new Error(data.message || 'Failed to fetch venues');
       }

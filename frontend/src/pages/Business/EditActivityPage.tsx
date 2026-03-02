@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
+import {
   ArrowLeftIcon,
   CalendarDaysIcon,
   ClockIcon,
@@ -173,7 +173,7 @@ const EditActivityPage: React.FC = () => {
     try {
       setLoading(true);
       const token = authService.getToken();
-      
+
       if (!token) {
         toast.error('Please log in to edit activity');
         navigate('/login');
@@ -192,7 +192,7 @@ const EditActivityPage: React.FC = () => {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         const activity = data.data;
         setFormData({
@@ -262,7 +262,7 @@ const EditActivityPage: React.FC = () => {
   const fetchVenues = async () => {
     try {
       const token = authService.getToken();
-      const response = await fetch(buildApiUrl('/business/venue-setup'), {
+      const response = await fetch(buildApiUrl('/business/venues'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -271,7 +271,7 @@ const EditActivityPage: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         if (data.success) {
           // Handle different possible data structures
           let venuesData = [];
@@ -285,7 +285,7 @@ const EditActivityPage: React.FC = () => {
             // If data is an object, try to find venues array
             venuesData = Object.values(data.data).find(val => Array.isArray(val)) || [];
           }
-          
+
           setVenues(venuesData);
         } else {
           setVenues([]);
@@ -379,7 +379,7 @@ const EditActivityPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.title.trim()) {
       toast.error('Activity name is required');
       return;
@@ -428,7 +428,7 @@ const EditActivityPage: React.FC = () => {
     try {
       setSaving(true);
       const token = authService.getToken();
-      
+
       const response = await fetch(buildApiUrl(`/business/activities/${activityId}`), {
         method: 'PUT',
         headers: {
@@ -443,7 +443,7 @@ const EditActivityPage: React.FC = () => {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         toast.success('Activity updated successfully');
         navigate(`/business/activities/${activityId}`);
@@ -804,121 +804,121 @@ const EditActivityPage: React.FC = () => {
 
                     {/* Extended Hours Section - Only for Holiday Club */}
                     {formData.type === 'holiday_club' && (
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-gray-900">Extended Hours</h4>
-                      
-                      <div className="space-y-3">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={formData.earlyDropoff}
-                            onChange={(e) => handleInputChange('earlyDropoff', e.target.checked)}
-                            className="mr-2 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-2 accent-teal-600"
-                          />
-                          <span className="text-sm font-medium text-gray-700">
-                            Early Drop-off
-                          </span>
-                        </label>
-                        {formData.earlyDropoff && (
-                          <div className="ml-6">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Early Drop-off Start Time
-                                </label>
-                                <input
-                                  type="time"
-                                  value={formData.earlyDropoffStartTime}
-                                  onChange={(e) => handleInputChange('earlyDropoffStartTime', e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Early Drop-off End Time
-                                </label>
-                                <input
-                                  type="time"
-                                  value={formData.earlyDropoffEndTime}
-                                  onChange={(e) => handleInputChange('earlyDropoffEndTime', e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
-                                />
-                              </div>
-                            </div>
-                            <div className="mt-3">
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Early Drop-off Price (£)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.earlyDropoffPrice}
-                                onChange={(e) => handleInputChange('earlyDropoffPrice', parseFloat(e.target.value) || 0)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
-                                placeholder="Price for early drop-off"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <div className="space-y-4">
+                        <h4 className="font-medium text-gray-900">Extended Hours</h4>
 
-                      <div className="space-y-3">
-                        <label className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={formData.latePickup}
-                            onChange={(e) => handleInputChange('latePickup', e.target.checked)}
-                            className="mr-2"
-                          />
-                          <span className="text-sm font-medium text-gray-700">
-                            Late Pick-up
-                          </span>
-                        </label>
-                        {formData.latePickup && (
-                          <div className="ml-6">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Late Pick-up Start Time
-                                </label>
-                                <input
-                                  type="time"
-                                  value={formData.latePickupStartTime}
-                                  onChange={(e) => handleInputChange('latePickupStartTime', e.target.value)}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
-                                />
+                        <div className="space-y-3">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={formData.earlyDropoff}
+                              onChange={(e) => handleInputChange('earlyDropoff', e.target.checked)}
+                              className="mr-2 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 focus:ring-2 accent-teal-600"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              Early Drop-off
+                            </span>
+                          </label>
+                          {formData.earlyDropoff && (
+                            <div className="ml-6">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Early Drop-off Start Time
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={formData.earlyDropoffStartTime}
+                                    onChange={(e) => handleInputChange('earlyDropoffStartTime', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Early Drop-off End Time
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={formData.earlyDropoffEndTime}
+                                    onChange={(e) => handleInputChange('earlyDropoffEndTime', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
+                                  />
+                                </div>
                               </div>
-                              <div>
+                              <div className="mt-3">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                  Late Pick-up End Time
+                                  Early Drop-off Price (£)
                                 </label>
                                 <input
-                                  type="time"
-                                  value={formData.latePickupEndTime}
-                                  onChange={(e) => handleInputChange('latePickupEndTime', e.target.value)}
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={formData.earlyDropoffPrice}
+                                  onChange={(e) => handleInputChange('earlyDropoffPrice', parseFloat(e.target.value) || 0)}
                                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
+                                  placeholder="Price for early drop-off"
                                 />
                               </div>
                             </div>
-                            <div className="mt-3">
-                              <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Late Pick-up Price (£)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.latePickupPrice}
-                                onChange={(e) => handleInputChange('latePickupPrice', parseFloat(e.target.value) || 0)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
-                                placeholder="Price for late pick-up"
-                              />
+                          )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={formData.latePickup}
+                              onChange={(e) => handleInputChange('latePickup', e.target.checked)}
+                              className="mr-2"
+                            />
+                            <span className="text-sm font-medium text-gray-700">
+                              Late Pick-up
+                            </span>
+                          </label>
+                          {formData.latePickup && (
+                            <div className="ml-6">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Late Pick-up Start Time
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={formData.latePickupStartTime}
+                                    onChange={(e) => handleInputChange('latePickupStartTime', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Late Pick-up End Time
+                                  </label>
+                                  <input
+                                    type="time"
+                                    value={formData.latePickupEndTime}
+                                    onChange={(e) => handleInputChange('latePickupEndTime', e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
+                                  />
+                                </div>
+                              </div>
+                              <div className="mt-3">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Late Pick-up Price (£)
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={formData.latePickupPrice}
+                                  onChange={(e) => handleInputChange('latePickupPrice', parseFloat(e.target.value) || 0)}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00806a]"
+                                  placeholder="Price for late pick-up"
+                                />
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
                     )}
 
                     <div className="space-y-4">
@@ -1222,7 +1222,7 @@ const EditActivityPage: React.FC = () => {
                   >
                     {saving ? 'Saving...' : 'Save Changes'}
                   </Button>
-                  
+
                   <Button
                     type="button"
                     onClick={() => navigate(`/business/activities/${activityId}`)}

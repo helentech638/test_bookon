@@ -7,8 +7,34 @@ const globalForPrisma = globalThis as unknown as {
 
 // Connection retry configuration
 const createPrismaClient = () => {
+  const isProduction = process.env['NODE_ENV'] === 'production';
+  let databaseUrl = process.env['DATABASE_URL'] || '';
+
+  // Standardize the database URL with required params for Supabase pooler
+  if (databaseUrl) {
+    try {
+      const url = new URL(databaseUrl);
+      // Supabase pooler (port 6543) requires these for stability
+      url.searchParams.set('pgbouncer', 'true');
+      url.searchParams.set('sslmode', 'require');
+      // Prevent prepared statement errors in serverless/pooler environments
+      if (!url.searchParams.has('prepared')) {
+        url.searchParams.set('prepared', 'false');
+      }
+      databaseUrl = url.toString();
+      console.log('🔗 Prisma initialized with secure connection string');
+    } catch (error) {
+      console.error('⚠️ Failed to parse DATABASE_URL:', error);
+    }
+  }
+
   return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    log: isProduction ? ['error'] : ['error', 'warn'],
+    datasources: {
+      db: {
+        url: databaseUrl,
+      },
+    },
   });
 };
 
